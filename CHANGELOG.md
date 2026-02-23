@@ -9,6 +9,22 @@
 
 ### Features
 
+* initial release ([41bdd5f](https://github.com/ejpespa/gtypee/commit/41bdd5fbbd2960e59e4981a5dc53269885dfa730))
+* initial release ([9c6171a](https://github.com/ejpespa/gtypee/commit/9c6171a377aaa2aeb93d9ce0a15e0ea7129eb72e))
+* initial release ([6e5590c](https://github.com/ejpespa/gtypee/commit/6e5590c37f9b83a285cad8d2b9ff1e3310f7043b))
+* test semantic-release ([394d19c](https://github.com/ejpespa/gtypee/commit/394d19ce6f2bb05ed8a6ec6935845201d2a2650c))
+
+# 1.0.0 (2026-02-23)
+
+
+### Bug Fixes
+
+* **ci:** improve release workflow tag fetching and git config ([53b777d](https://github.com/ejpespa/gtypee/commit/53b777d51308ef2af880aad6761d167afbe3e407))
+* update repository URL to correct GitHub repo ([0820e9c](https://github.com/ejpespa/gtypee/commit/0820e9cb87f4299971717f7ee32f7739364062e8))
+
+
+### Features
+
 * initial release ([6e5590c](https://github.com/ejpespa/gtypee/commit/6e5590c37f9b83a285cad8d2b9ff1e3310f7043b))
 * test semantic-release ([394d19c](https://github.com/ejpespa/gtypee/commit/394d19ce6f2bb05ed8a6ec6935845201d2a2650c))
 
