@@ -1,3 +1,10 @@
+## [1.0.2](https://github.com/ejpespa/gtypee/compare/v1.0.1...v1.0.2) (2026-02-23)
+
+
+### Bug Fixes
+
+* republish with bypass 2fa token ([187bcb6](https://github.com/ejpespa/gtypee/commit/187bcb64e2686095ed04cb54757076438729f8af))
+
 ## [1.0.1](https://github.com/ejpespa/gtypee/compare/v1.0.0...v1.0.1) (2026-02-23)
 
 
