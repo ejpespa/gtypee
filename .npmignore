@@ -1,0 +1,47 @@
+# Source files (only dist is needed)
+src/
+bin/
+test/
+docs/
+
+# Development files
+*.ts
+tsconfig.json
+vitest.config.ts
+README-release.md
+
+# Build artifacts
+*.map
+
+# Dev files
+.git/
+.gitignore
+.worktrees/
+.claude/
+
+# Secrets - NEVER PUBLISH
+*-sa-key.json
+*.sa-key.json
+*.pem
+*.key
+credentials*.json
+
+# Data files
+*.txt
+*.csv
+*.json
+!package.json
+!package-lock.json
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo

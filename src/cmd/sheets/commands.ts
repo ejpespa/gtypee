@@ -1,0 +1,106 @@
+import type { Command } from "commander";
+
+import type { OutputMode } from "../../outfmt/outfmt.js";
+import { toCliApiErrorMessage } from "../../googleapi/errors.js";
+import { buildExecutionContext, type RootOptions } from "../execution-context.js";
+
+export type SheetsReadResult = {
+  range: string;
+  values: string[][];
+};
+
+export type SheetsCreateResult = {
+  id: string;
+  title: string;
+};
+
+export type SheetsCommandDeps = {
+  createSheet?: (title: string) => Promise<SheetsCreateResult>;
+  readRange?: (sheetId: string, range: string) => Promise<SheetsReadResult>;
+  updateRange?: (sheetId: string, range: string, values: string[][]) => Promise<{ updated: boolean }>;
+};
+
+const defaultDeps: Required<SheetsCommandDeps> = {
+  createSheet: async (title) => ({ id: "", title }),
+  readRange: async (_id, range) => ({ range, values: [] }),
+  updateRange: async () => ({ updated: false }),
+};
+
+async function runWithStableApiError<T>(service: string, call: () => Promise<T>): Promise<T> {
+  try {
+    return await call();
+  } catch (error: unknown) {
+    throw new Error(toCliApiErrorMessage(service, error), { cause: error });
+  }
+}
+
+export function formatSheetsRead(result: SheetsReadResult, mode: OutputMode): string {
+  if (mode === "json") {
+    return JSON.stringify(result, null, 2);
+  }
+  const rows = result.values.map((row) => row.join("\t"));
+  return [`Range: ${result.range}`, ...rows].join("\n");
+}
+
+function parseValues(raw: string): string[][] {
+  if (raw.trim() === "") {
+    return [];
+  }
+  return raw.split(";").map((row) => row.split(",").map((cell) => cell.trim()));
+}
+
+export function registerSheetsCommands(sheetsCommand: Command, deps: SheetsCommandDeps = {}): void {
+  const resolvedDeps: Required<SheetsCommandDeps> = {
+    ...defaultDeps,
+    ...deps,
+  };
+
+  sheetsCommand
+    .command("create")
+    .description("Create a new spreadsheet")
+    .requiredOption("--title <title>", "Spreadsheet title")
+    .action(async function actionCreate(this: Command) {
+      const rootOptions = this.optsWithGlobals() as RootOptions;
+      const ctx = buildExecutionContext(rootOptions);
+      const opts = this.opts<{ title: string }>();
+      const result = await runWithStableApiError("sheets", () => resolvedDeps.createSheet(opts.title));
+      if (ctx.output.mode === "json") {
+        process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+        return;
+      }
+      process.stdout.write(`Created spreadsheet "${result.title}" (id=${result.id})\n`);
+    });
+
+  sheetsCommand
+    .command("read")
+    .description("Read sheet range")
+    .requiredOption("--id <id>", "Sheet id")
+    .requiredOption("--range <range>", "A1 range")
+    .action(async function actionRead(this: Command) {
+      const rootOptions = this.optsWithGlobals() as RootOptions;
+      const ctx = buildExecutionContext(rootOptions);
+      const opts = this.opts<{ id: string; range: string }>();
+      const result = await runWithStableApiError("sheets", () => resolvedDeps.readRange(opts.id, opts.range));
+      process.stdout.write(`${formatSheetsRead(result, ctx.output.mode)}\n`);
+    });
+
+  sheetsCommand
+    .command("update")
+    .description("Update sheet range")
+    .requiredOption("--id <id>", "Sheet id")
+    .requiredOption("--range <range>", "A1 range")
+    .requiredOption("--values <values>", "Semicolon/comma matrix, e.g. a,b;c,d")
+    .action(async function actionUpdate(this: Command) {
+      const rootOptions = this.optsWithGlobals() as RootOptions;
+      const ctx = buildExecutionContext(rootOptions);
+      const opts = this.opts<{ id: string; range: string; values: string }>();
+      const result = await runWithStableApiError("sheets", () =>
+        resolvedDeps.updateRange(opts.id, opts.range, parseValues(opts.values)),
+      );
+      if (ctx.output.mode === "json") {
+        process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+        return;
+      }
+      process.stdout.write(result.updated ? "Range updated\n" : "Range update was not applied\n");
+    });
+}
