@@ -1,3 +1,10 @@
+# 1.0.0 (2026-02-23)
+
+
+### Bug Fixes
+
+* update repository URL to correct GitHub repo ([0820e9c](https://github.com/ejpespa/gtypee/commit/0820e9cb87f4299971717f7ee32f7739364062e8))
+
 # Changelog
 
 All notable changes to this project will be automatically documented in this file.
