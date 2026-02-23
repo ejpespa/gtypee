@@ -1420,6 +1420,15 @@ alias failed-logins='twa workspace report logins --days 1 --json | jq ".[] | sel
 alias recent-admin-actions='twa workspace report admin --days 1 --json | jq ".[].action" | sort | uniq -c'
 ```
 
+## Acknowledgements
+
+This project was inspired by these excellent Google CLI tools:
+
+- [gogcli](https://github.com/steipete/gogcli) - Google CLI by steipete
+- [gmcli](https://github.com/badlogic/gmcli) - Gmail CLI by badlogic
+- [gccli](https://github.com/badlogic/gccli) - Google Calendar CLI by badlogic
+- [gdcli](https://github.com/badlogic/gdcli) - Google Drive CLI by badlogic
+
 ## License
 
 ISC
