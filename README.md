@@ -8,8 +8,8 @@
   [![npm version](https://img.shields.io/npm/v/gtypee.svg)](https://www.npmjs.com/package/gtypee)
   [![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](https://opensource.org/licenses/ISC)
   [![Node.js Version](https://img.shields.io/node/v/gtypee.svg)](https://nodejs.org)
-  [![CI](https://github.com/gtypee/gtypee/actions/workflows/ci.yml/badge.svg)](https://github.com/gtypee/gtypee/actions/workflows/ci.yml)
-  [![Release](https://github.com/gtypee/gtypee/actions/workflows/release.yml/badge.svg)](https://github.com/gtypee/gtypee/actions/workflows/release.yml)
+  [![CI](https://github.com/ejpespa/gtypee/actions/workflows/ci.yml/badge.svg)](https://github.com/ejpespa/gtypee/actions/workflows/ci.yml)
+  [![Release](https://github.com/ejpespa/gtypee/actions/workflows/release.yml/badge.svg)](https://github.com/ejpespa/gtypee/actions/workflows/release.yml)
 </div>
 
 ---
@@ -58,7 +58,7 @@ gtypee --help
 ### From source
 
 ```bash
-git clone https://github.com/gtypee/gtypee.git
+git clone https://github.com/ejpespa/gtypee.git
 cd gtypee
 npm install
 npm run build
@@ -1180,7 +1180,7 @@ gtypee workspace user list --json | jq '.[] | select(.suspended == false) | .pri
 
 ```bash
 # Clone and install
-git clone https://github.com/gtypee/gtypee.git
+git clone https://github.com/ejpespa/gtypee.git
 cd gtypee
 npm install
 
@@ -1230,12 +1230,12 @@ src/
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a [Pull Request](https://github.com/gtypee/gtypee/pulls).
+Contributions are welcome! Please feel free to submit a [Pull Request](https://github.com/ejpespa/gtypee/pulls).
 
 ### Development Setup
 
 ```bash
-git clone https://github.com/gtypee/gtypee.git
+git clone https://github.com/ejpespa/gtypee.git
 cd gtypee
 npm install
 npm run build
@@ -1464,6 +1464,6 @@ ISC
 
 ## Links
 
-- [GitHub Repository](https://github.com/gtypee/gtypee)
+- [GitHub Repository](https://github.com/ejpespa/gtypee)
 - [npm Package](https://www.npmjs.com/package/gtypee)
-- [Report Issues](https://github.com/gtypee/gtypee/issues)
+- [Report Issues](https://github.com/ejpespa/gtypee/issues)

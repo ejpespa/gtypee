@@ -39,12 +39,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/gtypee/gtypee.git"
+    "url": "git+https://github.com/ejpespa/gtypee.git"
   },
   "bugs": {
-    "url": "https://github.com/gtypee/gtypee/issues"
+    "url": "https://github.com/ejpespa/gtypee/issues"
   },
-  "homepage": "https://github.com/gtypee/gtypee#readme",
+  "homepage": "https://github.com/ejpespa/gtypee#readme",
   "files": [
     "dist/**/*",
     "README.md",
