@@ -1418,44 +1418,6 @@ alias failed-logins='twa workspace report logins --days 1 --json | jq ".[] | sel
 alias recent-admin-actions='twa workspace report admin --days 1 --json | jq ".[].action" | sort | uniq -c'
 ```
 
-PowerShell equivalents - add to `$PROFILE`:
-
-```powershell
-# Set path to gtypee
-$GTYPEE_PATH = "D:\Code\gtypee\typescript-convert\dist\bin\gtypee.js"
-
-# Base function
-function gtypee { node $GTYPEE_PATH $args }
-
-# Workspace admin function (UPDATE THESE VALUES!)
-function twa {
-    node $GTYPEE_PATH --sa "your-sa@project.iam.gserviceaccount.com" --impersonate "admin@yourdomain.com" $args
-}
-
-# Common queries
-function Get-ActiveUsers {
-    twa workspace user list --json | ConvertFrom-Json | Where-Object { -not $_.suspended } | Select-Object primaryEmail
-}
-
-function Get-SuspendedUsers {
-    twa workspace user list --json | ConvertFrom-Json | Where-Object { $_.suspended } | Select-Object primaryEmail
-}
-
-function Get-AdminUsers {
-    twa workspace user list --json | ConvertFrom-Json | Where-Object { $_.isAdmin } | Select-Object primaryEmail
-}
-
-function Get-UserCount {
-    (twa workspace user list --json | ConvertFrom-Json).Count
-}
-
-function Get-FailedLogins {
-    twa workspace report logins --days 1 --json | ConvertFrom-Json | Where-Object { -not $_.success }
-}
-```
-
----
-
 ## License
 
 ISC
