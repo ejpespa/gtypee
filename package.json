@@ -1,6 +1,6 @@
 {
   "name": "gtypee",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "dev.ejpespa@gmail.com",
   "description": "TypeScript CLI for Google Workspace administration - manage Gmail, Drive, Calendar, and 15+ Google services from the command line",
   "main": "dist/src/index.js",

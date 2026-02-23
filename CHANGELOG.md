@@ -1,3 +1,15 @@
+# [1.1.0](https://github.com/ejpespa/gtypee/compare/v1.0.0...v1.1.0) (2026-02-23)
+
+
+### Bug Fixes
+
+* **ci:** improve release workflow tag fetching and git config ([53b777d](https://github.com/ejpespa/gtypee/commit/53b777d51308ef2af880aad6761d167afbe3e407))
+
+
+### Features
+
+* test semantic-release ([394d19c](https://github.com/ejpespa/gtypee/commit/394d19ce6f2bb05ed8a6ec6935845201d2a2650c))
+
 # 1.0.0 (2026-02-23)
 
 
