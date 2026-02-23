@@ -10,6 +10,8 @@
   [![Node.js Version](https://img.shields.io/node/v/gtypee.svg)](https://nodejs.org)
   [![CI](https://github.com/ejpespa/gtypee/actions/workflows/ci.yml/badge.svg)](https://github.com/ejpespa/gtypee/actions/workflows/ci.yml)
   [![Release](https://github.com/ejpespa/gtypee/actions/workflows/release.yml/badge.svg)](https://github.com/ejpespa/gtypee/actions/workflows/release.yml)
+
+**[📚 Documentation](https://gtypee.ejpespa.dev)** • **[🐛 Report Bug](https://github.com/ejpespa/gtypee/issues)** • **[✨ Request Feature](https://github.com/ejpespa/gtypee/issues)**
 </div>
 
 ---
