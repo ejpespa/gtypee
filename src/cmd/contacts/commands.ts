@@ -3,6 +3,7 @@ import type { Command } from "commander";
 import type { OutputMode } from "../../outfmt/outfmt.js";
 import { toCliApiErrorMessage } from "../../googleapi/errors.js";
 import { buildExecutionContext, type RootOptions } from "../execution-context.js";
+import type { PaginatedResult, PaginationOptions } from "../../types/pagination.js";
 
 export type ContactSummary = {
   resourceName: string;
@@ -10,14 +11,14 @@ export type ContactSummary = {
 };
 
 export type ContactsCommandDeps = {
-  listContacts?: () => Promise<ContactSummary[]>;
+  listContacts?: (options?: PaginationOptions) => Promise<PaginatedResult<ContactSummary>>;
   searchContacts?: (query: string) => Promise<ContactSummary[]>;
   getContact?: (resourceName: string) => Promise<ContactSummary>;
   updateContact?: (resourceName: string, email: string) => Promise<{ resourceName: string; updated: boolean }>;
 };
 
 const defaultDeps: Required<ContactsCommandDeps> = {
-  listContacts: async () => [],
+  listContacts: async () => ({ items: [] }),
   searchContacts: async () => [],
   getContact: async (resourceName) => ({ resourceName, email: "" }),
   updateContact: async (resourceName) => ({ resourceName, updated: false }),
@@ -31,14 +32,24 @@ async function runWithStableApiError<T>(service: string, call: () => Promise<T>)
   }
 }
 
-export function formatContactsList(contacts: ContactSummary[], mode: OutputMode): string {
+function asPaginatedResult(items: ContactSummary[]): PaginatedResult<ContactSummary> {
+  return { items };
+}
+
+export function formatContactsList(result: PaginatedResult<ContactSummary>, mode: OutputMode): string {
   if (mode === "json") {
-    return JSON.stringify({ contacts }, null, 2);
+    return JSON.stringify(result, null, 2);
   }
+  const contacts = result.items;
   if (contacts.length === 0) {
     return "No contacts found";
   }
-  return contacts.map((contact) => `${contact.resourceName}\t${contact.email}`).join("\n");
+  const lines = contacts.map((contact) => `${contact.resourceName}\t${contact.email}`);
+  if (result.nextPageToken) {
+    lines.push("---");
+    lines.push(`Next page token: ${result.nextPageToken}`);
+  }
+  return lines.join("\n");
 }
 
 export function registerContactsCommands(contactsCommand: Command, deps: ContactsCommandDeps = {}): void {
@@ -50,11 +61,19 @@ export function registerContactsCommands(contactsCommand: Command, deps: Contact
   contactsCommand
     .command("list")
     .description("List contacts")
+    .option("--page-size <number>", "Number of contacts per page", parseInt)
+    .option("--page-token <token>", "Token for the next page")
     .action(async function actionList(this: Command) {
       const rootOptions = this.optsWithGlobals() as RootOptions;
       const ctx = buildExecutionContext(rootOptions);
-      const contacts = await runWithStableApiError("contacts", () => resolvedDeps.listContacts());
-      process.stdout.write(`${formatContactsList(contacts, ctx.output.mode)}\n`);
+      const opts = this.opts<{ pageSize?: number; pageToken?: string }>();
+      const paginationOpts: import("../../types/pagination.js").PaginationOptions = {};
+      if (opts.pageSize !== undefined) paginationOpts.pageSize = opts.pageSize;
+      if (opts.pageToken !== undefined) paginationOpts.pageToken = opts.pageToken;
+      const result = await runWithStableApiError("contacts", () =>
+        resolvedDeps.listContacts(paginationOpts)
+      );
+      process.stdout.write(`${formatContactsList(result, ctx.output.mode)}\n`);
     });
 
   contactsCommand
@@ -66,7 +85,7 @@ export function registerContactsCommands(contactsCommand: Command, deps: Contact
       const ctx = buildExecutionContext(rootOptions);
       const opts = this.opts<{ query: string }>();
       const contacts = await runWithStableApiError("contacts", () => resolvedDeps.searchContacts(opts.query));
-      process.stdout.write(`${formatContactsList(contacts, ctx.output.mode)}\n`);
+      process.stdout.write(`${formatContactsList(asPaginatedResult(contacts), ctx.output.mode)}\n`);
     });
 
   contactsCommand
@@ -78,7 +97,7 @@ export function registerContactsCommands(contactsCommand: Command, deps: Contact
       const ctx = buildExecutionContext(rootOptions);
       const opts = this.opts<{ resource: string }>();
       const contact = await runWithStableApiError("contacts", () => resolvedDeps.getContact(opts.resource));
-      process.stdout.write(`${formatContactsList([contact], ctx.output.mode)}\n`);
+      process.stdout.write(`${formatContactsList(asPaginatedResult([contact]), ctx.output.mode)}\n`);
     });
 
   contactsCommand

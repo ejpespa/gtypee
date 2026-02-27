@@ -1,13 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { Command } from "commander";
 
 import { formatContactsList, registerContactsCommands } from "../../../src/cmd/contacts/commands.js";
 
 describe("contacts command formatters", () => {
   it("formats contacts as json", () => {
-    const out = formatContactsList([{ resourceName: "people/1", email: "a@b.com" }], "json");
-    const parsed = JSON.parse(out) as { contacts: Array<{ resourceName: string }> };
-    expect(parsed.contacts[0]?.resourceName).toBe("people/1");
+    const out = formatContactsList({ items: [{ resourceName: "people/1", email: "a@b.com" }] }, "json");
+    const parsed = JSON.parse(out) as { items: Array<{ resourceName: string }> };
+    expect(parsed.items[0]?.resourceName).toBe("people/1");
   });
 
   it("registers list and search subcommands", () => {
@@ -52,5 +52,83 @@ describe("contacts command formatters", () => {
 
     expect(got).toBe(true);
     expect(updated).toBe(true);
+  });
+});
+
+describe("contacts list with pagination", () => {
+  function runCommand(program: Command, args: string[]): Promise<string> {
+    let stdout = "";
+    const originalWrite = process.stdout.write.bind(process.stdout);
+    process.stdout.write = ((chunk: unknown): boolean => {
+      stdout += String(chunk);
+      return true;
+    }) as typeof process.stdout.write;
+
+    return program.parseAsync(args)
+      .then(() => stdout)
+      .finally(() => {
+        process.stdout.write = originalWrite;
+      });
+  }
+
+  it("should pass pageSize option to listContacts", async () => {
+    const program = new Command();
+    program.option("--json", "Output as JSON");
+    const contacts = program.command("contacts");
+    const listContacts = { fn: vi.fn().mockResolvedValue({
+      items: [
+        { resourceName: "people/1", email: "a@b.com" },
+      ],
+    }) };
+    registerContactsCommands(contacts, { listContacts: listContacts.fn } as any);
+
+    await runCommand(program, ["node", "test", "contacts", "list", "--page-size", "25"]);
+
+    expect(listContacts.fn).toHaveBeenCalledWith({ pageSize: 25, pageToken: undefined });
+  });
+
+  it("should pass pageToken option to listContacts", async () => {
+    const program = new Command();
+    program.option("--json", "Output as JSON");
+    const contacts = program.command("contacts");
+    const listContacts = { fn: vi.fn().mockResolvedValue({
+      items: [],
+      nextPageToken: "next-token-xyz",
+    }) };
+    registerContactsCommands(contacts, { listContacts: listContacts.fn } as any);
+
+    await runCommand(program, ["node", "test", "contacts", "list", "--page-token", "abc123"]);
+
+    expect(listContacts.fn).toHaveBeenCalledWith({ pageSize: undefined, pageToken: "abc123" });
+  });
+
+  it("should output nextPageToken in JSON mode", async () => {
+    const program = new Command();
+    program.option("--json", "Output as JSON");
+    const contacts = program.command("contacts");
+    const listContacts = { fn: vi.fn().mockResolvedValue({
+      items: [{ resourceName: "people/1", email: "a@b.com" }],
+      nextPageToken: "next-page-token",
+    }) };
+    registerContactsCommands(contacts, { listContacts: listContacts.fn } as any);
+
+    const output = await runCommand(program, ["node", "test", "contacts", "list", "--json"]);
+
+    const parsed = JSON.parse(output);
+    expect(parsed.nextPageToken).toBe("next-page-token");
+  });
+
+  it("should use default pageSize when not specified", async () => {
+    const program = new Command();
+    program.option("--json", "Output as JSON");
+    const contacts = program.command("contacts");
+    const listContacts = { fn: vi.fn().mockResolvedValue({
+      items: [],
+    }) };
+    registerContactsCommands(contacts, { listContacts: listContacts.fn } as any);
+
+    await runCommand(program, ["node", "test", "contacts", "list"]);
+
+    expect(listContacts.fn).toHaveBeenCalledWith({ pageSize: undefined, pageToken: undefined });
   });
 });

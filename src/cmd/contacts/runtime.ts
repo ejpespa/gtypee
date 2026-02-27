@@ -2,27 +2,39 @@ import { google } from "googleapis";
 
 import { ServiceRuntime, type ServiceRuntimeOptions } from "../../googleapi/auth-factory.js";
 import { scopes } from "../../googleauth/service.js";
+import type { PaginationOptions } from "../../types/pagination.js";
 import type { ContactsCommandDeps, ContactSummary } from "./commands.js";
 
 export function buildContactsCommandDeps(options: ServiceRuntimeOptions): Required<ContactsCommandDeps> {
   const runtime = new ServiceRuntime(options);
 
   return {
-    listContacts: async (): Promise<ContactSummary[]> => {
+    listContacts: async (options?: PaginationOptions): Promise<{ items: ContactSummary[]; nextPageToken?: string }> => {
       const auth = await runtime.getClient(scopes("contacts"));
       const people = google.people({ version: "v1", auth });
 
-      const response = await people.people.connections.list({
+      const params: { resourceName: string; personFields: string; pageSize: number; pageToken?: string } = {
         resourceName: "people/me",
         personFields: "emailAddresses",
-        pageSize: 100,
-      });
+        pageSize: options?.pageSize ?? 100,
+      };
+      if (options?.pageToken !== undefined) {
+        params.pageToken = options.pageToken;
+      }
+
+      const response = await people.people.connections.list(params);
       const connections = response.data.connections ?? [];
 
-      return connections.map((person) => ({
-        resourceName: person.resourceName ?? "",
-        email: person.emailAddresses?.[0]?.value ?? "",
-      }));
+      const result: { items: ContactSummary[]; nextPageToken?: string } = {
+        items: connections.map((person) => ({
+          resourceName: person.resourceName ?? "",
+          email: person.emailAddresses?.[0]?.value ?? "",
+        })),
+      };
+      if (response.data.nextPageToken) {
+        result.nextPageToken = response.data.nextPageToken;
+      }
+      return result;
     },
 
     searchContacts: async (query: string): Promise<ContactSummary[]> => {
