@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { Command } from "commander";
 
 import { AuthRequiredError } from "../../../src/googleapi/errors.js";
@@ -7,14 +7,16 @@ import { formatDriveFiles, formatDriveFileInfo, registerDriveCommands } from "..
 describe("drive command formatters", () => {
   it("formats drive files as json", () => {
     const out = formatDriveFiles(
-      [
-        { id: "f1", name: "Doc 1", mimeType: "application/pdf" },
-        { id: "f2", name: "Sheet 1", mimeType: "application/vnd.google-apps.spreadsheet" },
-      ],
+      {
+        items: [
+          { id: "f1", name: "Doc 1", mimeType: "application/pdf" },
+          { id: "f2", name: "Sheet 1", mimeType: "application/vnd.google-apps.spreadsheet" },
+        ],
+      },
       "json",
     );
-    const parsed = JSON.parse(out) as { files: Array<{ id: string }> };
-    expect(parsed.files).toHaveLength(2);
+    const parsed = JSON.parse(out) as { items: Array<{ id: string }> };
+    expect(parsed.items).toHaveLength(2);
   });
 
   it("registers ls/search/download/upload subcommands", () => {
@@ -471,5 +473,114 @@ describe("drive revision commands", () => {
 
     expect(stdout).toContain("r1");
     expect(stdout).toContain("2024-01-01");
+  });
+});
+
+describe("drive ls with pagination", () => {
+  function runCommand(program: Command, args: string[]): Promise<string> {
+    let stdout = "";
+    const originalWrite = process.stdout.write.bind(process.stdout);
+    process.stdout.write = ((chunk: unknown): boolean => {
+      stdout += String(chunk);
+      return true;
+    }) as typeof process.stdout.write;
+
+    return program.parseAsync(args)
+      .then(() => stdout)
+      .finally(() => {
+        process.stdout.write = originalWrite;
+      });
+  }
+
+  it("should pass pageSize option to listFiles", async () => {
+    const program = new Command();
+    program.option("--json", "Output as JSON");
+    const drive = program.command("drive");
+    const listFiles = { fn: vi.fn().mockResolvedValue({
+      items: [
+        { id: "1", name: "file1.txt", mimeType: "text/plain" },
+      ],
+    }) };
+    registerDriveCommands(drive, { listFiles: listFiles.fn } as any);
+
+    await runCommand(program, ["node", "test", "drive", "ls", "--page-size", "25"]);
+
+    expect(listFiles.fn).toHaveBeenCalledWith({ pageSize: 25, pageToken: undefined });
+  });
+
+  it("should pass pageToken option to listFiles", async () => {
+    const program = new Command();
+    program.option("--json", "Output as JSON");
+    const drive = program.command("drive");
+    const listFiles = { fn: vi.fn().mockResolvedValue({
+      items: [],
+      nextPageToken: "next-token-xyz",
+    }) };
+    registerDriveCommands(drive, { listFiles: listFiles.fn } as any);
+
+    await runCommand(program, ["node", "test", "drive", "ls", "--page-token", "abc123"]);
+
+    expect(listFiles.fn).toHaveBeenCalledWith({ pageSize: undefined, pageToken: "abc123" });
+  });
+
+  it("should output nextPageToken in JSON mode", async () => {
+    const program = new Command();
+    program.option("--json", "Output as JSON");
+    const drive = program.command("drive");
+    const listFiles = { fn: vi.fn().mockResolvedValue({
+      items: [{ id: "1", name: "file1.txt", mimeType: "text/plain" }],
+      nextPageToken: "next-page-token",
+    }) };
+    registerDriveCommands(drive, { listFiles: listFiles.fn } as any);
+
+    const output = await runCommand(program, ["node", "test", "drive", "ls", "--json"]);
+
+    const parsed = JSON.parse(output);
+    expect(parsed.nextPageToken).toBe("next-page-token");
+  });
+
+  it("should use default pageSize when not specified", async () => {
+    const program = new Command();
+    program.option("--json", "Output as JSON");
+    const drive = program.command("drive");
+    const listFiles = { fn: vi.fn().mockResolvedValue({
+      items: [],
+    }) };
+    registerDriveCommands(drive, { listFiles: listFiles.fn } as any);
+
+    await runCommand(program, ["node", "test", "drive", "ls"]);
+
+    expect(listFiles.fn).toHaveBeenCalledWith({ pageSize: undefined, pageToken: undefined });
+  });
+
+  it("should pass pageSize option to searchFiles", async () => {
+    const program = new Command();
+    program.option("--json", "Output as JSON");
+    const drive = program.command("drive");
+    const searchFiles = { fn: vi.fn().mockResolvedValue({
+      items: [
+        { id: "1", name: "file1.txt", mimeType: "text/plain" },
+      ],
+    }) };
+    registerDriveCommands(drive, { searchFiles: searchFiles.fn } as any);
+
+    await runCommand(program, ["node", "test", "drive", "search", "--query", "test", "--page-size", "25"]);
+
+    expect(searchFiles.fn).toHaveBeenCalledWith("test", { pageSize: 25, pageToken: undefined });
+  });
+
+  it("should pass pageToken option to searchFiles", async () => {
+    const program = new Command();
+    program.option("--json", "Output as JSON");
+    const drive = program.command("drive");
+    const searchFiles = { fn: vi.fn().mockResolvedValue({
+      items: [],
+      nextPageToken: "next-token-xyz",
+    }) };
+    registerDriveCommands(drive, { searchFiles: searchFiles.fn } as any);
+
+    await runCommand(program, ["node", "test", "drive", "search", "--query", "test", "--page-token", "abc123"]);
+
+    expect(searchFiles.fn).toHaveBeenCalledWith("test", { pageSize: undefined, pageToken: "abc123" });
   });
 });

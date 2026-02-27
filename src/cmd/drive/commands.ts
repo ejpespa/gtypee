@@ -4,6 +4,7 @@ import type { OutputMode } from "../../outfmt/outfmt.js";
 import { resolveDriveDownloadPath, normalizeDriveSearchQuery } from "../../googleapi/drive.js";
 import { toCliApiErrorMessage } from "../../googleapi/errors.js";
 import { buildExecutionContext, type RootOptions } from "../execution-context.js";
+import type { PaginatedResult, PaginationOptions } from "../../types/pagination.js";
 
 export type DriveFileSummary = {
   id: string;
@@ -90,8 +91,8 @@ export type DriveRevision = {
 };
 
 export type DriveCommandDeps = {
-  listFiles?: () => Promise<DriveFileSummary[]>;
-  searchFiles?: (query: string) => Promise<DriveFileSummary[]>;
+  listFiles?: (options?: PaginationOptions) => Promise<PaginatedResult<DriveFileSummary>>;
+  searchFiles?: (query: string, options?: PaginationOptions) => Promise<PaginatedResult<DriveFileSummary>>;
   downloadFile?: (id: string, out?: string) => Promise<{ id: string; path: string; downloaded: boolean }>;
   uploadFile?: (path: string) => Promise<{ id: string; name: string; uploaded: boolean }>;
   deleteFile?: (id: string, permanent: boolean) => Promise<DriveDeleteResult>;
@@ -115,8 +116,8 @@ export type DriveCommandDeps = {
 };
 
 const defaultDeps: Required<DriveCommandDeps> = {
-  listFiles: async () => [],
-  searchFiles: async () => [],
+  listFiles: async () => ({ items: [] }),
+  searchFiles: async () => ({ items: [] }),
   downloadFile: async (id, out) => ({ id, path: out ?? "", downloaded: false }),
   uploadFile: async (path) => ({ id: "", name: path, uploaded: false }),
   deleteFile: async (id, permanent) => ({ id, deleted: false, permanent }),
@@ -147,16 +148,20 @@ async function runWithStableApiError<T>(service: string, call: () => Promise<T>)
   }
 }
 
-export function formatDriveFiles(files: DriveFileSummary[], mode: OutputMode): string {
+export function formatDriveFiles(result: PaginatedResult<DriveFileSummary>, mode: OutputMode): string {
   if (mode === "json") {
-    return JSON.stringify({ files }, null, 2);
+    return JSON.stringify(result, null, 2);
   }
-  if (files.length === 0) {
+  if (result.items.length === 0) {
     return "No files found";
   }
   const lines = ["ID\tNAME\tMIME"];
-  for (const file of files) {
+  for (const file of result.items) {
     lines.push(`${file.id}\t${file.name}\t${file.mimeType}`);
+  }
+  if (result.nextPageToken) {
+    lines.push("---");
+    lines.push(`Next page token: ${result.nextPageToken}`);
   }
   return lines.join("\n");
 }
@@ -256,11 +261,19 @@ export function registerDriveCommands(driveCommand: Command, deps: DriveCommandD
     .command("ls")
     .aliases(["list"])
     .description("List drive files")
+    .option("--page-size <number>", "Number of files per page", parseInt)
+    .option("--page-token <token>", "Token for the next page")
     .action(async function actionLs(this: Command) {
       const rootOptions = this.optsWithGlobals() as RootOptions;
       const ctx = buildExecutionContext(rootOptions);
-      const files = await runWithStableApiError("drive", () => resolvedDeps.listFiles());
-      process.stdout.write(`${formatDriveFiles(files, ctx.output.mode)}\n`);
+      const opts = this.opts<{ pageSize?: number; pageToken?: string }>();
+      const paginationOpts: import("../../types/pagination.js").PaginationOptions = {};
+      if (opts.pageSize !== undefined) paginationOpts.pageSize = opts.pageSize;
+      if (opts.pageToken !== undefined) paginationOpts.pageToken = opts.pageToken;
+      const result = await runWithStableApiError("drive", () =>
+        resolvedDeps.listFiles(paginationOpts)
+      );
+      process.stdout.write(`${formatDriveFiles(result, ctx.output.mode)}\n`);
     });
 
   driveCommand
@@ -268,12 +281,19 @@ export function registerDriveCommands(driveCommand: Command, deps: DriveCommandD
     .aliases(["find"])
     .description("Search drive files")
     .requiredOption("--query <query>", "Drive search query")
+    .option("--page-size <number>", "Number of files per page", parseInt)
+    .option("--page-token <token>", "Token for the next page")
     .action(async function actionSearch(this: Command) {
       const rootOptions = this.optsWithGlobals() as RootOptions;
       const ctx = buildExecutionContext(rootOptions);
-      const opts = this.opts<{ query: string }>();
-      const files = await runWithStableApiError("drive", () => resolvedDeps.searchFiles(normalizeDriveSearchQuery(opts.query)));
-      process.stdout.write(`${formatDriveFiles(files, ctx.output.mode)}\n`);
+      const opts = this.opts<{ query: string; pageSize?: number; pageToken?: string }>();
+      const paginationOpts: import("../../types/pagination.js").PaginationOptions = {};
+      if (opts.pageSize !== undefined) paginationOpts.pageSize = opts.pageSize;
+      if (opts.pageToken !== undefined) paginationOpts.pageToken = opts.pageToken;
+      const result = await runWithStableApiError("drive", () =>
+        resolvedDeps.searchFiles(normalizeDriveSearchQuery(opts.query), paginationOpts)
+      );
+      process.stdout.write(`${formatDriveFiles(result, ctx.output.mode)}\n`);
     });
 
   driveCommand

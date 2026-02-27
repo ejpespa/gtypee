@@ -6,6 +6,7 @@ import { google } from "googleapis";
 
 import type { ServiceRuntime } from "../../googleapi/auth-factory.js";
 import { scopes } from "../../googleauth/service.js";
+import type { PaginationOptions } from "../../types/pagination.js";
 import type {
   DriveCommandDeps,
   DriveFileSummary,
@@ -24,35 +25,55 @@ import type {
 
 export function buildDriveCommandDeps(runtime: ServiceRuntime): Required<DriveCommandDeps> {
   return {
-    listFiles: async (): Promise<DriveFileSummary[]> => {
+    listFiles: async (options?: PaginationOptions): Promise<{ items: DriveFileSummary[]; nextPageToken?: string }> => {
       const auth = await runtime.getClient(scopes("drive"));
       const drive = google.drive({ version: "v3", auth });
-      const res = await drive.files.list({
-        pageSize: 100,
-        fields: "files(id,name,mimeType)",
-      });
+      const params: { pageSize: number; pageToken?: string; fields: string } = {
+        pageSize: options?.pageSize ?? 100,
+        fields: "nextPageToken,files(id,name,mimeType)",
+      };
+      if (options?.pageToken !== undefined) {
+        params.pageToken = options.pageToken;
+      }
+      const res = await drive.files.list(params);
       const files = res.data.files ?? [];
-      return files.map((f) => ({
-        id: f.id ?? "",
-        name: f.name ?? "",
-        mimeType: f.mimeType ?? "",
-      }));
+      const result: { items: DriveFileSummary[]; nextPageToken?: string } = {
+        items: files.map((f) => ({
+          id: f.id ?? "",
+          name: f.name ?? "",
+          mimeType: f.mimeType ?? "",
+        })),
+      };
+      if (res.data.nextPageToken) {
+        result.nextPageToken = res.data.nextPageToken;
+      }
+      return result;
     },
 
-    searchFiles: async (query: string): Promise<DriveFileSummary[]> => {
+    searchFiles: async (query: string, options?: PaginationOptions): Promise<{ items: DriveFileSummary[]; nextPageToken?: string }> => {
       const auth = await runtime.getClient(scopes("drive"));
       const drive = google.drive({ version: "v3", auth });
-      const res = await drive.files.list({
+      const params: { q: string; pageSize: number; pageToken?: string; fields: string } = {
         q: query,
-        pageSize: 100,
-        fields: "files(id,name,mimeType)",
-      });
+        pageSize: options?.pageSize ?? 100,
+        fields: "nextPageToken,files(id,name,mimeType)",
+      };
+      if (options?.pageToken !== undefined) {
+        params.pageToken = options.pageToken;
+      }
+      const res = await drive.files.list(params);
       const files = res.data.files ?? [];
-      return files.map((f) => ({
-        id: f.id ?? "",
-        name: f.name ?? "",
-        mimeType: f.mimeType ?? "",
-      }));
+      const result: { items: DriveFileSummary[]; nextPageToken?: string } = {
+        items: files.map((f) => ({
+          id: f.id ?? "",
+          name: f.name ?? "",
+          mimeType: f.mimeType ?? "",
+        })),
+      };
+      if (res.data.nextPageToken) {
+        result.nextPageToken = res.data.nextPageToken;
+      }
+      return result;
     },
 
     downloadFile: async (id: string, out?: string): Promise<{ id: string; path: string; downloaded: boolean }> => {
