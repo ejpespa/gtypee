@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { Command } from "commander";
 
 import { buildProgram } from "../../../src/cmd/root.js";
@@ -164,18 +164,18 @@ describe("gmail core commands", () => {
   });
 
   it("uses default query for gmail list", async () => {
-    let querySeen = "";
+    let optsSeen: { pageSize?: number; pageToken?: string } | undefined;
     const root = new Command();
     const gmail = root.command("gmail");
     registerGmailCommands(gmail, {
-      searchEmails: async (query) => {
-        querySeen = query;
-        return [];
+      listMessages: async (opts) => {
+        optsSeen = opts;
+        return { items: [] };
       },
     });
 
     await captureStdout(() => root.parseAsync(["node", "typee", "gmail", "list"]));
-    expect(querySeen).toBe("in:anywhere");
+    expect(optsSeen).toEqual({});
   });
 
   it("maps generic API errors to stable gmail error messages", async () => {
@@ -317,7 +317,7 @@ describe("gmail draft commands", () => {
     const root = new Command();
     const gmail = root.command("gmail");
     registerGmailCommands(gmail, {
-      listDrafts: async () => [{ id: "draft1", message: { id: "m1", threadId: "", subject: "Test" } }],
+      listDrafts: async () => ({ items: [{ id: "draft1", message: { id: "m1", threadId: "", subject: "Test" } }] }),
     });
 
     const stdout = await captureStdout(() => root.parseAsync(["node", "typee", "gmail", "draft", "list"]));
@@ -330,7 +330,7 @@ describe("gmail thread commands", () => {
     const root = new Command();
     const gmail = root.command("gmail");
     registerGmailCommands(gmail, {
-      listThreads: async () => [{ id: "t1", snippet: "Hello", messageCount: 2 }],
+      listThreads: async () => ({ items: [{ id: "t1", snippet: "Hello", messageCount: 2 }] }),
     });
 
     const stdout = await captureStdout(() => root.parseAsync(["node", "typee", "gmail", "thread", "list"]));
@@ -385,5 +385,107 @@ describe("gmail signature commands", () => {
 
     const stdout = await captureStdout(() => root.parseAsync(["node", "typee", "gmail", "signature", "list"]));
     expect(stdout).toContain("me@example.com");
+  });
+});
+
+describe("gmail list with pagination", () => {
+  it("should pass pageSize option to listMessages", async () => {
+    const listMessages = vi.fn().mockResolvedValue({
+      items: [{ id: "msg1", threadId: "thread1", subject: "test" }],
+    });
+    const program = new Command();
+    program.option("--json", "Output as JSON");
+    const gmail = program.command("gmail");
+    registerGmailCommands(gmail, { listMessages });
+
+    await captureStdout(() => program.parseAsync(["node", "test", "gmail", "list", "--page-size", "25"]));
+
+    expect(listMessages).toHaveBeenCalledWith({ pageSize: 25 });
+  });
+
+  it("should pass pageToken option to listMessages", async () => {
+    const listMessages = vi.fn().mockResolvedValue({
+      items: [{ id: "msg1", threadId: "thread1", subject: "test" }],
+    });
+    const program = new Command();
+    program.option("--json", "Output as JSON");
+    const gmail = program.command("gmail");
+    registerGmailCommands(gmail, { listMessages });
+
+    await captureStdout(() => program.parseAsync(["node", "test", "gmail", "list", "--page-token", "test-token"]));
+
+    expect(listMessages).toHaveBeenCalledWith({ pageToken: "test-token" });
+  });
+
+  it("should output nextPageToken in JSON mode", async () => {
+    const listMessages = vi.fn().mockResolvedValue({
+      items: [{ id: "msg1", threadId: "thread1", subject: "test" }],
+      nextPageToken: "gmail-next-token",
+    });
+    const program = new Command();
+    program.option("--json", "Output as JSON");
+    const gmail = program.command("gmail");
+    registerGmailCommands(gmail, { listMessages });
+
+    const output = await captureStdout(() => program.parseAsync(["node", "test", "gmail", "list", "--json"]));
+
+    const parsed = JSON.parse(output);
+    expect(parsed.nextPageToken).toBe("gmail-next-token");
+  });
+
+  it("should pass pageSize option to listDrafts", async () => {
+    const listDrafts = vi.fn().mockResolvedValue({
+      items: [{ id: "draft1", message: { id: "m1", threadId: "", subject: "Test" } }],
+    });
+    const program = new Command();
+    program.option("--json", "Output as JSON");
+    const gmail = program.command("gmail");
+    registerGmailCommands(gmail, { listDrafts });
+
+    await captureStdout(() => program.parseAsync(["node", "test", "gmail", "draft", "list", "--page-size", "30"]));
+
+    expect(listDrafts).toHaveBeenCalledWith({ pageSize: 30 });
+  });
+
+  it("should pass pageToken option to listDrafts", async () => {
+    const listDrafts = vi.fn().mockResolvedValue({
+      items: [{ id: "draft1", message: { id: "m1", threadId: "", subject: "Test" } }],
+    });
+    const program = new Command();
+    program.option("--json", "Output as JSON");
+    const gmail = program.command("gmail");
+    registerGmailCommands(gmail, { listDrafts });
+
+    await captureStdout(() => program.parseAsync(["node", "test", "gmail", "draft", "list", "--page-token", "draft-token"]));
+
+    expect(listDrafts).toHaveBeenCalledWith({ pageToken: "draft-token" });
+  });
+
+  it("should pass pageSize option to listThreads", async () => {
+    const listThreads = vi.fn().mockResolvedValue({
+      items: [{ id: "t1", snippet: "Hello", messageCount: 2 }],
+    });
+    const program = new Command();
+    program.option("--json", "Output as JSON");
+    const gmail = program.command("gmail");
+    registerGmailCommands(gmail, { listThreads });
+
+    await captureStdout(() => program.parseAsync(["node", "test", "gmail", "thread", "list", "--page-size", "40"]));
+
+    expect(listThreads).toHaveBeenCalledWith(undefined, { pageSize: 40 });
+  });
+
+  it("should pass pageToken option to listThreads", async () => {
+    const listThreads = vi.fn().mockResolvedValue({
+      items: [{ id: "t1", snippet: "Hello", messageCount: 2 }],
+    });
+    const program = new Command();
+    program.option("--json", "Output as JSON");
+    const gmail = program.command("gmail");
+    registerGmailCommands(gmail, { listThreads });
+
+    await captureStdout(() => program.parseAsync(["node", "test", "gmail", "thread", "list", "--page-token", "thread-token"]));
+
+    expect(listThreads).toHaveBeenCalledWith(undefined, { pageToken: "thread-token" });
   });
 });

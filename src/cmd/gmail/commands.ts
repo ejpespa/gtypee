@@ -1,9 +1,9 @@
 import type { Command } from "commander";
 
 import type { OutputMode } from "../../outfmt/outfmt.js";
-import { defaultGmailListQuery } from "../../googleapi/client.js";
 import { toCliApiErrorMessage } from "../../googleapi/errors.js";
 import { buildExecutionContext, type RootOptions } from "../execution-context.js";
+import type { PaginatedResult, PaginationOptions } from "../../types/pagination.js";
 
 export type GmailMessageSummary = {
   id: string;
@@ -158,6 +158,7 @@ export type GmailSignatureSetResult = {
 
 export type GmailCommandDeps = {
   sendEmail?: (input: { to: string; subject: string; body: string }) => Promise<GmailSendResult>;
+  listMessages?: (options?: PaginationOptions) => Promise<PaginatedResult<GmailMessageSummary>>;
   searchEmails?: (query: string) => Promise<GmailMessageSummary[]>;
   listLabels?: () => Promise<GmailLabelSummary[]>;
   getMessage?: (messageId: string) => Promise<GmailMessageDetail>;
@@ -169,14 +170,14 @@ export type GmailCommandDeps = {
 
 export type GmailDraftDeps = {
   createDraft?: (input: { to: string; subject: string; body: string }) => Promise<GmailDraftCreateResult>;
-  listDrafts?: () => Promise<GmailDraftSummary[]>;
+  listDrafts?: (options?: PaginationOptions) => Promise<PaginatedResult<GmailDraftSummary>>;
   getDraft?: (draftId: string) => Promise<GmailDraftDetail>;
   deleteDraft?: (draftId: string) => Promise<GmailDeleteResult>;
   sendDraft?: (draftId: string) => Promise<GmailDraftSendResult>;
 };
 
 export type GmailThreadDeps = {
-  listThreads?: (query?: string) => Promise<GmailThreadSummary[]>;
+  listThreads?: (query?: string, options?: PaginationOptions) => Promise<PaginatedResult<GmailThreadSummary>>;
   getThread?: (threadId: string) => Promise<GmailThreadDetail>;
 };
 
@@ -205,6 +206,7 @@ const defaultDeps: Required<GmailCommandDeps> = {
     threadId: "",
     accepted: false,
   }),
+  listMessages: async () => ({ items: [] }),
   searchEmails: async () => [],
   listLabels: async () => [],
   getMessage: async () => ({
@@ -242,7 +244,7 @@ const defaultDraftDeps: Required<GmailDraftDeps> = {
     message: { id: "", threadId: "", subject: "" },
     applied: false,
   }),
-  listDrafts: async () => [],
+  listDrafts: async () => ({ items: [] }),
   getDraft: async () => ({
     id: "",
     message: { id: "", threadId: "", from: "", to: "", subject: "", date: "", body: "" },
@@ -259,7 +261,7 @@ const defaultDraftDeps: Required<GmailDraftDeps> = {
 };
 
 const defaultThreadDeps: Required<GmailThreadDeps> = {
-  listThreads: async () => [],
+  listThreads: async () => ({ items: [] }),
   getThread: async () => ({
     id: "",
     messages: [],
@@ -354,6 +356,26 @@ export function formatGmailSearchResult(messages: GmailMessageSummary[], mode: O
   return lines.join("\n");
 }
 
+export function formatGmailMessages(result: PaginatedResult<GmailMessageSummary>, mode: OutputMode): string {
+  if (mode === "json") {
+    return JSON.stringify(result, null, 2);
+  }
+
+  if (result.items.length === 0) {
+    return "No messages found";
+  }
+
+  const lines = ["ID\tTHREAD\tSUBJECT"];
+  for (const message of result.items) {
+    lines.push(`${message.id}\t${message.threadId}\t${message.subject}`);
+  }
+  if (result.nextPageToken) {
+    lines.push("---");
+    lines.push(`Next page token: ${result.nextPageToken}`);
+  }
+  return lines.join("\n");
+}
+
 export function formatGmailMessageDetail(message: GmailMessageDetail, mode: OutputMode): string {
   if (mode === "json") {
     return JSON.stringify(message, null, 2);
@@ -385,6 +407,26 @@ export function formatGmailDrafts(drafts: GmailDraftSummary[], mode: OutputMode)
   const lines = ["DRAFT-ID\tMESSAGE-ID\tSUBJECT"];
   for (const draft of drafts) {
     lines.push(`${draft.id}\t${draft.message.id}\t${draft.message.subject}`);
+  }
+  return lines.join("\n");
+}
+
+export function formatGmailDraftsPaginated(result: PaginatedResult<GmailDraftSummary>, mode: OutputMode): string {
+  if (mode === "json") {
+    return JSON.stringify(result, null, 2);
+  }
+
+  if (result.items.length === 0) {
+    return "No drafts found";
+  }
+
+  const lines = ["DRAFT-ID\tMESSAGE-ID\tSUBJECT"];
+  for (const draft of result.items) {
+    lines.push(`${draft.id}\t${draft.message.id}\t${draft.message.subject}`);
+  }
+  if (result.nextPageToken) {
+    lines.push("---");
+    lines.push(`Next page token: ${result.nextPageToken}`);
   }
   return lines.join("\n");
 }
@@ -421,6 +463,27 @@ export function formatGmailThreads(threads: GmailThreadSummary[], mode: OutputMo
   for (const thread of threads) {
     const snippet = thread.snippet.length > 50 ? thread.snippet.substring(0, 47) + "..." : thread.snippet;
     lines.push(`${thread.id}\t${thread.messageCount}\t${snippet}`);
+  }
+  return lines.join("\n");
+}
+
+export function formatGmailThreadsPaginated(result: PaginatedResult<GmailThreadSummary>, mode: OutputMode): string {
+  if (mode === "json") {
+    return JSON.stringify(result, null, 2);
+  }
+
+  if (result.items.length === 0) {
+    return "No threads found";
+  }
+
+  const lines = ["THREAD-ID\tMESSAGES\tSNIPPET"];
+  for (const thread of result.items) {
+    const snippet = thread.snippet.length > 50 ? thread.snippet.substring(0, 47) + "..." : thread.snippet;
+    lines.push(`${thread.id}\t${thread.messageCount}\t${snippet}`);
+  }
+  if (result.nextPageToken) {
+    lines.push("---");
+    lines.push(`Next page token: ${result.nextPageToken}`);
   }
   return lines.join("\n");
 }
@@ -570,14 +633,19 @@ export function registerGmailCommands(
   gmailCommand
     .command("list")
     .description("List messages")
-    .option("--query <query>", "Gmail search query")
+    .option("--page-size <size>", "Number of results per page")
+    .option("--page-token <token>", "Token to fetch next page")
     .action(async function actionList(this: Command) {
       const rootOptions = this.optsWithGlobals() as RootOptions;
       const ctx = buildExecutionContext(rootOptions);
-      const opts = this.opts<{ query?: string }>();
-      const query = defaultGmailListQuery(opts.query);
-      const messages = await runWithStableApiError("gmail", () => resolvedDeps.searchEmails(query));
-      process.stdout.write(`${formatGmailSearchResult(messages, ctx.output.mode)}\n`);
+      const opts = this.opts<{ pageSize?: string; pageToken?: string }>();
+
+      const paginationOpts: PaginationOptions = {};
+      if (opts.pageSize !== undefined) paginationOpts.pageSize = parseInt(opts.pageSize, 10);
+      if (opts.pageToken !== undefined) paginationOpts.pageToken = opts.pageToken;
+
+      const result = await runWithStableApiError("gmail", () => resolvedDeps.listMessages!(paginationOpts));
+      process.stdout.write(`${formatGmailMessages(result, ctx.output.mode)}\n`);
     });
 
   gmailCommand
@@ -752,11 +820,19 @@ export function registerGmailCommands(
   draftCmd
     .command("list")
     .description("List all drafts")
+    .option("--page-size <size>", "Number of results per page")
+    .option("--page-token <token>", "Token to fetch next page")
     .action(async function actionListDrafts(this: Command) {
       const rootOptions = this.optsWithGlobals() as RootOptions;
       const ctx = buildExecutionContext(rootOptions);
-      const drafts = await runWithStableApiError("gmail", () => draftDeps.listDrafts());
-      process.stdout.write(`${formatGmailDrafts(drafts, ctx.output.mode)}\n`);
+      const opts = this.opts<{ pageSize?: string; pageToken?: string }>();
+
+      const paginationOpts: PaginationOptions = {};
+      if (opts.pageSize !== undefined) paginationOpts.pageSize = parseInt(opts.pageSize, 10);
+      if (opts.pageToken !== undefined) paginationOpts.pageToken = opts.pageToken;
+
+      const result = await runWithStableApiError("gmail", () => draftDeps.listDrafts!(paginationOpts));
+      process.stdout.write(`${formatGmailDraftsPaginated(result, ctx.output.mode)}\n`);
     });
 
   // gmail draft get <draft-id>
@@ -825,12 +901,19 @@ export function registerGmailCommands(
     .command("list")
     .description("List email threads")
     .option("--query <query>", "Gmail search query")
+    .option("--page-size <size>", "Number of results per page")
+    .option("--page-token <token>", "Token to fetch next page")
     .action(async function actionListThreads(this: Command) {
       const rootOptions = this.optsWithGlobals() as RootOptions;
       const ctx = buildExecutionContext(rootOptions);
-      const opts = this.opts<{ query?: string }>();
-      const threads = await runWithStableApiError("gmail", () => threadDeps.listThreads(opts.query));
-      process.stdout.write(`${formatGmailThreads(threads, ctx.output.mode)}\n`);
+      const opts = this.opts<{ query?: string; pageSize?: string; pageToken?: string }>();
+
+      const paginationOpts: PaginationOptions = {};
+      if (opts.pageSize !== undefined) paginationOpts.pageSize = parseInt(opts.pageSize, 10);
+      if (opts.pageToken !== undefined) paginationOpts.pageToken = opts.pageToken;
+
+      const threads = await runWithStableApiError("gmail", () => threadDeps.listThreads!(opts.query, paginationOpts));
+      process.stdout.write(`${formatGmailThreadsPaginated(threads, ctx.output.mode)}\n`);
     });
 
   // gmail thread get <thread-id>

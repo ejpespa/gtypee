@@ -2,6 +2,7 @@ import { google } from "googleapis";
 
 import { ServiceRuntime, type ServiceRuntimeOptions } from "../../googleapi/auth-factory.js";
 import { scopes } from "../../googleauth/service.js";
+import type { PaginationOptions } from "../../types/pagination.js";
 import type {
   GmailCommandDeps,
   GmailDraftDeps,
@@ -40,6 +41,48 @@ export function buildGmailCommandDeps(options: ServiceRuntimeOptions): Required<
         threadId: response.data.threadId ?? "",
         accepted: response.status === 200,
       };
+    },
+
+    listMessages: async (options?: PaginationOptions) => {
+      const auth = await runtime.getClient(scopes("gmail"));
+      const gmail = google.gmail({ version: "v1", auth });
+
+      const params: { userId: string; maxResults: number; pageToken?: string } = {
+        userId: "me",
+        maxResults: options?.pageSize ?? 50,
+      };
+      if (options?.pageToken !== undefined) {
+        params.pageToken = options.pageToken;
+      }
+      const res = await gmail.users.messages.list(params);
+
+      const messageIds = res.data.messages ?? [];
+      if (messageIds.length === 0) return { items: [] };
+
+      const items = await Promise.all(
+        messageIds.map(async (msg) => {
+          const detail = await gmail.users.messages.get({
+            userId: "me",
+            id: msg.id!,
+            format: "metadata",
+            metadataHeaders: ["Subject"],
+          });
+          const subjectHeader = detail.data.payload?.headers?.find(
+            (h) => h.name?.toLowerCase() === "subject",
+          );
+          return {
+            id: detail.data.id ?? "",
+            threadId: detail.data.threadId ?? "",
+            subject: subjectHeader?.value ?? "(no subject)",
+          };
+        }),
+      );
+
+      const result: { items: typeof items; nextPageToken?: string } = { items };
+      if (res.data.nextPageToken) {
+        result.nextPageToken = res.data.nextPageToken;
+      }
+      return result;
     },
 
     searchEmails: async (query) => {
@@ -295,19 +338,23 @@ export function buildGmailDraftDeps(options: ServiceRuntimeOptions): Required<Gm
       }
     },
 
-    listDrafts: async () => {
+    listDrafts: async (options?: PaginationOptions) => {
       const auth = await runtime.getClient(scopes("gmail"));
       const gmail = google.gmail({ version: "v1", auth });
 
       try {
-        const response = await gmail.users.drafts.list({
+        const params: { userId: string; maxResults: number; pageToken?: string } = {
           userId: "me",
-          maxResults: 100,
-        });
+          maxResults: options?.pageSize ?? 100,
+        };
+        if (options?.pageToken !== undefined) {
+          params.pageToken = options.pageToken;
+        }
+        const response = await gmail.users.drafts.list(params);
 
         const drafts = response.data.drafts ?? [];
 
-        const results = await Promise.all(
+        const items = await Promise.all(
           drafts.map(async (draft) => {
             const detail = await gmail.users.drafts.get({
               userId: "me",
@@ -328,9 +375,13 @@ export function buildGmailDraftDeps(options: ServiceRuntimeOptions): Required<Gm
           }),
         );
 
-        return results;
+        const result: { items: typeof items; nextPageToken?: string } = { items };
+        if (response.data.nextPageToken) {
+          result.nextPageToken = response.data.nextPageToken;
+        }
+        return result;
       } catch {
-        return [];
+        return { items: [] };
       }
     },
 
@@ -395,23 +446,26 @@ export function buildGmailThreadDeps(options: ServiceRuntimeOptions): Required<G
   const runtime = new ServiceRuntime(options);
 
   return {
-    listThreads: async (query?: string) => {
+    listThreads: async (query?: string, options?: PaginationOptions) => {
       const auth = await runtime.getClient(scopes("gmail"));
       const gmail = google.gmail({ version: "v1", auth });
 
       try {
-        const params: { userId: string; maxResults: number; q?: string } = {
+        const params: { userId: string; maxResults: number; q?: string; pageToken?: string } = {
           userId: "me",
-          maxResults: 100,
+          maxResults: options?.pageSize ?? 100,
         };
         if (query) {
           params.q = query;
+        }
+        if (options?.pageToken !== undefined) {
+          params.pageToken = options.pageToken;
         }
         const response = await gmail.users.threads.list(params);
 
         const threads = response.data.threads ?? [];
 
-        const results = await Promise.all(
+        const items = await Promise.all(
           threads.map(async (thread: { id?: string | null }) => {
             const detail = await gmail.users.threads.get({
               userId: "me",
@@ -426,9 +480,13 @@ export function buildGmailThreadDeps(options: ServiceRuntimeOptions): Required<G
           }),
         );
 
-        return results;
+        const result: { items: typeof items; nextPageToken?: string } = { items };
+        if (response.data.nextPageToken) {
+          result.nextPageToken = response.data.nextPageToken;
+        }
+        return result;
       } catch {
-        return [];
+        return { items: [] };
       }
     },
 
