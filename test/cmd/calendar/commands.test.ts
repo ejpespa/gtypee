@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { Command } from "commander";
 
 import { formatCalendarEvents, registerCalendarCommands } from "../../../src/cmd/calendar/commands.js";
@@ -6,14 +6,16 @@ import { formatCalendarEvents, registerCalendarCommands } from "../../../src/cmd
 describe("calendar command formatters", () => {
   it("formats events as json", () => {
     const out = formatCalendarEvents(
-      [
-        { id: "e1", summary: "Standup", start: "2026-02-20T10:00:00Z" },
-        { id: "e2", summary: "Demo", start: "2026-02-20T11:00:00Z" },
-      ],
+      {
+        items: [
+          { id: "e1", summary: "Standup", start: "2026-02-20T10:00:00Z" },
+          { id: "e2", summary: "Demo", start: "2026-02-20T11:00:00Z" },
+        ],
+      },
       "json",
     );
-    const parsed = JSON.parse(out) as { events: Array<{ id: string }> };
-    expect(parsed.events).toHaveLength(2);
+    const parsed = JSON.parse(out) as { items: Array<{ id: string }> };
+    expect(parsed.items).toHaveLength(2);
   });
 
   it("registers events and create subcommands", () => {
@@ -131,5 +133,107 @@ describe("calendar command formatters", () => {
 
     const parsed = JSON.parse(stdout) as { conflicts: Array<{ firstId: string }> };
     expect(parsed.conflicts[0]?.firstId).toBe("evt-1");
+  });
+});
+
+describe("calendar events list with pagination", () => {
+  it("should pass pageSize option to listEvents", async () => {
+    const listEvents = vi.fn().mockResolvedValue({
+      items: [{ id: "evt1", summary: "Meeting", start: "2026-01-01T10:00:00Z" }],
+    });
+    const program = new Command();
+    const calendar = program.command("calendar");
+    registerCalendarCommands(calendar, { listEvents } as any);
+
+    let stdout = "";
+    const originalWrite = process.stdout.write.bind(process.stdout);
+    process.stdout.write = ((chunk: unknown): boolean => {
+      stdout += String(chunk);
+      return true;
+    }) as typeof process.stdout.write;
+
+    try {
+      await program.parseAsync(["node", "test", "calendar", "events", "--page-size", "50"]);
+    } finally {
+      process.stdout.write = originalWrite;
+    }
+
+    expect(listEvents).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ pageSize: 50 }));
+  });
+
+  it("should pass pageToken option to listEvents", async () => {
+    const listEvents = vi.fn().mockResolvedValue({
+      items: [],
+    });
+    const program = new Command();
+    const calendar = program.command("calendar");
+    registerCalendarCommands(calendar, { listEvents } as any);
+
+    let stdout = "";
+    const originalWrite = process.stdout.write.bind(process.stdout);
+    process.stdout.write = ((chunk: unknown): boolean => {
+      stdout += String(chunk);
+      return true;
+    }) as typeof process.stdout.write;
+
+    try {
+      await program.parseAsync(["node", "test", "calendar", "events", "--page-token", "abc123"]);
+    } finally {
+      process.stdout.write = originalWrite;
+    }
+
+    expect(listEvents).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ pageToken: "abc123" }));
+  });
+
+  it("should output nextPageToken in JSON mode", async () => {
+    const listEvents = vi.fn().mockResolvedValue({
+      items: [{ id: "evt1", summary: "Meeting", start: "2026-01-01T10:00:00Z" }],
+      nextPageToken: "cal-next-token",
+    });
+    const program = new Command();
+    program.option("--json");
+    const calendar = program.command("calendar");
+    registerCalendarCommands(calendar, { listEvents } as any);
+
+    let stdout = "";
+    const originalWrite = process.stdout.write.bind(process.stdout);
+    process.stdout.write = ((chunk: unknown): boolean => {
+      stdout += String(chunk);
+      return true;
+    }) as typeof process.stdout.write;
+
+    try {
+      await program.parseAsync(["node", "test", "--json", "calendar", "events"]);
+    } finally {
+      process.stdout.write = originalWrite;
+    }
+
+    const parsed = JSON.parse(stdout) as { nextPageToken?: string };
+    expect(parsed.nextPageToken).toBe("cal-next-token");
+  });
+
+  it("should display nextPageToken in text mode", async () => {
+    const listEvents = vi.fn().mockResolvedValue({
+      items: [{ id: "evt1", summary: "Meeting", start: "2026-01-01T10:00:00Z" }],
+      nextPageToken: "cal-next-token",
+    });
+    const program = new Command();
+    const calendar = program.command("calendar");
+    registerCalendarCommands(calendar, { listEvents } as any);
+
+    let stdout = "";
+    const originalWrite = process.stdout.write.bind(process.stdout);
+    process.stdout.write = ((chunk: unknown): boolean => {
+      stdout += String(chunk);
+      return true;
+    }) as typeof process.stdout.write;
+
+    try {
+      await program.parseAsync(["node", "test", "calendar", "events"]);
+    } finally {
+      process.stdout.write = originalWrite;
+    }
+
+    expect(stdout).toContain("Next page token: cal-next-token");
   });
 });

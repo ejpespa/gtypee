@@ -4,6 +4,7 @@ import type { OutputMode } from "../../outfmt/outfmt.js";
 import { normalizeCalendarResponse, type CalendarResponse } from "../../googleapi/calendar.js";
 import { toCliApiErrorMessage } from "../../googleapi/errors.js";
 import { buildExecutionContext, type RootOptions } from "../execution-context.js";
+import type { PaginatedResult, PaginationOptions } from "../../types/pagination.js";
 
 export type CalendarEventSummary = {
   id: string;
@@ -47,7 +48,7 @@ export type CalendarConflict = {
 };
 
 export type CalendarCommandDeps = {
-  listEvents?: (query: { from?: string; to?: string }) => Promise<CalendarEventSummary[]>;
+  listEvents?: (query: { from?: string; to?: string }, options?: PaginationOptions) => Promise<PaginatedResult<CalendarEventSummary>>;
   createEvent?: (input: { summary: string; start: string; end: string }) => Promise<CalendarCreateResult>;
   updateEvent?: (input: CalendarUpdateInput) => Promise<CalendarUpdateResult>;
   respondEvent?: (input: CalendarRespondInput) => Promise<CalendarRespondResult>;
@@ -55,7 +56,7 @@ export type CalendarCommandDeps = {
 };
 
 const defaultDeps: Required<CalendarCommandDeps> = {
-  listEvents: async () => [],
+  listEvents: async () => ({ items: [] }),
   createEvent: async () => ({ id: "", created: false }),
   updateEvent: async (input) => ({ id: input.id, updated: false }),
   respondEvent: async (input) => ({ id: input.id, response: input.response, applied: false }),
@@ -86,18 +87,22 @@ async function runWithStableApiError<T>(service: string, call: () => Promise<T>)
   }
 }
 
-export function formatCalendarEvents(events: CalendarEventSummary[], mode: OutputMode): string {
+export function formatCalendarEvents(result: PaginatedResult<CalendarEventSummary>, mode: OutputMode): string {
   if (mode === "json") {
-    return JSON.stringify({ events }, null, 2);
+    return JSON.stringify(result, null, 2);
   }
 
-  if (events.length === 0) {
+  if (result.items.length === 0) {
     return "No events found";
   }
 
   const lines = ["ID\tSTART\tSUMMARY"];
-  for (const event of events) {
+  for (const event of result.items) {
     lines.push(`${event.id}\t${event.start}\t${event.summary}`);
+  }
+  if (result.nextPageToken) {
+    lines.push("---");
+    lines.push(`Next page token: ${result.nextPageToken}`);
   }
   return lines.join("\n");
 }
@@ -114,10 +119,12 @@ export function registerCalendarCommands(calendarCommand: Command, deps: Calenda
     .description("List calendar events")
     .option("--from <datetime>", "Start of search window")
     .option("--to <datetime>", "End of search window")
+    .option("--page-size <number>", "Number of events per page", parseInt)
+    .option("--page-token <token>", "Token for the next page")
     .action(async function actionEvents(this: Command) {
       const rootOptions = this.optsWithGlobals() as RootOptions;
       const ctx = buildExecutionContext(rootOptions);
-      const opts = this.opts<{ from?: string; to?: string }>();
+      const opts = this.opts<{ from?: string; to?: string; pageSize?: number; pageToken?: string }>();
       const query: { from?: string; to?: string } = {};
       if (opts.from !== undefined) {
         query.from = opts.from;
@@ -126,8 +133,12 @@ export function registerCalendarCommands(calendarCommand: Command, deps: Calenda
         query.to = opts.to;
       }
 
-      const events = await runWithStableApiError("calendar", () => resolvedDeps.listEvents(query));
-      process.stdout.write(`${formatCalendarEvents(events, ctx.output.mode)}\n`);
+      const paginationOpts: import("../../types/pagination.js").PaginationOptions = {};
+      if (opts.pageSize !== undefined) paginationOpts.pageSize = opts.pageSize;
+      if (opts.pageToken !== undefined) paginationOpts.pageToken = opts.pageToken;
+
+      const result = await runWithStableApiError("calendar", () => resolvedDeps.listEvents(query, paginationOpts));
+      process.stdout.write(`${formatCalendarEvents(result, ctx.output.mode)}\n`);
     });
 
   calendarCommand

@@ -3,6 +3,7 @@ import { google } from "googleapis";
 import { ServiceRuntime, type ServiceRuntimeOptions } from "../../googleapi/auth-factory.js";
 import { scopes } from "../../googleauth/service.js";
 import type { CalendarResponse } from "../../googleapi/calendar.js";
+import type { PaginationOptions } from "../../types/pagination.js";
 import type {
   CalendarCommandDeps,
   CalendarConflict,
@@ -26,7 +27,7 @@ export function buildCalendarCommandDeps(options: ServiceRuntimeOptions): Requir
   const runtime = new ServiceRuntime(options);
 
   return {
-    listEvents: async (query) => {
+    listEvents: async (query, options) => {
       const auth = await runtime.getClient(scopes("calendar"));
       const calendar = google.calendar({ version: "v3", auth });
 
@@ -35,14 +36,19 @@ export function buildCalendarCommandDeps(options: ServiceRuntimeOptions): Requir
         singleEvents: boolean;
         orderBy: string;
         maxResults: number;
+        pageToken?: string;
         timeMin?: string;
         timeMax?: string;
       } = {
         calendarId: "primary",
         singleEvents: true,
         orderBy: "startTime",
-        maxResults: 250,
+        maxResults: options?.pageSize ?? 250,
       };
+
+      if (options?.pageToken !== undefined) {
+        params.pageToken = options.pageToken;
+      }
 
       if (query.from !== undefined) {
         params.timeMin = query.from;
@@ -54,11 +60,19 @@ export function buildCalendarCommandDeps(options: ServiceRuntimeOptions): Requir
       const response = await calendar.events.list(params);
       const items = response.data.items ?? [];
 
-      return items.map((event): CalendarEventSummary => ({
-        id: event.id ?? "",
-        summary: event.summary ?? "(no title)",
-        start: event.start?.dateTime ?? event.start?.date ?? "",
-      }));
+      const result: { items: CalendarEventSummary[]; nextPageToken?: string } = {
+        items: items.map((event): CalendarEventSummary => ({
+          id: event.id ?? "",
+          summary: event.summary ?? "(no title)",
+          start: event.start?.dateTime ?? event.start?.date ?? "",
+        })),
+      };
+
+      if (response.data.nextPageToken) {
+        result.nextPageToken = response.data.nextPageToken;
+      }
+
+      return result;
     },
 
     createEvent: async (input) => {
