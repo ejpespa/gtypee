@@ -1,3 +1,20 @@
+# [1.1.0](https://github.com/ejpespa/gtypee/compare/v1.0.0...v1.1.0) (2026-02-27)
+
+
+### Bug Fixes
+
+* add non-null assertions for workspace pagination tests ([94e7e38](https://github.com/ejpespa/gtypee/commit/94e7e38111e20a436ef688325bc45e10792da9e1))
+
+
+### Features
+
+* add shared pagination types ([ee73377](https://github.com/ejpespa/gtypee/commit/ee73377cd396d94a8e4a397f434755f6d3c1744d))
+* **calendar:** add pagination support to events list ([c8f74fd](https://github.com/ejpespa/gtypee/commit/c8f74fdd57555d6e386c5a9c1ca12edfb64c6cc5))
+* **contacts:** add pagination support to list command ([3fc8fe4](https://github.com/ejpespa/gtypee/commit/3fc8fe421e4425f310cdbd41b6fd69bff4d5384a))
+* **drive:** add pagination support to ls and search commands ([fc2e600](https://github.com/ejpespa/gtypee/commit/fc2e600f87bf4809da49c35d80b5f3ee977ba1ea))
+* **gmail:** add pagination support to list commands ([5f79a30](https://github.com/ejpespa/gtypee/commit/5f79a302c54e5979cf2e5f3d54441e6b5bedc21a))
+* **workspace:** add pagination support to user, group, device list commands ([dd366e6](https://github.com/ejpespa/gtypee/commit/dd366e6bd04a4e0f5e95bea197656f88ccb56d47))
+
 # 1.0.0 (2026-02-23)
 
 
