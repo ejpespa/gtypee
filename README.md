@@ -1150,6 +1150,60 @@ gtypee workspace user list --json | jq '.[] | select(.suspended == false) | .pri
 
 ---
 
+## Pagination
+
+All list commands support pagination to handle large datasets efficiently:
+
+```bash
+# List 25 files per page
+gtypee drive ls --page-size 25
+
+# Get the next page using a token from previous response
+gtypee drive ls --page-size 25 --page-token "TOKEN_FROM_PREVIOUS_RESPONSE"
+
+# Gmail pagination
+gtypee gmail list --page-size 50
+
+# Calendar events pagination
+gtypee calendar events --page-size 100
+
+# Workspace users pagination
+gtypee workspace user list --page-size 200
+```
+
+### Getting Page Tokens
+
+Use `--json` mode to see the `nextPageToken` in responses:
+
+```bash
+# First page - get token from response
+gtypee drive ls --page-size 10 --json
+# Output: { "items": [...], "nextPageToken": "abc123..." }
+
+# Use token for next page
+gtypee drive ls --page-size 10 --page-token "abc123..." --json
+```
+
+### Pagination Options
+
+| Option | Description |
+|--------|-------------|
+| `--page-size <number>` | Maximum results per page (default varies by service) |
+| `--page-token <token>` | Token from previous response to get next page |
+
+### Default Page Sizes
+
+| Service | Command | Default |
+|---------|---------|---------|
+| Drive | `ls`, `search` | 100 |
+| Gmail | `list` | 50 |
+| Gmail | `draft list`, `thread list` | 100 |
+| Calendar | `events` | 250 |
+| Contacts | `list` | 100 |
+| Workspace | `user list`, `group list`, `device list` | 500 |
+
+---
+
 ## Configuration
 
 ### Config File Location
