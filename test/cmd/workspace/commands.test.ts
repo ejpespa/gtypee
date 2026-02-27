@@ -178,8 +178,8 @@ describe("workspace user list with pagination", () => {
 
     expect(listUsers).toHaveBeenCalledTimes(1);
     expect(listUsers.mock.calls[0]).toHaveLength(2);
-    expect(listUsers.mock.calls[0][0]).toBeUndefined();
-    expect(listUsers.mock.calls[0][1]).toEqual(expect.objectContaining({ pageSize: 50 }));
+    expect(listUsers.mock.calls[0]![0]).toBeUndefined();
+    expect(listUsers.mock.calls[0]![1]).toEqual(expect.objectContaining({ pageSize: 50 }));
   });
 
   it("should pass pageToken option to listUsers", async () => {
@@ -206,8 +206,8 @@ describe("workspace user list with pagination", () => {
 
     expect(listUsers).toHaveBeenCalledTimes(1);
     expect(listUsers.mock.calls[0]).toHaveLength(2);
-    expect(listUsers.mock.calls[0][0]).toBeUndefined();
-    expect(listUsers.mock.calls[0][1]).toEqual(expect.objectContaining({ pageToken: "abc123" }));
+    expect(listUsers.mock.calls[0]![0]).toBeUndefined();
+    expect(listUsers.mock.calls[0]![1]).toEqual(expect.objectContaining({ pageToken: "abc123" }));
   });
 
   it("should output nextPageToken in JSON mode", async () => {
