@@ -2,6 +2,7 @@ import { google } from "googleapis";
 
 import { ServiceRuntime, type ServiceRuntimeOptions } from "../../googleapi/auth-factory.js";
 import { scopes } from "../../googleauth/service.js";
+import type { PaginationOptions } from "../../types/pagination.js";
 import {
   type WorkspaceUserCommandDeps,
   type WorkspaceUser,
@@ -54,7 +55,7 @@ export function buildWorkspaceUserCommandDeps(options: ServiceRuntimeOptions): R
   const runtime = new ServiceRuntime(options);
 
   return {
-    listUsers: async (orgUnitPath?: string): Promise<WorkspaceUser[]> => {
+    listUsers: async (orgUnitPath?: string, options?: PaginationOptions) => {
       const auth = await runtime.getClient(scopes("workspace"));
       const admin = google.admin({ version: "directory_v1", auth });
 
@@ -63,18 +64,24 @@ export function buildWorkspaceUserCommandDeps(options: ServiceRuntimeOptions): R
         query = `orgUnitPath='${orgUnitPath}'`;
       }
 
-      const response = await admin.users.list({
+      const params: Record<string, unknown> = {
         customer: "my_customer",
-        maxResults: 500,
+        maxResults: options?.pageSize ?? 500,
         orderBy: "email",
         query,
-      });
+      };
+
+      if (options?.pageToken !== undefined) {
+        params.pageToken = options.pageToken;
+      }
+
+      const response = await admin.users.list(params);
 
       const users = response.data.users ?? [];
-      const result: WorkspaceUser[] = [];
+      const items: WorkspaceUser[] = [];
 
       for (const user of users) {
-        result.push({
+        items.push({
           id: user.id ?? "",
           primaryEmail: user.primaryEmail ?? "",
           name: {
@@ -85,6 +92,12 @@ export function buildWorkspaceUserCommandDeps(options: ServiceRuntimeOptions): R
           orgUnitPath: user.orgUnitPath ?? "/",
           isAdmin: user.isAdmin ?? false,
         });
+      }
+
+      const result: { items: WorkspaceUser[]; nextPageToken?: string } = { items };
+
+      if (response.data.nextPageToken) {
+        result.nextPageToken = response.data.nextPageToken;
       }
 
       return result;
@@ -425,20 +438,40 @@ export function buildWorkspaceGroupCommandDeps(options: ServiceRuntimeOptions): 
       }
     },
 
-    listGroups: async (): Promise<GroupInfo[]> => {
+    listGroups: async (options?: PaginationOptions) => {
       const auth = await runtime.getClient(scopes("workspace"));
       const admin = google.admin({ version: "directory_v1", auth });
 
       try {
-        const response = await admin.groups.list({ customer: "my_customer" });
+        const params: Record<string, unknown> = {
+          customer: "my_customer",
+        };
+
+        if (options?.pageSize !== undefined) {
+          params.maxResults = options.pageSize;
+        }
+
+        if (options?.pageToken !== undefined) {
+          params.pageToken = options.pageToken;
+        }
+
+        const response = await admin.groups.list(params);
         const groups = response.data.groups ?? [];
-        return groups.map((g) => ({
+        const items = groups.map((g) => ({
           id: g.id ?? "",
           email: g.email ?? "",
           name: g.name ?? "",
         }));
+
+        const result: { items: typeof items; nextPageToken?: string } = { items };
+
+        if (response.data.nextPageToken) {
+          result.nextPageToken = response.data.nextPageToken;
+        }
+
+        return result;
       } catch {
-        return [];
+        return { items: [] };
       }
     },
 
@@ -500,24 +533,30 @@ export function buildWorkspaceDeviceCommandDeps(options: ServiceRuntimeOptions):
   const runtime = new ServiceRuntime(options);
 
   return {
-    listDevices: async (input: ListDevicesInput): Promise<Device[]> => {
+    listDevices: async (input: ListDevicesInput, options?: PaginationOptions) => {
       const auth = await runtime.getClient(scopes("workspace"));
       const admin = google.admin({ version: "directory_v1", auth });
-      const result: Device[] = [];
+      const items: Device[] = [];
+
+      const maxResults = options?.pageSize ?? 500;
+      const pageToken = options?.pageToken;
 
       try {
         if (input.type === "chromebook") {
           const params: Record<string, unknown> = {
             customerId: "my_customer",
-            maxResults: 500,
+            maxResults,
           };
           if (input.orgUnitPath) {
             params.orgUnitPath = input.orgUnitPath;
           }
+          if (pageToken !== undefined) {
+            params.pageToken = pageToken;
+          }
           const response = await admin.chromeosdevices.list(params);
           const devices = response.data.chromeosdevices ?? [];
           for (const d of devices) {
-            result.push({
+            items.push({
               deviceId: d.deviceId ?? "",
               email: d.annotatedUser ?? "",
               modelName: d.model ?? "",
@@ -527,14 +566,24 @@ export function buildWorkspaceDeviceCommandDeps(options: ServiceRuntimeOptions):
               lastSync: d.lastSync ?? "",
             });
           }
+
+          const result: { items: typeof items; nextPageToken?: string } = { items };
+          if (response.data.nextPageToken) {
+            result.nextPageToken = response.data.nextPageToken;
+          }
+          return result;
         } else if (input.type === "mobile") {
-          const response = await admin.mobiledevices.list({
+          const params: Record<string, unknown> = {
             customerId: "my_customer",
-            maxResults: 500,
-          });
+            maxResults,
+          };
+          if (pageToken !== undefined) {
+            params.pageToken = pageToken;
+          }
+          const response = await admin.mobiledevices.list(params);
           const devices = response.data.mobiledevices ?? [];
           for (const d of devices) {
-            result.push({
+            items.push({
               deviceId: d.deviceId ?? "",
               email: arrayToString(d.email),
               modelName: arrayToString(d.model),
@@ -544,26 +593,36 @@ export function buildWorkspaceDeviceCommandDeps(options: ServiceRuntimeOptions):
               lastSync: d.lastSync ?? "",
             });
           }
+
+          const result: { items: typeof items; nextPageToken?: string } = { items };
+          if (response.data.nextPageToken) {
+            result.nextPageToken = response.data.nextPageToken;
+          }
+          return result;
         } else {
           // Both types - fetch chromebooks and mobile
           const chromeParams: Record<string, unknown> = {
             customerId: "my_customer",
-            maxResults: 500,
+            maxResults,
           };
           if (input.orgUnitPath) {
             chromeParams.orgUnitPath = input.orgUnitPath;
           }
+          if (pageToken !== undefined) {
+            chromeParams.pageToken = pageToken;
+          }
+
           const [chromeResponse, mobileResponse] = await Promise.all([
             admin.chromeosdevices.list(chromeParams),
             admin.mobiledevices.list({
               customerId: "my_customer",
-              maxResults: 500,
+              maxResults,
             }),
           ]);
 
           const chromeDevices = chromeResponse.data.chromeosdevices ?? [];
           for (const d of chromeDevices) {
-            result.push({
+            items.push({
               deviceId: d.deviceId ?? "",
               email: d.annotatedUser ?? "",
               modelName: d.model ?? "",
@@ -576,7 +635,7 @@ export function buildWorkspaceDeviceCommandDeps(options: ServiceRuntimeOptions):
 
           const mobileDevices = mobileResponse.data.mobiledevices ?? [];
           for (const d of mobileDevices) {
-            result.push({
+            items.push({
               deviceId: d.deviceId ?? "",
               email: arrayToString(d.email),
               modelName: arrayToString(d.model),
@@ -586,12 +645,16 @@ export function buildWorkspaceDeviceCommandDeps(options: ServiceRuntimeOptions):
               lastSync: d.lastSync ?? "",
             });
           }
+
+          const result: { items: typeof items; nextPageToken?: string } = { items };
+          if (chromeResponse.data.nextPageToken) {
+            result.nextPageToken = chromeResponse.data.nextPageToken;
+          }
+          return result;
         }
       } catch {
-        return [];
+        return { items: [] };
       }
-
-      return result;
     },
 
     getDevice: async (deviceId: string): Promise<Device> => {

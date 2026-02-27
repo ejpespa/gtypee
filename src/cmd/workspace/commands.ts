@@ -1,9 +1,10 @@
 import { Command } from "commander";
 
 import { buildExecutionContext, type RootOptions } from "../execution-context.js";
+import type { PaginatedResult, PaginationOptions } from "../../types/pagination.js";
 
 export type WorkspaceUserCommandDeps = {
-  listUsers?: (orgUnitPath?: string) => Promise<WorkspaceUser[]>;
+  listUsers?: (orgUnitPath?: string, options?: PaginationOptions) => Promise<PaginatedResult<WorkspaceUser>>;
   createUser?: (input: CreateUserInput) => Promise<CreateUserResult>;
   deleteUser?: (email: string) => Promise<DeleteUserResult>;
   suspendUser?: (email: string) => Promise<SuspendUserResult>;
@@ -103,7 +104,7 @@ export type WorkspaceGroupCommandDeps = {
   deleteGroup?: (email: string) => Promise<DeleteGroupResult>;
   updateGroup?: (email: string, name: string) => Promise<UpdateGroupResult>;
   getGroup?: (email: string) => Promise<GroupInfo>;
-  listGroups?: () => Promise<GroupInfo[]>;
+  listGroups?: (options?: PaginationOptions) => Promise<PaginatedResult<GroupInfo>>;
   addGroupMember?: (groupEmail: string, memberEmail: string, role: string) => Promise<AddMemberResult>;
   removeGroupMember?: (groupEmail: string, memberEmail: string) => Promise<RemoveMemberResult>;
   listGroupMembers?: (groupEmail: string) => Promise<GroupMember[]>;
@@ -158,7 +159,7 @@ export type RemoveMemberResult = {
 };
 
 export type WorkspaceDeviceCommandDeps = {
-  listDevices?: (input: ListDevicesInput) => Promise<Device[]>;
+  listDevices?: (input: ListDevicesInput, options?: PaginationOptions) => Promise<PaginatedResult<Device>>;
   getDevice?: (deviceId: string) => Promise<Device>;
   wipeDevice?: (deviceId: string) => Promise<DeviceActionResult>;
   disableDevice?: (deviceId: string) => Promise<DeviceActionResult>;
@@ -256,7 +257,7 @@ export type DeleteOrgUnitResult = {
 };
 
 const defaultUserDeps: Required<WorkspaceUserCommandDeps> = {
-  listUsers: async (_orgUnitPath?: string) => [],
+  listUsers: async (_orgUnitPath?: string) => ({ items: [] }),
   createUser: async () => ({ userId: "", primaryEmail: "", password: "", applied: false }),
   deleteUser: async () => ({ email: "", applied: false }),
   suspendUser: async () => ({ email: "", suspended: false, applied: false }),
@@ -279,14 +280,14 @@ const defaultGroupDeps: Required<WorkspaceGroupCommandDeps> = {
   deleteGroup: async () => ({ email: "", applied: false }),
   updateGroup: async () => ({ email: "", name: "", applied: false }),
   getGroup: async () => ({ id: "", email: "", name: "" }),
-  listGroups: async () => [],
+  listGroups: async () => ({ items: [] }),
   addGroupMember: async () => ({ groupEmail: "", memberEmail: "", role: "", applied: false }),
   removeGroupMember: async () => ({ groupEmail: "", memberEmail: "", applied: false }),
   listGroupMembers: async () => [],
 };
 
 const defaultDeviceDeps: Required<WorkspaceDeviceCommandDeps> = {
-  listDevices: async () => [],
+  listDevices: async () => ({ items: [] }),
   getDevice: async () => ({ deviceId: "", email: "", modelName: "", osVersion: "", status: "", orgUnitPath: "", lastSync: "" }),
   wipeDevice: async () => ({ deviceId: "", applied: false }),
   disableDevice: async () => ({ deviceId: "", applied: false }),
@@ -342,21 +343,33 @@ export function registerWorkspaceCommands(
     .command("list")
     .description("List users in the domain, optionally filtered by org unit")
     .option("--org-unit <path>", "Organization unit path to filter by")
+    .option("--page-size <number>", "Number of users per page", parseInt)
+    .option("--page-token <token>", "Token for the next page")
     .action(async function actionListUsers(this: Command) {
       const rootOptions = this.optsWithGlobals() as RootOptions;
       const ctx = buildExecutionContext(rootOptions);
-      const opts = this.opts<{ orgUnit?: string }>();
-      const users = await userDeps.listUsers(fixOrgUnitPath(opts.orgUnit));
+      const opts = this.opts<{ orgUnit?: string; pageSize?: number; pageToken?: string }>();
+
+      const paginationOpts: import("../../types/pagination.js").PaginationOptions = {};
+      if (opts.pageSize !== undefined) paginationOpts.pageSize = opts.pageSize;
+      if (opts.pageToken !== undefined) paginationOpts.pageToken = opts.pageToken;
+
+      const result = await userDeps.listUsers(fixOrgUnitPath(opts.orgUnit), paginationOpts);
 
       if (ctx.output.mode === "json") {
-        process.stdout.write(`${JSON.stringify(users, null, 2)}\n`);
+        process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
         return;
       }
 
-      for (const user of users) {
+      for (const user of result.items) {
         const adminTag = user.isAdmin ? " [ADMIN]" : "";
         const susTag = user.suspended ? " [SUSPENDED]" : "";
         process.stdout.write(`${user.primaryEmail}${adminTag}${susTag} - ${user.orgUnitPath}\n`);
+      }
+
+      if (result.nextPageToken) {
+        process.stdout.write("---\n");
+        process.stdout.write(`Next page token: ${result.nextPageToken}\n`);
       }
     });
 
@@ -908,18 +921,31 @@ export function registerWorkspaceCommands(
   groupCmd
     .command("list")
     .description("List all groups")
+    .option("--page-size <number>", "Number of groups per page", parseInt)
+    .option("--page-token <token>", "Token for the next page")
     .action(async function actionListGroups(this: Command) {
       const rootOptions = this.optsWithGlobals() as RootOptions;
       const ctx = buildExecutionContext(rootOptions);
-      const groups = await groupDeps.listGroups();
+      const opts = this.opts<{ pageSize?: number; pageToken?: string }>();
+
+      const paginationOpts: import("../../types/pagination.js").PaginationOptions = {};
+      if (opts.pageSize !== undefined) paginationOpts.pageSize = opts.pageSize;
+      if (opts.pageToken !== undefined) paginationOpts.pageToken = opts.pageToken;
+
+      const result = await groupDeps.listGroups(paginationOpts);
 
       if (ctx.output.mode === "json") {
-        process.stdout.write(`${JSON.stringify(groups, null, 2)}\n`);
+        process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
         return;
       }
 
-      for (const group of groups) {
+      for (const group of result.items) {
         process.stdout.write(`${group.email} - ${group.name}\n`);
+      }
+
+      if (result.nextPageToken) {
+        process.stdout.write("---\n");
+        process.stdout.write(`Next page token: ${result.nextPageToken}\n`);
       }
     });
 
@@ -1009,20 +1035,31 @@ export function registerWorkspaceCommands(
     .description("List devices")
     .option("--type <type>", "Device type: chromebook, mobile")
     .option("--org-unit <path>", "Organization unit path")
+    .option("--page-size <number>", "Number of devices per page", parseInt)
+    .option("--page-token <token>", "Token for the next page")
     .action(async function actionListDevices(this: Command) {
       const rootOptions = this.optsWithGlobals() as RootOptions;
       const ctx = buildExecutionContext(rootOptions);
-      const opts = this.opts<{ type?: string; orgUnit?: string }>();
+      const opts = this.opts<{ type?: string; orgUnit?: string; pageSize?: number; pageToken?: string }>();
 
-      const devices = await deviceDeps.listDevices({ type: opts.type as "chromebook" | "mobile" | undefined, orgUnitPath: fixOrgUnitPath(opts.orgUnit) });
+      const paginationOpts: import("../../types/pagination.js").PaginationOptions = {};
+      if (opts.pageSize !== undefined) paginationOpts.pageSize = opts.pageSize;
+      if (opts.pageToken !== undefined) paginationOpts.pageToken = opts.pageToken;
+
+      const result = await deviceDeps.listDevices({ type: opts.type as "chromebook" | "mobile" | undefined, orgUnitPath: fixOrgUnitPath(opts.orgUnit) }, paginationOpts);
 
       if (ctx.output.mode === "json") {
-        process.stdout.write(`${JSON.stringify(devices, null, 2)}\n`);
+        process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
         return;
       }
 
-      for (const device of devices) {
+      for (const device of result.items) {
         process.stdout.write(`${device.deviceId} - ${device.email} - ${device.modelName} - ${device.status}\n`);
+      }
+
+      if (result.nextPageToken) {
+        process.stdout.write("---\n");
+        process.stdout.write(`Next page token: ${result.nextPageToken}\n`);
       }
     });
 

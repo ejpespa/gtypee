@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { Command } from "commander";
 
 import { registerWorkspaceCommands } from "../../../src/cmd/workspace/commands.js";
@@ -66,9 +66,11 @@ describe("workspace user commands", () => {
     const root = new Command();
     const workspace = root.command("workspace");
     registerWorkspaceCommands(workspace, {
-      listUsers: async () => [
-        { id: "u1", primaryEmail: "user@example.com", name: { givenName: "Test", familyName: "User" }, suspended: false, orgUnitPath: "/", isAdmin: false },
-      ],
+      listUsers: async () => ({
+        items: [
+          { id: "u1", primaryEmail: "user@example.com", name: { givenName: "Test", familyName: "User" }, suspended: false, orgUnitPath: "/", isAdmin: false },
+        ],
+      }),
     });
 
     const stdout = await captureStdout(() => root.parseAsync(["node", "typee", "workspace", "user", "list"]));
@@ -151,6 +153,116 @@ describe("workspace user commands", () => {
   });
 });
 
+describe("workspace user list with pagination", () => {
+  it("should pass pageSize option to listUsers", async () => {
+    const listUsers = vi.fn().mockResolvedValue({
+      items: [{ id: "u1", primaryEmail: "user@example.com", name: { givenName: "Test", familyName: "User" }, suspended: false, orgUnitPath: "/", isAdmin: false }],
+    });
+    const program = new Command();
+    program.option("--json");
+    const workspace = program.command("workspace");
+    registerWorkspaceCommands(workspace, { listUsers });
+
+    let stdout = "";
+    const originalWrite = process.stdout.write;
+    process.stdout.write = ((chunk: unknown): boolean => {
+      stdout += String(chunk);
+      return true;
+    }) as typeof process.stdout.write;
+
+    try {
+      await program.parseAsync(["node", "test", "workspace", "user", "list", "--page-size", "50"]);
+    } finally {
+      process.stdout.write = originalWrite;
+    }
+
+    expect(listUsers).toHaveBeenCalledTimes(1);
+    expect(listUsers.mock.calls[0]).toHaveLength(2);
+    expect(listUsers.mock.calls[0][0]).toBeUndefined();
+    expect(listUsers.mock.calls[0][1]).toEqual(expect.objectContaining({ pageSize: 50 }));
+  });
+
+  it("should pass pageToken option to listUsers", async () => {
+    const listUsers = vi.fn().mockResolvedValue({
+      items: [],
+    });
+    const program = new Command();
+    program.option("--json");
+    const workspace = program.command("workspace");
+    registerWorkspaceCommands(workspace, { listUsers });
+
+    let stdout = "";
+    const originalWrite = process.stdout.write;
+    process.stdout.write = ((chunk: unknown): boolean => {
+      stdout += String(chunk);
+      return true;
+    }) as typeof process.stdout.write;
+
+    try {
+      await program.parseAsync(["node", "test", "workspace", "user", "list", "--page-token", "abc123"]);
+    } finally {
+      process.stdout.write = originalWrite;
+    }
+
+    expect(listUsers).toHaveBeenCalledTimes(1);
+    expect(listUsers.mock.calls[0]).toHaveLength(2);
+    expect(listUsers.mock.calls[0][0]).toBeUndefined();
+    expect(listUsers.mock.calls[0][1]).toEqual(expect.objectContaining({ pageToken: "abc123" }));
+  });
+
+  it("should output nextPageToken in JSON mode", async () => {
+    const listUsers = vi.fn().mockResolvedValue({
+      items: [{ id: "u1", primaryEmail: "user@example.com", name: { givenName: "Test", familyName: "User" }, suspended: false, orgUnitPath: "/", isAdmin: false }],
+      nextPageToken: "users-next-token",
+    });
+    const program = new Command();
+    program.option("--json");
+    const workspace = program.command("workspace");
+    registerWorkspaceCommands(workspace, { listUsers });
+
+    let stdout = "";
+    const originalWrite = process.stdout.write;
+    process.stdout.write = ((chunk: unknown): boolean => {
+      stdout += String(chunk);
+      return true;
+    }) as typeof process.stdout.write;
+
+    try {
+      await program.parseAsync(["node", "test", "--json", "workspace", "user", "list"]);
+    } finally {
+      process.stdout.write = originalWrite;
+    }
+
+    const parsed = JSON.parse(stdout) as { nextPageToken?: string };
+    expect(parsed.nextPageToken).toBe("users-next-token");
+  });
+
+  it("should display nextPageToken in text mode", async () => {
+    const listUsers = vi.fn().mockResolvedValue({
+      items: [{ id: "u1", primaryEmail: "user@example.com", name: { givenName: "Test", familyName: "User" }, suspended: false, orgUnitPath: "/", isAdmin: false }],
+      nextPageToken: "users-next-token",
+    });
+    const program = new Command();
+    const workspace = program.command("workspace");
+    registerWorkspaceCommands(workspace, { listUsers });
+
+    let stdout = "";
+    const originalWrite = process.stdout.write;
+    process.stdout.write = ((chunk: unknown): boolean => {
+      stdout += String(chunk);
+      return true;
+    }) as typeof process.stdout.write;
+
+    try {
+      await program.parseAsync(["node", "test", "workspace", "user", "list"]);
+    } finally {
+      process.stdout.write = originalWrite;
+    }
+
+    expect(stdout).toContain("Next page token: users-next-token");
+  });
+});
+
 describe("workspace group commands", () => {
   it("registers group subcommands", () => {
     const workspace = new Command("workspace");
@@ -171,9 +283,11 @@ describe("workspace group commands", () => {
     const root = new Command();
     const workspace = root.command("workspace");
     registerWorkspaceCommands(workspace, {
-      listGroups: async () => [
-        { id: "g1", email: "group@example.com", name: "Test Group" },
-      ],
+      listGroups: async () => ({
+        items: [
+          { id: "g1", email: "group@example.com", name: "Test Group" },
+        ],
+      }),
     });
 
     const stdout = await captureStdout(() => root.parseAsync(["node", "typee", "workspace", "group", "list"]));
@@ -227,6 +341,110 @@ describe("workspace group commands", () => {
       root.parseAsync(["node", "typee", "workspace", "group", "list-members", "--group", "group@example.com"])
     );
     expect(stdout).toContain("member@example.com");
+  });
+});
+
+describe("workspace group list with pagination", () => {
+  it("should pass pageSize option to listGroups", async () => {
+    const listGroups = vi.fn().mockResolvedValue({
+      items: [{ id: "g1", email: "group@example.com", name: "Test Group" }],
+    });
+    const program = new Command();
+    program.option("--json");
+    const workspace = program.command("workspace");
+    registerWorkspaceCommands(workspace, { listGroups });
+
+    let stdout = "";
+    const originalWrite = process.stdout.write;
+    process.stdout.write = ((chunk: unknown): boolean => {
+      stdout += String(chunk);
+      return true;
+    }) as typeof process.stdout.write;
+
+    try {
+      await program.parseAsync(["node", "test", "workspace", "group", "list", "--page-size", "30"]);
+    } finally {
+      process.stdout.write = originalWrite;
+    }
+
+    expect(listGroups).toHaveBeenCalledWith(expect.objectContaining({ pageSize: 30 }));
+  });
+
+  it("should pass pageToken option to listGroups", async () => {
+    const listGroups = vi.fn().mockResolvedValue({
+      items: [],
+    });
+    const program = new Command();
+    program.option("--json");
+    const workspace = program.command("workspace");
+    registerWorkspaceCommands(workspace, { listGroups });
+
+    let stdout = "";
+    const originalWrite = process.stdout.write;
+    process.stdout.write = ((chunk: unknown): boolean => {
+      stdout += String(chunk);
+      return true;
+    }) as typeof process.stdout.write;
+
+    try {
+      await program.parseAsync(["node", "test", "workspace", "group", "list", "--page-token", "xyz789"]);
+    } finally {
+      process.stdout.write = originalWrite;
+    }
+
+    expect(listGroups).toHaveBeenCalledWith(expect.objectContaining({ pageToken: "xyz789" }));
+  });
+
+  it("should output nextPageToken in JSON mode", async () => {
+    const listGroups = vi.fn().mockResolvedValue({
+      items: [{ id: "g1", email: "group@example.com", name: "Test Group" }],
+      nextPageToken: "groups-next-token",
+    });
+    const program = new Command();
+    program.option("--json");
+    const workspace = program.command("workspace");
+    registerWorkspaceCommands(workspace, { listGroups });
+
+    let stdout = "";
+    const originalWrite = process.stdout.write;
+    process.stdout.write = ((chunk: unknown): boolean => {
+      stdout += String(chunk);
+      return true;
+    }) as typeof process.stdout.write;
+
+    try {
+      await program.parseAsync(["node", "test", "--json", "workspace", "group", "list"]);
+    } finally {
+      process.stdout.write = originalWrite;
+    }
+
+    const parsed = JSON.parse(stdout) as { nextPageToken?: string };
+    expect(parsed.nextPageToken).toBe("groups-next-token");
+  });
+
+  it("should display nextPageToken in text mode", async () => {
+    const listGroups = vi.fn().mockResolvedValue({
+      items: [{ id: "g1", email: "group@example.com", name: "Test Group" }],
+      nextPageToken: "groups-next-token",
+    });
+    const program = new Command();
+    const workspace = program.command("workspace");
+    registerWorkspaceCommands(workspace, { listGroups });
+
+    let stdout = "";
+    const originalWrite = process.stdout.write;
+    process.stdout.write = ((chunk: unknown): boolean => {
+      stdout += String(chunk);
+      return true;
+    }) as typeof process.stdout.write;
+
+    try {
+      await program.parseAsync(["node", "test", "workspace", "group", "list"]);
+    } finally {
+      process.stdout.write = originalWrite;
+    }
+
+    expect(stdout).toContain("Next page token: groups-next-token");
   });
 });
 
@@ -295,14 +513,120 @@ describe("workspace device commands", () => {
     const root = new Command();
     const workspace = root.command("workspace");
     registerWorkspaceCommands(workspace, {
-      listDevices: async () => [
-        { deviceId: "d1", email: "user@example.com", modelName: "Chromebook", osVersion: "1.0", status: "ACTIVE", orgUnitPath: "/", lastSync: "2024-01-01" },
-      ],
+      listDevices: async () => ({
+        items: [
+          { deviceId: "d1", email: "user@example.com", modelName: "Chromebook", osVersion: "1.0", status: "ACTIVE", orgUnitPath: "/", lastSync: "2024-01-01" },
+        ],
+      }),
     });
 
     const stdout = await captureStdout(() => root.parseAsync(["node", "typee", "workspace", "device", "list"]));
     expect(stdout).toContain("d1");
     expect(stdout).toContain("Chromebook");
+  });
+});
+
+describe("workspace device list with pagination", () => {
+  it("should pass pageSize option to listDevices", async () => {
+    const listDevices = vi.fn().mockResolvedValue({
+      items: [{ deviceId: "d1", email: "user@example.com", modelName: "Chromebook", osVersion: "1.0", status: "ACTIVE", orgUnitPath: "/", lastSync: "2024-01-01" }],
+    });
+    const program = new Command();
+    program.option("--json");
+    const workspace = program.command("workspace");
+    registerWorkspaceCommands(workspace, { listDevices });
+
+    let stdout = "";
+    const originalWrite = process.stdout.write;
+    process.stdout.write = ((chunk: unknown): boolean => {
+      stdout += String(chunk);
+      return true;
+    }) as typeof process.stdout.write;
+
+    try {
+      await program.parseAsync(["node", "test", "workspace", "device", "list", "--page-size", "100"]);
+    } finally {
+      process.stdout.write = originalWrite;
+    }
+
+    expect(listDevices).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ pageSize: 100 }));
+  });
+
+  it("should pass pageToken option to listDevices", async () => {
+    const listDevices = vi.fn().mockResolvedValue({
+      items: [],
+    });
+    const program = new Command();
+    program.option("--json");
+    const workspace = program.command("workspace");
+    registerWorkspaceCommands(workspace, { listDevices });
+
+    let stdout = "";
+    const originalWrite = process.stdout.write;
+    process.stdout.write = ((chunk: unknown): boolean => {
+      stdout += String(chunk);
+      return true;
+    }) as typeof process.stdout.write;
+
+    try {
+      await program.parseAsync(["node", "test", "workspace", "device", "list", "--page-token", "dev123"]);
+    } finally {
+      process.stdout.write = originalWrite;
+    }
+
+    expect(listDevices).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ pageToken: "dev123" }));
+  });
+
+  it("should output nextPageToken in JSON mode", async () => {
+    const listDevices = vi.fn().mockResolvedValue({
+      items: [{ deviceId: "d1", email: "user@example.com", modelName: "Chromebook", osVersion: "1.0", status: "ACTIVE", orgUnitPath: "/", lastSync: "2024-01-01" }],
+      nextPageToken: "devices-next-token",
+    });
+    const program = new Command();
+    program.option("--json");
+    const workspace = program.command("workspace");
+    registerWorkspaceCommands(workspace, { listDevices });
+
+    let stdout = "";
+    const originalWrite = process.stdout.write;
+    process.stdout.write = ((chunk: unknown): boolean => {
+      stdout += String(chunk);
+      return true;
+    }) as typeof process.stdout.write;
+
+    try {
+      await program.parseAsync(["node", "test", "--json", "workspace", "device", "list"]);
+    } finally {
+      process.stdout.write = originalWrite;
+    }
+
+    const parsed = JSON.parse(stdout) as { nextPageToken?: string };
+    expect(parsed.nextPageToken).toBe("devices-next-token");
+  });
+
+  it("should display nextPageToken in text mode", async () => {
+    const listDevices = vi.fn().mockResolvedValue({
+      items: [{ deviceId: "d1", email: "user@example.com", modelName: "Chromebook", osVersion: "1.0", status: "ACTIVE", orgUnitPath: "/", lastSync: "2024-01-01" }],
+      nextPageToken: "devices-next-token",
+    });
+    const program = new Command();
+    const workspace = program.command("workspace");
+    registerWorkspaceCommands(workspace, { listDevices });
+
+    let stdout = "";
+    const originalWrite = process.stdout.write;
+    process.stdout.write = ((chunk: unknown): boolean => {
+      stdout += String(chunk);
+      return true;
+    }) as typeof process.stdout.write;
+
+    try {
+      await program.parseAsync(["node", "test", "workspace", "device", "list"]);
+    } finally {
+      process.stdout.write = originalWrite;
+    }
+
+    expect(stdout).toContain("Next page token: devices-next-token");
   });
 });
 
