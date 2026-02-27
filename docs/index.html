@@ -1,0 +1,1402 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>gtypee – TypeScript CLI for Google Workspace Administration</title>
+    <meta name="description"
+        content="gtypee is a powerful TypeScript CLI for managing Gmail, Drive, Calendar, and 15+ Google Workspace services. OAuth 2.0 & Service Account support, JSON output for scripting.">
+    <meta name="keywords"
+        content="gtypee, Google Workspace CLI, Gmail CLI, Google Drive CLI, Google Calendar CLI, TypeScript CLI, workspace admin, Google API, automation, service account, OAuth">
+    <meta name="author" content="ejpespa">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://github.com/ejpespa/gtypee">
+    <!-- Open Graph -->
+    <meta property="og:title" content="gtypee – TypeScript CLI for Google Workspace">
+    <meta property="og:description"
+        content="Manage Gmail, Drive, Calendar, and 15+ Google services from the terminal. Perfect for personal productivity and workspace admin.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://github.com/ejpespa/gtypee">
+    <meta property="og:image" content="https://raw.githubusercontent.com/ejpespa/gtypee/main/logo.svg">
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="gtypee – TypeScript CLI for Google Workspace">
+    <meta name="twitter:description"
+        content="Manage Gmail, Drive, Calendar, and 15+ Google services from the terminal.">
+    <!-- JSON-LD Structured Data -->
+    <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "gtypee",
+    "applicationCategory": "DeveloperApplication",
+    "operatingSystem": "Windows, macOS, Linux",
+    "description": "A powerful TypeScript CLI for managing Gmail, Drive, Calendar, and 15+ Google Workspace services.",
+    "url": "https://github.com/ejpespa/gtypee",
+    "license": "https://opensource.org/licenses/ISC",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+  }
+  </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwindcss.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        gblue: '#4285F4', gred: '#EA4335', gyellow: '#FBBC05', ggreen: '#34A853',
+                    },
+                    fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'], mono: ['JetBrains Mono', 'Fira Code', 'monospace'] },
+                }
+            }
+        }
+    </script>
+    <script
+    src="https://rybbit.asscat.edu.ph/api/script.js"
+    data-site-id="15"
+    defer
+></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/powershell.min.js"></script>
+    <style>
+        ::selection {
+            background: #4285F433;
+        }
+
+        .gradient-text {
+            background: linear-gradient(135deg, #4285F4, #34A853, #FBBC05, #EA4335);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .glass {
+            background: rgba(255, 255, 255, 0.04);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .code-block {
+            position: relative;
+        }
+
+        .code-block .copy-btn {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            opacity: 0;
+            transition: opacity .2s;
+        }
+
+        .code-block:hover .copy-btn {
+            opacity: 1;
+        }
+
+        .nav-link {
+            position: relative;
+        }
+
+        .nav-link::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #4285F4, #34A853);
+            transition: width .3s;
+        }
+
+        .nav-link:hover::after {
+            width: 100%;
+        }
+
+        .service-card {
+            transition: transform .25s, box-shadow .25s;
+        }
+
+        .service-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .fade-in {
+            animation: fadeIn .6s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px)
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0)
+            }
+        }
+
+        .glow {
+            box-shadow: 0 0 60px rgba(66, 133, 244, 0.15);
+        }
+
+        pre code.hljs {
+            background: transparent !important;
+            padding: 0 !important;
+        }
+
+        .sidebar-link.active {
+            color: #4285F4;
+            border-left-color: #4285F4;
+        }
+
+        html {
+            scroll-padding-top: 80px;
+        }
+    </style>
+</head>
+
+<body class="bg-slate-950 text-slate-300 font-sans antialiased">
+
+    <!-- Navigation -->
+    <nav id="navbar" class="fixed top-0 w-full z-50 transition-all duration-300 border-b border-transparent">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <a href="#" class="flex items-center gap-3 group">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 120" class="h-8 w-auto">
+                        <rect width="100%" height="100%" fill="#1a1a1a" rx="8" />
+                        <rect x="30" y="35" width="10" height="10" fill="#4285F4" />
+                        <rect x="40" y="45" width="10" height="10" fill="#4285F4" />
+                        <rect x="50" y="55" width="10" height="10" fill="#4285F4" />
+                        <rect x="40" y="65" width="10" height="10" fill="#EA4335" />
+                        <rect x="30" y="75" width="10" height="10" fill="#EA4335" />
+                        <rect x="70" y="75" width="20" height="10" fill="#EA4335" />
+                        <text x="110" y="82" font-family="monospace, Consolas, 'Courier New'" font-size="60"
+                            font-weight="bold" fill="#ffffff" letter-spacing="-2">gtypee</text>
+                        <rect x="340" y="35" width="22" height="26" fill="#FBBC05" />
+                        <rect x="340" y="61" width="22" height="24" fill="#34A853" />
+                    </svg>
+                </a>
+                <div class="hidden md:flex items-center gap-6 text-sm">
+                    <a href="#features" class="nav-link text-slate-400 hover:text-white transition-colors">Features</a>
+                    <a href="#installation"
+                        class="nav-link text-slate-400 hover:text-white transition-colors">Install</a>
+                    <a href="#authentication"
+                        class="nav-link text-slate-400 hover:text-white transition-colors">Auth</a>
+                    <a href="#commands" class="nav-link text-slate-400 hover:text-white transition-colors">Commands</a>
+                    <a href="#scenarios"
+                        class="nav-link text-slate-400 hover:text-white transition-colors">Scenarios</a>
+                    <a href="#configuration"
+                        class="nav-link text-slate-400 hover:text-white transition-colors">Config</a>
+                    <a href="https://github.com/ejpespa/gtypee" target="_blank" rel="noopener"
+                        class="flex items-center gap-1.5 bg-white/5 hover:bg-white/10 text-white px-4 py-1.5 rounded-lg transition-all text-sm border border-white/10">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path
+                                d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
+                        </svg>
+                        GitHub
+                    </a>
+                </div>
+                <button id="mobile-menu-btn" class="md:hidden text-slate-400 hover:text-white">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <div id="mobile-menu" class="hidden md:hidden bg-slate-900/95 backdrop-blur-xl border-t border-white/5">
+            <div class="px-4 py-3 space-y-2">
+                <a href="#features" class="block py-2 text-slate-400 hover:text-white">Features</a>
+                <a href="#installation" class="block py-2 text-slate-400 hover:text-white">Install</a>
+                <a href="#authentication" class="block py-2 text-slate-400 hover:text-white">Auth</a>
+                <a href="#commands" class="block py-2 text-slate-400 hover:text-white">Commands</a>
+                <a href="#scenarios" class="block py-2 text-slate-400 hover:text-white">Scenarios</a>
+                <a href="#configuration" class="block py-2 text-slate-400 hover:text-white">Config</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <header class="relative min-h-screen flex items-center overflow-hidden">
+        <div class="absolute inset-0">
+            <div class="absolute top-1/4 left-1/4 w-96 h-96 bg-gblue/10 rounded-full blur-3xl animate-pulse"></div>
+            <div class="absolute bottom-1/4 right-1/4 w-96 h-96 bg-ggreen/10 rounded-full blur-3xl animate-pulse"
+                style="animation-delay:2s"></div>
+            <div class="absolute top-1/2 left-1/2 w-64 h-64 bg-gyellow/5 rounded-full blur-3xl animate-pulse"
+                style="animation-delay:4s"></div>
+        </div>
+        <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-32 text-center">
+            <div class="fade-in">
+                <div
+                    class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-gblue/10 border border-gblue/20 text-gblue text-sm font-medium mb-8">
+                    <span class="w-2 h-2 bg-ggreen rounded-full animate-pulse"></span>
+                    v1.0 — Now Available on npm
+                </div>
+                <div class="flex justify-center mb-6">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 120"
+                        class="h-24 sm:h-32 lg:h-40 w-auto drop-shadow-2xl">
+                        <rect width="100%" height="100%" fill="#1a1a1a" rx="12" />
+                        <rect x="30" y="35" width="10" height="10" fill="#4285F4" />
+                        <rect x="40" y="45" width="10" height="10" fill="#4285F4" />
+                        <rect x="50" y="55" width="10" height="10" fill="#4285F4" />
+                        <rect x="40" y="65" width="10" height="10" fill="#EA4335" />
+                        <rect x="30" y="75" width="10" height="10" fill="#EA4335" />
+                        <rect x="70" y="75" width="20" height="10" fill="#EA4335" />
+                        <text x="110" y="82" font-family="monospace, Consolas, 'Courier New'" font-size="60"
+                            font-weight="bold" fill="#ffffff" letter-spacing="-2">gtypee</text>
+                        <rect x="340" y="35" width="22" height="26" fill="#FBBC05" />
+                        <rect x="340" y="61" width="22" height="24" fill="#34A853" />
+                    </svg>
+                </div>
+                <h1 class="sr-only">gtypee — TypeScript CLI for Google Workspace</h1>
+                <p class="text-xl sm:text-2xl text-slate-400 max-w-3xl mx-auto mb-4 font-light">
+                    TypeScript CLI for <span class="text-white font-medium">Google Workspace</span> administration
+                </p>
+                <p class="text-base text-slate-500 max-w-2xl mx-auto mb-10">
+                    Manage Gmail, Drive, Calendar, and 15+ Google services from the terminal. Perfect for personal
+                    productivity, workspace administration, and automation scripts.
+                </p>
+                <div class="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
+                    <div class="code-block glass rounded-xl px-6 py-3 font-mono text-sm inline-flex items-center gap-3">
+                        <span class="text-ggreen">$</span>
+                        <span class="text-white">npm install -g gtypee</span>
+                        <button onclick="navigator.clipboard.writeText('npm install -g gtypee')"
+                            class="text-slate-500 hover:text-white transition-colors" title="Copy">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                        </button>
+                    </div>
+                    <a href="#quick-start"
+                        class="bg-gradient-to-r from-gblue to-gblue/80 hover:from-gblue/90 hover:to-gblue/70 text-white px-8 py-3 rounded-xl font-semibold transition-all shadow-lg shadow-gblue/20 hover:shadow-gblue/30">
+                        Get Started →
+                    </a>
+                </div>
+                <div class="flex flex-wrap justify-center gap-3 text-sm">
+                    <span class="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-slate-400">Node.js
+                        20+</span>
+                    <span class="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-slate-400">ISC
+                        License</span>
+                    <span class="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-slate-400">OAuth
+                        2.0</span>
+                    <span class="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-slate-400">Service
+                        Account</span>
+                    <span class="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-slate-400">JSON
+                        Output</span>
+                </div>
+            </div>
+        </div>
+        <div class="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce">
+            <svg class="w-6 h-6 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+            </svg>
+        </div>
+    </header>
+
+    <!-- Features Section -->
+    <section id="features" class="py-24 relative">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl sm:text-4xl font-bold text-white mb-4">Key Features</h2>
+                <p class="text-slate-400 max-w-xl mx-auto">Everything you need to manage Google Workspace from the
+                    command line</p>
+            </div>
+            <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div class="service-card glass rounded-2xl p-6">
+                    <div class="w-12 h-12 rounded-xl bg-gblue/15 flex items-center justify-center mb-4">
+                        <svg class="w-6 h-6 text-gblue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-semibold text-white mb-2">15+ Google Services</h3>
+                    <p class="text-slate-400 text-sm">Gmail, Drive, Calendar, Docs, Sheets, Slides, Tasks, Forms,
+                        Contacts, People, Chat, Classroom, Groups, Keep, Apps Script</p>
+                </div>
+                <div class="service-card glass rounded-2xl p-6">
+                    <div class="w-12 h-12 rounded-xl bg-ggreen/15 flex items-center justify-center mb-4">
+                        <svg class="w-6 h-6 text-ggreen" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-semibold text-white mb-2">Two Auth Modes</h3>
+                    <p class="text-slate-400 text-sm">OAuth 2.0 for personal accounts, Service Account with domain-wide
+                        delegation for workspace administration</p>
+                </div>
+                <div class="service-card glass rounded-2xl p-6">
+                    <div class="w-12 h-12 rounded-xl bg-gyellow/15 flex items-center justify-center mb-4">
+                        <svg class="w-6 h-6 text-gyellow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-semibold text-white mb-2">JSON Output</h3>
+                    <p class="text-slate-400 text-sm">All commands support <code
+                            class="text-gyellow/80 bg-gyellow/10 px-1 rounded">--json</code> for scripting with jq,
+                        PowerShell, or Python</p>
+                </div>
+                <div class="service-card glass rounded-2xl p-6">
+                    <div class="w-12 h-12 rounded-xl bg-emerald-500/15 flex items-center justify-center mb-4">
+                        <svg class="w-6 h-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-semibold text-white mb-2">Pagination Support</h3>
+                    <p class="text-slate-400 text-sm">Control result pages with <code
+                            class="text-emerald-400/80 bg-emerald-400/10 px-1 rounded">--page-size</code> and <code
+                            class="text-emerald-400/80 bg-emerald-400/10 px-1 rounded">--page-token</code> for large
+                        datasets</p>
+                </div>
+                <div class="service-card glass rounded-2xl p-6">
+                    <div class="w-12 h-12 rounded-xl bg-gred/15 flex items-center justify-center mb-4">
+                        <svg class="w-6 h-6 text-gred" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-semibold text-white mb-2">Workspace Admin</h3>
+                    <p class="text-slate-400 text-sm">Full user, group, org unit, and device management for Google
+                        Workspace domains</p>
+                </div>
+                <div class="service-card glass rounded-2xl p-6">
+                    <div class="w-12 h-12 rounded-xl bg-purple-500/15 flex items-center justify-center mb-4">
+                        <svg class="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-semibold text-white mb-2">Beginner Friendly</h3>
+                    <p class="text-slate-400 text-sm">Intuitive commands with helpful examples, desire-path aliases, and
+                        comprehensive documentation</p>
+                </div>
+                <div class="service-card glass rounded-2xl p-6">
+                    <div class="w-12 h-12 rounded-xl bg-cyan-500/15 flex items-center justify-center mb-4">
+                        <svg class="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-semibold text-white mb-2">Secure by Default</h3>
+                    <p class="text-slate-400 text-sm">AES-256-GCM encrypted credentials, machine-derived keys, and safe
+                        <code class="text-cyan-400/80 bg-cyan-400/10 px-1 rounded">--dry-run</code> mode
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Supported Services Table -->
+    <section class="py-20 bg-slate-900/50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-12">
+                <h2 class="text-3xl font-bold text-white mb-4">Supported Services</h2>
+                <p class="text-slate-400">Works with both personal Google accounts and Workspace admin</p>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full max-w-4xl mx-auto text-sm">
+                    <thead>
+                        <tr class="border-b border-white/10">
+                            <th class="px-4 py-3 text-left text-slate-300 font-semibold">Service</th>
+                            <th class="px-4 py-3 text-left text-slate-300 font-semibold">API</th>
+                            <th class="px-4 py-3 text-center text-slate-300 font-semibold">Personal</th>
+                            <th class="px-4 py-3 text-center text-slate-300 font-semibold">Workspace</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-white/5">
+                        <tr>
+                            <td class="px-4 py-2.5 text-white">Gmail</td>
+                            <td class="px-4 py-2.5 text-slate-400">Gmail API</td>
+                            <td class="px-4 py-2.5 text-center text-ggreen">✓</td>
+                            <td class="px-4 py-2.5 text-center text-ggreen">✓</td>
+                        </tr>
+                        <tr>
+                            <td class="px-4 py-2.5 text-white">Calendar</td>
+                            <td class="px-4 py-2.5 text-slate-400">Calendar API</td>
+                            <td class="px-4 py-2.5 text-center text-ggreen">✓</td>
+                            <td class="px-4 py-2.5 text-center text-ggreen">✓</td>
+                        </tr>
+                        <tr>
+                            <td class="px-4 py-2.5 text-white">Drive</td>
+                            <td class="px-4 py-2.5 text-slate-400">Drive API</td>
+                            <td class="px-4 py-2.5 text-center text-ggreen">✓</td>
+                            <td class="px-4 py-2.5 text-center text-ggreen">✓</td>
+                        </tr>
+                        <tr>
+                            <td class="px-4 py-2.5 text-white">Docs / Sheets / Slides</td>
+                            <td class="px-4 py-2.5 text-slate-400">Respective APIs + Drive</td>
+                            <td class="px-4 py-2.5 text-center text-ggreen">✓</td>
+                            <td class="px-4 py-2.5 text-center text-ggreen">✓</td>
+                        </tr>
+                        <tr>
+                            <td class="px-4 py-2.5 text-white">Tasks</td>
+                            <td class="px-4 py-2.5 text-slate-400">Tasks API</td>
+                            <td class="px-4 py-2.5 text-center text-ggreen">✓</td>
+                            <td class="px-4 py-2.5 text-center text-ggreen">✓</td>
+                        </tr>
+                        <tr>
+                            <td class="px-4 py-2.5 text-white">Forms</td>
+                            <td class="px-4 py-2.5 text-slate-400">Forms API</td>
+                            <td class="px-4 py-2.5 text-center text-ggreen">✓</td>
+                            <td class="px-4 py-2.5 text-center text-ggreen">✓</td>
+                        </tr>
+                        <tr>
+                            <td class="px-4 py-2.5 text-white">Contacts / People</td>
+                            <td class="px-4 py-2.5 text-slate-400">People API</td>
+                            <td class="px-4 py-2.5 text-center text-ggreen">✓</td>
+                            <td class="px-4 py-2.5 text-center text-ggreen">✓</td>
+                        </tr>
+                        <tr>
+                            <td class="px-4 py-2.5 text-white">Chat</td>
+                            <td class="px-4 py-2.5 text-slate-400">Chat API</td>
+                            <td class="px-4 py-2.5 text-center text-ggreen">✓</td>
+                            <td class="px-4 py-2.5 text-center text-ggreen">✓</td>
+                        </tr>
+                        <tr>
+                            <td class="px-4 py-2.5 text-white">Classroom</td>
+                            <td class="px-4 py-2.5 text-slate-400">Classroom API</td>
+                            <td class="px-4 py-2.5 text-center text-ggreen">✓</td>
+                            <td class="px-4 py-2.5 text-center text-ggreen">✓</td>
+                        </tr>
+                        <tr>
+                            <td class="px-4 py-2.5 text-white">Apps Script</td>
+                            <td class="px-4 py-2.5 text-slate-400">Apps Script API + Drive</td>
+                            <td class="px-4 py-2.5 text-center text-ggreen">✓</td>
+                            <td class="px-4 py-2.5 text-center text-ggreen">✓</td>
+                        </tr>
+                        <tr>
+                            <td class="px-4 py-2.5 text-white">Groups</td>
+                            <td class="px-4 py-2.5 text-slate-400">Admin SDK Directory</td>
+                            <td class="px-4 py-2.5 text-center text-slate-600">—</td>
+                            <td class="px-4 py-2.5 text-center text-ggreen">✓</td>
+                        </tr>
+                        <tr>
+                            <td class="px-4 py-2.5 text-white">Keep</td>
+                            <td class="px-4 py-2.5 text-slate-400">Keep API</td>
+                            <td class="px-4 py-2.5 text-center text-slate-600">—</td>
+                            <td class="px-4 py-2.5 text-center text-ggreen">✓</td>
+                        </tr>
+                        <tr>
+                            <td class="px-4 py-2.5 text-white">Workspace Admin</td>
+                            <td class="px-4 py-2.5 text-slate-400">Admin SDK API</td>
+                            <td class="px-4 py-2.5 text-center text-slate-600">—</td>
+                            <td class="px-4 py-2.5 text-center text-ggreen">✓</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <!-- Installation -->
+    <section id="installation" class="py-24">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 class="text-3xl font-bold text-white mb-8 flex items-center gap-3">
+                <span
+                    class="w-8 h-8 rounded-lg bg-gblue/15 flex items-center justify-center text-gblue text-sm font-bold">1</span>
+                Installation
+            </h2>
+            <div class="space-y-6">
+                <div class="glass rounded-2xl p-6">
+                    <h3 class="text-lg font-semibold text-white mb-3">From npm <span
+                            class="text-xs text-ggreen bg-ggreen/10 px-2 py-0.5 rounded-full ml-2">recommended</span>
+                    </h3>
+                    <div class="code-block bg-surface-950 rounded-xl p-4 font-mono text-sm overflow-x-auto">
+                        <pre><code class="language-bash">npm install -g gtypee
+gtypee --help</code></pre>
+                    </div>
+                </div>
+                <div class="glass rounded-2xl p-6">
+                    <h3 class="text-lg font-semibold text-white mb-3">From source</h3>
+                    <div class="code-block bg-surface-950 rounded-xl p-4 font-mono text-sm overflow-x-auto">
+                        <pre><code class="language-bash">git clone https://github.com/ejpespa/gtypee.git
+cd gtypee
+npm install
+npm run build
+npm link
+gtypee --help</code></pre>
+                    </div>
+                </div>
+                <div
+                    class="flex items-start gap-3 text-sm text-slate-400 bg-gblue/5 border border-gblue/10 rounded-xl p-4">
+                    <svg class="w-5 h-5 text-gblue flex-shrink-0 mt-0.5" fill="none" stroke="currentColor"
+                        viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span><strong class="text-white">Prerequisites:</strong> Node.js 20+, npm, and a Google Cloud
+                        project (free tier works)</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Quick Start -->
+    <section id="quick-start" class="py-24 bg-slate-900/50">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 class="text-3xl font-bold text-white mb-8 flex items-center gap-3">
+                <span
+                    class="w-8 h-8 rounded-lg bg-ggreen/15 flex items-center justify-center text-ggreen text-sm font-bold">2</span>
+                Quick Start
+            </h2>
+            <div class="code-block glass rounded-2xl p-6">
+                <div class="bg-surface-950 rounded-xl p-4 font-mono text-sm overflow-x-auto">
+                    <pre><code class="language-bash"># Install from npm
+npm install -g gtypee
+
+# Set up authentication
+gtypee auth add --email you@gmail.com
+
+# Start using
+gtypee gmail labels
+gtypee drive ls
+gtypee calendar events
+gtypee people me</code></pre>
+                </div>
+            </div>
+            <div class="mt-6 glass rounded-2xl p-6">
+                <h3 class="text-lg font-semibold text-white mb-3">Running from Source</h3>
+                <div class="bg-surface-950 rounded-xl p-4 font-mono text-sm overflow-x-auto">
+                    <pre><code class="language-bash">npm install
+npm run build
+node dist/bin/gtypee.js --help</code></pre>
+                </div>
+                <div
+                    class="mt-4 flex items-start gap-3 text-sm text-amber-300/80 bg-amber-500/5 border border-amber-500/10 rounded-xl p-4">
+                    <svg class="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                    </svg>
+                    <span>When using <code class="text-amber-300 bg-amber-500/10 px-1 rounded">--json</code> with
+                        piping, always use the compiled version. <code
+                            class="text-amber-300 bg-amber-500/10 px-1 rounded">npm run dev</code> adds extra output
+                        that breaks JSON parsing.</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Authentication -->
+    <section id="authentication" class="py-24">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 class="text-3xl font-bold text-white mb-8 flex items-center gap-3">
+                <span
+                    class="w-8 h-8 rounded-lg bg-gyellow/15 flex items-center justify-center text-gyellow text-sm font-bold">3</span>
+                Authentication
+            </h2>
+            <p class="text-slate-400 mb-8">gtypee supports two authentication modes. Choose the one that fits your use
+                case.</p>
+
+            <!-- OAuth 2.0 -->
+            <div class="glass rounded-2xl p-6 mb-6">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="w-10 h-10 rounded-xl bg-gblue/15 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-gblue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-semibold text-white">OAuth 2.0</h3>
+                        <p class="text-sm text-slate-400">For personal accounts & accessing your own data</p>
+                    </div>
+                </div>
+                <div class="space-y-4">
+                    <details class="group">
+                        <summary
+                            class="cursor-pointer text-slate-300 hover:text-white transition-colors font-medium flex items-center gap-2">
+                            <svg class="w-4 h-4 transition-transform group-open:rotate-90" fill="none"
+                                stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 5l7 7-7 7" />
+                            </svg>
+                            Step 1: Create a Google Cloud Project
+                        </summary>
+                        <div class="mt-3 ml-6 text-sm text-slate-400 space-y-2">
+                            <ol class="list-decimal list-inside space-y-1.5">
+                                <li>Go to <a href="https://console.cloud.google.com/" target="_blank"
+                                        class="text-gblue hover:underline">Google Cloud Console</a></li>
+                                <li>Create a new project (e.g., <code class="bg-white/5 px-1 rounded">gtypee</code>)
+                                </li>
+                                <li>Go to <strong class="text-white">APIs &amp; Services → OAuth consent screen</strong>
+                                </li>
+                                <li>Select <strong class="text-white">External</strong> user type</li>
+                                <li>Fill in required fields, add your email as a <strong class="text-white">Test
+                                        user</strong></li>
+                            </ol>
+                        </div>
+                    </details>
+                    <details class="group">
+                        <summary
+                            class="cursor-pointer text-slate-300 hover:text-white transition-colors font-medium flex items-center gap-2">
+                            <svg class="w-4 h-4 transition-transform group-open:rotate-90" fill="none"
+                                stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 5l7 7-7 7" />
+                            </svg>
+                            Step 2: Enable APIs
+                        </summary>
+                        <div class="mt-3 ml-6 text-sm overflow-x-auto">
+                            <table class="w-full text-slate-400">
+                                <thead>
+                                    <tr class="border-b border-white/10">
+                                        <th class="text-left py-2 px-2 text-slate-300">API</th>
+                                        <th class="text-left py-2 px-2 text-slate-300">Services</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-white/5">
+                                    <tr>
+                                        <td class="py-1.5 px-2">Gmail API</td>
+                                        <td class="py-1.5 px-2 font-mono text-xs">gmail</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="py-1.5 px-2">Google Calendar API</td>
+                                        <td class="py-1.5 px-2 font-mono text-xs">calendar</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="py-1.5 px-2">Google Drive API</td>
+                                        <td class="py-1.5 px-2 font-mono text-xs">drive, docs, sheets, slides</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="py-1.5 px-2">Google Tasks API</td>
+                                        <td class="py-1.5 px-2 font-mono text-xs">tasks</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="py-1.5 px-2">Google Forms API</td>
+                                        <td class="py-1.5 px-2 font-mono text-xs">forms</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="py-1.5 px-2">People API</td>
+                                        <td class="py-1.5 px-2 font-mono text-xs">contacts, people</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="py-1.5 px-2">Google Chat API</td>
+                                        <td class="py-1.5 px-2 font-mono text-xs">chat</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="py-1.5 px-2">Google Classroom API</td>
+                                        <td class="py-1.5 px-2 font-mono text-xs">classroom</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="py-1.5 px-2">Apps Script API</td>
+                                        <td class="py-1.5 px-2 font-mono text-xs">appscript</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </details>
+                    <details class="group">
+                        <summary
+                            class="cursor-pointer text-slate-300 hover:text-white transition-colors font-medium flex items-center gap-2">
+                            <svg class="w-4 h-4 transition-transform group-open:rotate-90" fill="none"
+                                stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 5l7 7-7 7" />
+                            </svg>
+                            Step 3: Create OAuth Credentials &amp; Authenticate
+                        </summary>
+                        <div class="mt-3 ml-6 text-sm text-slate-400 space-y-3">
+                            <p>Create <code class="bg-white/5 px-1 rounded">credentials.json</code> in your config
+                                directory:</p>
+                            <div class="bg-surface-950 rounded-xl p-3 font-mono text-xs overflow-x-auto">
+                                <pre><code class="language-json">{
+  "clientId": "YOUR_CLIENT_ID.apps.googleusercontent.com",
+  "clientSecret": "YOUR_CLIENT_SECRET"
+}</code></pre>
+                            </div>
+                            <div class="bg-surface-950 rounded-xl p-3 font-mono text-xs overflow-x-auto">
+                                <pre><code class="language-bash"># Browser flow
+gtypee auth add --email you@gmail.com
+
+# Manual flow (no browser auto-open)
+gtypee auth add --email you@gmail.com --manual
+
+# Remote/headless (SSH, server)
+gtypee auth add --email you@gmail.com --remote --step 1</code></pre>
+                            </div>
+                        </div>
+                    </details>
+                </div>
+            </div>
+
+            <!-- Service Account -->
+            <div class="glass rounded-2xl p-6">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="w-10 h-10 rounded-xl bg-gred/15 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-gred" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-semibold text-white">Service Account</h3>
+                        <p class="text-sm text-slate-400">For Workspace admin, automated scripts, headless servers</p>
+                    </div>
+                </div>
+                <div class="space-y-3">
+                    <div class="bg-surface-950 rounded-xl p-4 font-mono text-sm overflow-x-auto">
+                        <pre><code class="language-bash"># Import the service account key
+gtypee auth add-sa --key-file /path/to/sa-key.json
+gtypee auth set-default-sa --email sa@project.iam.gserviceaccount.com
+
+# Use with impersonation
+gtypee --sa sa@project.iam.gserviceaccount.com --impersonate user@domain.com gmail labels
+gtypee --impersonate user@domain.com drive ls</code></pre>
+                    </div>
+                    <div
+                        class="flex items-start gap-3 text-sm text-slate-400 bg-gred/5 border border-gred/10 rounded-xl p-4">
+                        <svg class="w-5 h-5 text-gred flex-shrink-0 mt-0.5" fill="none" stroke="currentColor"
+                            viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span>Requires domain-wide delegation enabled and scopes authorized in the Google Admin Console
+                            under <strong class="text-white">Security → API Controls</strong>.</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Commands Reference -->
+    <section id="commands" class="py-24 bg-slate-900/50">
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 class="text-3xl font-bold text-white mb-4 text-center">Commands Reference</h2>
+            <p class="text-slate-400 text-center mb-12">Comprehensive command reference for all supported services</p>
+
+            <!-- Global Flags -->
+            <div class="glass rounded-2xl p-6 mb-8">
+                <h3 class="text-xl font-semibold text-white mb-4">Global Flags</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-b border-white/10">
+                                <th class="text-left py-2 px-3 text-slate-300 font-semibold">Flag</th>
+                                <th class="text-left py-2 px-3 text-slate-300 font-semibold">Description</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-white/5 font-mono">
+                            <tr>
+                                <td class="py-2 px-3 text-gblue">--json</td>
+                                <td class="py-2 px-3 text-slate-400 font-sans">JSON output for scripting</td>
+                            </tr>
+                            <tr>
+                                <td class="py-2 px-3 text-gblue">--plain</td>
+                                <td class="py-2 px-3 text-slate-400 font-sans">Stable plain-text output</td>
+                            </tr>
+                            <tr>
+                                <td class="py-2 px-3 text-gblue">--account &lt;email&gt;</td>
+                                <td class="py-2 px-3 text-slate-400 font-sans">Select OAuth account</td>
+                            </tr>
+                            <tr>
+                                <td class="py-2 px-3 text-gblue">--sa &lt;email&gt;</td>
+                                <td class="py-2 px-3 text-slate-400 font-sans">Use service account</td>
+                            </tr>
+                            <tr>
+                                <td class="py-2 px-3 text-gblue">--impersonate &lt;email&gt;</td>
+                                <td class="py-2 px-3 text-slate-400 font-sans">Impersonate user (requires --sa)</td>
+                            </tr>
+                            <tr>
+                                <td class="py-2 px-3 text-gblue">--dry-run</td>
+                                <td class="py-2 px-3 text-slate-400 font-sans">Show actions without executing</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Command Tabs -->
+            <div class="glass rounded-2xl overflow-hidden">
+                <div class="flex flex-wrap border-b border-white/10 bg-white/[0.02]" id="cmd-tabs">
+                    <button class="cmd-tab active px-5 py-3 text-sm font-medium text-gblue border-b-2 border-gblue"
+                        data-tab="gmail">Gmail</button>
+                    <button
+                        class="cmd-tab px-5 py-3 text-sm font-medium text-slate-400 hover:text-white border-b-2 border-transparent"
+                        data-tab="drive">Drive</button>
+                    <button
+                        class="cmd-tab px-5 py-3 text-sm font-medium text-slate-400 hover:text-white border-b-2 border-transparent"
+                        data-tab="calendar">Calendar</button>
+                    <button
+                        class="cmd-tab px-5 py-3 text-sm font-medium text-slate-400 hover:text-white border-b-2 border-transparent"
+                        data-tab="workspace">Workspace</button>
+                    <button
+                        class="cmd-tab px-5 py-3 text-sm font-medium text-slate-400 hover:text-white border-b-2 border-transparent"
+                        data-tab="docs">Docs/Sheets</button>
+                    <button
+                        class="cmd-tab px-5 py-3 text-sm font-medium text-slate-400 hover:text-white border-b-2 border-transparent"
+                        data-tab="other">Other</button>
+                </div>
+                <div class="p-6">
+                    <div class="cmd-panel" id="panel-gmail">
+                        <div class="grid md:grid-cols-2 gap-4">
+                            <div>
+                                <h4 class="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-3">Messages
+                                </h4>
+                                <div class="bg-surface-950 rounded-xl p-4 font-mono text-xs overflow-x-auto">
+                                    <pre><code class="language-bash">gtypee gmail list
+gtypee gmail list --page-size 50
+gtypee gmail list --query "is:unread"
+gtypee gmail search --query "from:boss@co.com"
+gtypee gmail get &lt;message-id&gt;
+gtypee gmail send --to me@ex.com \
+  --subject "Hello" --body "Hi"
+gtypee gmail trash &lt;message-id&gt;
+gtypee gmail modify &lt;id&gt; \
+  --add-label STARRED \
+  --remove-label UNREAD</code></pre>
+                                </div>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-3">Drafts /
+                                    Labels / Filters</h4>
+                                <div class="bg-surface-950 rounded-xl p-4 font-mono text-xs overflow-x-auto">
+                                    <pre><code class="language-bash">gtypee gmail draft create --to me@ex.com \
+  --subject "Draft" --body "Content"
+gtypee gmail draft list
+gtypee gmail labels
+gtypee gmail label create \
+  --name "Projects" --color "#ffcc00:#000"
+gtypee gmail filter list
+gtypee gmail filter create \
+  --query "from:news@ex.com" \
+  --add-label TRASH
+gtypee gmail signature list</code></pre>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="cmd-panel hidden" id="panel-drive">
+                        <div class="grid md:grid-cols-2 gap-4">
+                            <div>
+                                <h4 class="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-3">Files
+                                    &amp; Folders</h4>
+                                <div class="bg-surface-950 rounded-xl p-4 font-mono text-xs overflow-x-auto">
+                                    <pre><code class="language-bash">gtypee drive ls
+gtypee drive ls --page-size 50 --json
+gtypee drive search --query "name contains 'report'"
+gtypee drive download --id &lt;id&gt; --out ./file.pdf
+gtypee drive upload --path ./report.pdf
+gtypee drive copy &lt;id&gt; --name "Copy"
+gtypee drive move &lt;id&gt; --parent &lt;folder-id&gt;
+gtypee drive mkdir --name "New Folder"
+gtypee drive info &lt;id&gt;</code></pre>
+                                </div>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-3">
+                                    Permissions &amp; Comments</h4>
+                                <div class="bg-surface-950 rounded-xl p-4 font-mono text-xs overflow-x-auto">
+                                    <pre><code class="language-bash">gtypee drive permission list &lt;id&gt;
+gtypee drive permission create &lt;id&gt; \
+  --email user@co.com --role reader
+gtypee drive permission delete &lt;id&gt; \
+  --permission-id &lt;perm-id&gt;
+gtypee drive comment list &lt;id&gt;
+gtypee drive comment create &lt;id&gt; \
+  --content "Please review"
+gtypee drive revision list &lt;id&gt;</code></pre>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="cmd-panel hidden" id="panel-calendar">
+                        <div class="bg-surface-950 rounded-xl p-4 font-mono text-xs overflow-x-auto">
+                            <pre><code class="language-bash">gtypee calendar events
+gtypee calendar events --from "2026-03-01" --to "2026-03-31"
+gtypee calendar create --summary "Team Meeting" \
+  --start "2026-03-15T10:00:00" --end "2026-03-15T11:00:00"
+gtypee calendar update --id &lt;event-id&gt; --summary "Updated Meeting"
+gtypee calendar respond --id &lt;event-id&gt; --response accepted
+gtypee calendar conflicts --from "2026-03-01" --to "2026-03-31"</code></pre>
+                        </div>
+                    </div>
+                    <div class="cmd-panel hidden" id="panel-workspace">
+                        <div class="grid md:grid-cols-2 gap-4">
+                            <div>
+                                <h4 class="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-3">Users
+                                </h4>
+                                <div class="bg-surface-950 rounded-xl p-4 font-mono text-xs overflow-x-auto">
+                                    <pre><code class="language-bash">gtypee workspace user list
+gtypee workspace user list --page-size 100
+gtypee workspace user list --org-unit "/Sales"
+gtypee workspace user create \
+  --email john@co.com \
+  --first-name John --last-name Doe
+gtypee workspace user suspend --email user@co.com
+gtypee workspace user reset-password --email user@co.com
+gtypee workspace user set-admin --email user@co.com
+gtypee workspace user set-org-unit \
+  --email user@co.com --org-unit "/Sales"</code></pre>
+                                </div>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-3">Groups /
+                                    Orgs / Devices</h4>
+                                <div class="bg-surface-950 rounded-xl p-4 font-mono text-xs overflow-x-auto">
+                                    <pre><code class="language-bash">gtypee workspace group list
+gtypee workspace group create \
+  --email team@co.com --name "Team"
+gtypee workspace group add-member \
+  --group team@co.com --email user@co.com
+gtypee workspace org list
+gtypee workspace org create \
+  --name "Engineering" --parent "/"
+gtypee workspace device list --type chromebook
+gtypee workspace report logins --days 30</code></pre>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="cmd-panel hidden" id="panel-docs">
+                        <div class="grid md:grid-cols-3 gap-4">
+                            <div>
+                                <h4 class="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-3">Docs</h4>
+                                <div class="bg-surface-950 rounded-xl p-4 font-mono text-xs overflow-x-auto">
+                                    <pre><code class="language-bash">gtypee docs create --title "Doc"
+gtypee docs read --id &lt;id&gt;
+gtypee docs markdown --id &lt;id&gt;
+gtypee docs write --id &lt;id&gt; \
+  --markdown "# Hello"</code></pre>
+                                </div>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-3">Sheets
+                                </h4>
+                                <div class="bg-surface-950 rounded-xl p-4 font-mono text-xs overflow-x-auto">
+                                    <pre><code class="language-bash">gtypee sheets create --title "Sheet"
+gtypee sheets read --id &lt;id&gt; \
+  --range "Sheet1!A1:D10"
+gtypee sheets update --id &lt;id&gt; \
+  --range "A1:B2" \
+  --values "Name,Age;John,30"</code></pre>
+                                </div>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-3">Slides
+                                </h4>
+                                <div class="bg-surface-950 rounded-xl p-4 font-mono text-xs overflow-x-auto">
+                                    <pre><code class="language-bash">gtypee slides create --title "Deck"
+gtypee slides list --id &lt;id&gt;
+gtypee slides read --id &lt;id&gt; \
+  --index 0
+gtypee slides export --id &lt;id&gt; \
+  --format pdf</code></pre>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="cmd-panel hidden" id="panel-other">
+                        <div class="grid md:grid-cols-3 gap-4">
+                            <div>
+                                <h4 class="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-3">Tasks
+                                </h4>
+                                <div class="bg-surface-950 rounded-xl p-4 font-mono text-xs overflow-x-auto">
+                                    <pre><code class="language-bash">gtypee tasks list
+gtypee tasks add --title "Buy groceries"
+gtypee tasks done --id &lt;id&gt;</code></pre>
+                                </div>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-3">Chat /
+                                    Contacts</h4>
+                                <div class="bg-surface-950 rounded-xl p-4 font-mono text-xs overflow-x-auto">
+                                    <pre><code class="language-bash">gtypee chat spaces
+gtypee chat send --space &lt;id&gt; \
+  --text "Hello!"
+gtypee contacts list
+gtypee people me</code></pre>
+                                </div>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-3">Keep /
+                                    Apps Script</h4>
+                                <div class="bg-surface-950 rounded-xl p-4 font-mono text-xs overflow-x-auto">
+                                    <pre><code class="language-bash">gtypee keep list
+gtypee keep create --title "Note"
+gtypee appscript list
+gtypee appscript run --id &lt;id&gt; \
+  --fn myFunction</code></pre>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Aliases -->
+            <div class="glass rounded-2xl p-6 mt-8">
+                <h3 class="text-lg font-semibold text-white mb-4">Desire-Path Aliases</h3>
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm font-mono">
+                    <div class="flex items-center gap-2"><span class="text-ggreen">send</span><span
+                            class="text-slate-600">→</span><span class="text-slate-400">gmail send</span></div>
+                    <div class="flex items-center gap-2"><span class="text-ggreen">ls</span><span
+                            class="text-slate-600">→</span><span class="text-slate-400">drive ls</span></div>
+                    <div class="flex items-center gap-2"><span class="text-ggreen">search</span><span
+                            class="text-slate-600">→</span><span class="text-slate-400">drive search</span></div>
+                    <div class="flex items-center gap-2"><span class="text-ggreen">upload</span><span
+                            class="text-slate-600">→</span><span class="text-slate-400">drive upload</span></div>
+                    <div class="flex items-center gap-2"><span class="text-ggreen">login</span><span
+                            class="text-slate-600">→</span><span class="text-slate-400">auth add</span></div>
+                    <div class="flex items-center gap-2"><span class="text-ggreen">whoami</span><span
+                            class="text-slate-600">→</span><span class="text-slate-400">people me</span></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Usage Scenarios -->
+    <section id="scenarios" class="py-24">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 class="text-3xl font-bold text-white mb-4 text-center">Usage Scenarios</h2>
+            <p class="text-slate-400 text-center mb-12">Real-world automation examples you can use today</p>
+
+            <div class="space-y-6">
+                <details class="glass rounded-2xl group" open>
+                    <summary class="cursor-pointer p-6 flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-ggreen/15 flex items-center justify-center"><svg
+                                    class="w-5 h-5 text-ggreen" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                                </svg></div>
+                            <span class="text-lg font-semibold text-white">Onboarding a New Employee</span>
+                        </div>
+                        <svg class="w-5 h-5 text-slate-400 transition-transform group-open:rotate-180" fill="none"
+                            stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </summary>
+                    <div class="px-6 pb-6">
+                        <div class="bg-surface-950 rounded-xl p-4 font-mono text-xs overflow-x-auto">
+                            <pre><code class="language-bash"># 1. Create the user
+gtypee workspace user create \
+  --email john.doe@company.com \
+  --first-name John --last-name Doe \
+  --password "Temp@12345" --org-unit "/Engineering"
+
+# 2. Add to groups
+gtypee workspace group add-member \
+  --group engineering@company.com \
+  --email john.doe@company.com --role MEMBER
+
+# 3. Generate backup codes for 2FA
+gtypee workspace user generate-backup-codes \
+  --email john.doe@company.com
+
+# 4. Verify
+gtypee workspace user list --json | \
+  jq '.[] | select(.primaryEmail == "john.doe@company.com")'</code></pre>
+                        </div>
+                    </div>
+                </details>
+
+                <details class="glass rounded-2xl group">
+                    <summary class="cursor-pointer p-6 flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-gred/15 flex items-center justify-center"><svg
+                                    class="w-5 h-5 text-gred" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M13 7a4 4 0 11-8 0 4 4 0 018 0zM9 14a6 6 0 00-6 6v1h12v-1a6 6 0 00-6-6zM21 12h-6" />
+                                </svg></div>
+                            <span class="text-lg font-semibold text-white">Offboarding an Employee</span>
+                        </div>
+                        <svg class="w-5 h-5 text-slate-400 transition-transform group-open:rotate-180" fill="none"
+                            stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </summary>
+                    <div class="px-6 pb-6">
+                        <div class="bg-surface-950 rounded-xl p-4 font-mono text-xs overflow-x-auto">
+                            <pre><code class="language-bash"># 1. Suspend the account immediately
+gtypee workspace user suspend --email former@company.com
+
+# 2. Remove from all groups
+gtypee workspace group list --json | jq '.[].email' | while read group; do
+  gtypee workspace group remove-member --group "$group" --email former@company.com
+done
+
+# 3. Delete after hold period (30+ days)
+gtypee workspace user delete --email former@company.com --force</code></pre>
+                        </div>
+                    </div>
+                </details>
+
+                <details class="glass rounded-2xl group">
+                    <summary class="cursor-pointer p-6 flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-gyellow/15 flex items-center justify-center"><svg
+                                    class="w-5 h-5 text-gyellow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                                </svg></div>
+                            <span class="text-lg font-semibold text-white">Security Audit &amp; Login Review</span>
+                        </div>
+                        <svg class="w-5 h-5 text-slate-400 transition-transform group-open:rotate-180" fill="none"
+                            stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </summary>
+                    <div class="px-6 pb-6">
+                        <div class="bg-surface-950 rounded-xl p-4 font-mono text-xs overflow-x-auto">
+                            <pre><code class="language-bash"># Failed login attempts
+gtypee workspace report logins --days 30 --json | \
+  jq '.[] | select(.success == false)'
+
+# Logins from unusual locations
+gtypee workspace report logins --days 7 --json | \
+  jq '.[] | select(.country != "US") | {userEmail, ipAddress, country}'
+
+# Admin activity audit
+gtypee workspace report admin --days 7 --json > admin-audit.json
+
+# Export all users to CSV
+gtypee workspace user list --json | \
+  jq -r '.[] | [.primaryEmail, .name.givenName, .orgUnitPath] | @csv' > users.csv</code></pre>
+                        </div>
+                    </div>
+                </details>
+            </div>
+        </div>
+    </section>
+
+    <!-- Configuration -->
+    <section id="configuration" class="py-24 bg-surface-900/50">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 class="text-3xl font-bold text-white mb-8">Configuration</h2>
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="glass rounded-2xl p-6">
+                    <h3 class="text-lg font-semibold text-white mb-4">Config Location</h3>
+                    <table class="w-full text-sm">
+                        <tbody class="divide-y divide-white/5">
+                            <tr>
+                                <td class="py-2 text-slate-300 font-medium">Windows</td>
+                                <td class="py-2 text-slate-400 font-mono text-xs">%APPDATA%\typee\</td>
+                            </tr>
+                            <tr>
+                                <td class="py-2 text-slate-300 font-medium">macOS</td>
+                                <td class="py-2 text-slate-400 font-mono text-xs">~/.config/gtypee/</td>
+                            </tr>
+                            <tr>
+                                <td class="py-2 text-slate-300 font-medium">Linux</td>
+                                <td class="py-2 text-slate-400 font-mono text-xs">~/.config/gtypee/</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="glass rounded-2xl p-6">
+                    <h3 class="text-lg font-semibold text-white mb-4">Security</h3>
+                    <ul class="space-y-2 text-sm text-slate-400">
+                        <li class="flex items-start gap-2"><span class="text-ggreen mt-0.5">✓</span> AES-256-GCM
+                            encrypted credentials</li>
+                        <li class="flex items-start gap-2"><span class="text-ggreen mt-0.5">✓</span> Machine-derived
+                            encryption key</li>
+                        <!-- <li class="flex items-start gap-2"><span class="text-ggreen mt-0.5">✓</span> Auto-excluded from
+                            version control</li> -->
+                        <li class="flex items-start gap-2"><span class="text-ggreen mt-0.5">✓</span> <code
+                                class="bg-white/5 px-1 rounded">--dry-run</code> for safe previews</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Development & Contributing -->
+    <section id="development" class="py-24">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 class="text-3xl font-bold text-white mb-8">Development</h2>
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="glass rounded-2xl p-6">
+                    <h3 class="text-lg font-semibold text-white mb-4">npm Scripts</h3>
+                    <div class="bg-surface-950 rounded-xl p-4 font-mono text-xs overflow-x-auto">
+                        <pre><code class="language-bash">npm run build        # Compile TypeScript
+npm run dev          # Run with ts-node
+npm run typecheck    # Type-check only
+npm test             # Run all tests
+npm run test:watch   # Watch mode</code></pre>
+                    </div>
+                </div>
+                <div class="glass rounded-2xl p-6">
+                    <h3 class="text-lg font-semibold text-white mb-4">Project Structure</h3>
+                    <div class="bg-surface-950 rounded-xl p-4 font-mono text-xs overflow-x-auto">
+                        <pre><code>src/
+  cmd/          # Command definitions
+    gmail/      # Gmail commands
+    drive/      # Drive commands
+    workspace/  # Workspace admin
+    auth/       # Authentication
+  googleapi/    # API client wrappers
+  googleauth/   # Auth handling
+  outfmt/       # Output formatting</code></pre>
+                    </div>
+                </div>
+            </div>
+            <div class="glass rounded-2xl p-6 mt-6">
+                <h3 class="text-lg font-semibold text-white mb-4">Commit Convention</h3>
+                <p class="text-sm text-slate-400 mb-4">Uses <a href="https://www.conventionalcommits.org/"
+                        target="_blank" class="text-gblue hover:underline">Conventional Commits</a> for automatic
+                    versioning:</p>
+                <div class="grid grid-cols-3 gap-3 text-xs font-mono">
+                    <div class="bg-ggreen/5 border border-ggreen/10 rounded-lg p-3 text-center">
+                        <div class="text-ggreen font-semibold mb-1">feat:</div>
+                        <div class="text-slate-400">Minor bump</div>
+                    </div>
+                    <div class="bg-gblue/5 border border-gblue/10 rounded-lg p-3 text-center">
+                        <div class="text-gblue font-semibold mb-1">fix:</div>
+                        <div class="text-slate-400">Patch bump</div>
+                    </div>
+                    <div class="bg-gred/5 border border-gred/10 rounded-lg p-3 text-center">
+                        <div class="text-gred font-semibold mb-1">feat!:</div>
+                        <div class="text-slate-400">Major bump</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Inspired By -->
+    <section class="py-16 border-t border-white/5">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <h2 class="text-lg font-semibold text-slate-400 mb-6">Inspired By</h2>
+            <div class="flex flex-wrap justify-center gap-4">
+                <a href="https://github.com/steipete/gogcli" target="_blank" rel="noopener"
+                    class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-slate-300 hover:text-white hover:border-white/20 transition-all text-sm font-mono">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                        <path
+                            d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
+                    </svg>
+                    steipete/gogcli
+                </a>
+                <a href="https://github.com/badlogic/gmcli" target="_blank" rel="noopener"
+                    class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-slate-300 hover:text-white hover:border-white/20 transition-all text-sm font-mono">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                        <path
+                            d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
+                    </svg>
+                    badlogic/gmcli
+                </a>
+                <a href="https://github.com/badlogic/gccli" target="_blank" rel="noopener"
+                    class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-slate-300 hover:text-white hover:border-white/20 transition-all text-sm font-mono">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                        <path
+                            d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
+                    </svg>
+                    badlogic/gccli
+                </a>
+                <a href="https://github.com/badlogic/gdcli" target="_blank" rel="noopener"
+                    class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-slate-300 hover:text-white hover:border-white/20 transition-all text-sm font-mono">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                        <path
+                            d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
+                    </svg>
+                    badlogic/gdcli
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="border-t border-white/5 py-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex flex-col md:flex-row items-center justify-between gap-6">
+                <div class="flex items-center gap-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 120" class="h-6 w-auto">
+                        <rect width="100%" height="100%" fill="#1a1a1a" rx="6" />
+                        <rect x="30" y="35" width="10" height="10" fill="#4285F4" />
+                        <rect x="40" y="45" width="10" height="10" fill="#4285F4" />
+                        <rect x="50" y="55" width="10" height="10" fill="#4285F4" />
+                        <rect x="40" y="65" width="10" height="10" fill="#EA4335" />
+                        <rect x="30" y="75" width="10" height="10" fill="#EA4335" />
+                        <rect x="70" y="75" width="20" height="10" fill="#EA4335" />
+                        <text x="110" y="82" font-family="monospace, Consolas, 'Courier New'" font-size="60"
+                            font-weight="bold" fill="#ffffff" letter-spacing="-2">gtypee</text>
+                        <rect x="340" y="35" width="22" height="26" fill="#FBBC05" />
+                        <rect x="340" y="61" width="22" height="24" fill="#34A853" />
+                    </svg>
+                    <span class="text-slate-500 text-sm">— ISC License</span>
+                </div>
+                <div class="flex items-center gap-6 text-sm">
+                    <a href="https://github.com/ejpespa/gtypee" target="_blank" rel="noopener"
+                        class="text-slate-400 hover:text-white transition-colors">GitHub</a>
+                    <a href="https://www.npmjs.com/package/gtypee" target="_blank" rel="noopener"
+                        class="text-slate-400 hover:text-white transition-colors">npm</a>
+                    <a href="https://github.com/ejpespa/gtypee/issues" target="_blank" rel="noopener"
+                        class="text-slate-400 hover:text-white transition-colors">Issues</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script>
+        // Highlight.js init
+        hljs.highlightAll();
+
+        // Navbar scroll effect
+        const navbar = document.getElementById('navbar');
+        window.addEventListener('scroll', () => {
+            if (window.scrollY > 50) {
+                navbar.style.background = 'rgba(2,6,23,0.92)';
+                navbar.style.backdropFilter = 'blur(20px)';
+                navbar.style.borderBottomColor = 'rgba(255,255,255,0.05)';
+            } else {
+                navbar.style.background = 'transparent';
+                navbar.style.backdropFilter = 'none';
+                navbar.style.borderBottomColor = 'transparent';
+            }
+        });
+
+        // Mobile menu
+        document.getElementById('mobile-menu-btn').addEventListener('click', () => {
+            document.getElementById('mobile-menu').classList.toggle('hidden');
+        });
+
+        // Close mobile menu on link click
+        document.querySelectorAll('#mobile-menu a').forEach(link => {
+            link.addEventListener('click', () => document.getElementById('mobile-menu').classList.add('hidden'));
+        });
+
+        // Command tabs
+        document.querySelectorAll('.cmd-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.cmd-tab').forEach(t => {
+                    t.classList.remove('active', 'text-gblue', 'border-gblue');
+                    t.classList.add('text-slate-400', 'border-transparent');
+                });
+                tab.classList.add('active', 'text-gblue', 'border-gblue');
+                tab.classList.remove('text-slate-400', 'border-transparent');
+                document.querySelectorAll('.cmd-panel').forEach(p => p.classList.add('hidden'));
+                document.getElementById('panel-' + tab.dataset.tab).classList.remove('hidden');
+                // Re-highlight
+                document.getElementById('panel-' + tab.dataset.tab).querySelectorAll('pre code').forEach(el => {
+                    if (!el.dataset.highlighted) hljs.highlightElement(el);
+                });
+            });
+        });
+
+        // Intersection Observer for fade-in
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('fade-in');
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.1 });
+        document.querySelectorAll('section').forEach(section => observer.observe(section));
+    </script>
+
+</body>
+
+</html>
