@@ -3,6 +3,13 @@ import type { Command } from "commander";
 import type { OutputMode } from "../../outfmt/outfmt.js";
 import { toCliApiErrorMessage } from "../../googleapi/errors.js";
 import { buildExecutionContext, type RootOptions } from "../execution-context.js";
+import type { PaginatedResult, PaginationOptions } from "../../types/pagination.js";
+
+export type DocsSummary = {
+  id: string;
+  name: string;
+  mimeType: string;
+};
 
 export type DocsReadResult = {
   id: string;
@@ -21,6 +28,7 @@ export type DocsCreateResult = {
 };
 
 export type DocsCommandDeps = {
+  listDocs?: (options?: PaginationOptions) => Promise<PaginatedResult<DocsSummary>>;
   createDoc?: (title: string) => Promise<DocsCreateResult>;
   readDoc?: (id: string) => Promise<DocsReadResult>;
   toMarkdown?: (id: string) => Promise<DocsReadResult>;
@@ -28,6 +36,7 @@ export type DocsCommandDeps = {
 };
 
 const defaultDeps: Required<DocsCommandDeps> = {
+  listDocs: async () => ({ items: [] }),
   createDoc: async (title) => ({ id: "", title }),
   readDoc: async (id) => ({ id, title: "", markdown: "" }),
   toMarkdown: async (id) => ({ id, title: "", markdown: "" }),

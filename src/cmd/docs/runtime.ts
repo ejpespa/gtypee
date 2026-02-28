@@ -2,7 +2,8 @@ import { google } from "googleapis";
 
 import { ServiceRuntime } from "../../googleapi/auth-factory.js";
 import { scopes } from "../../googleauth/service.js";
-import type { DocsCommandDeps, DocsCreateResult, DocsReadResult, DocsWriteResult } from "./commands.js";
+import type { DocsCommandDeps, DocsCreateResult, DocsReadResult, DocsWriteResult, DocsSummary } from "./commands.js";
+import type { PaginatedResult, PaginationOptions } from "../../types/pagination.js";
 
 function extractText(
   body: { content?: Array<{ paragraph?: { elements?: Array<{ textRun?: { content?: string | null } }> } }> } | undefined,
@@ -29,6 +30,32 @@ function extractText(
 }
 
 export function buildDocsCommandDeps(runtime: ServiceRuntime): Required<DocsCommandDeps> {
+  const listDocs = async (options?: PaginationOptions): Promise<PaginatedResult<DocsSummary>> => {
+    const auth = await runtime.getClient(scopes("drive"));
+    const drive = google.drive({ version: "v3", auth });
+    const params: { q: string; pageSize: number; pageToken?: string; fields: string } = {
+      q: "mimeType='application/vnd.google-apps.document'",
+      pageSize: options?.pageSize ?? 100,
+      fields: "nextPageToken,files(id,name,mimeType)",
+    };
+    if (options?.pageToken !== undefined) {
+      params.pageToken = options.pageToken;
+    }
+    const res = await drive.files.list(params);
+    const files = res.data.files ?? [];
+    const result: PaginatedResult<DocsSummary> = {
+      items: files.map((f) => ({
+        id: f.id ?? "",
+        name: f.name ?? "",
+        mimeType: f.mimeType ?? "",
+      })),
+    };
+    if (res.data.nextPageToken) {
+      result.nextPageToken = res.data.nextPageToken;
+    }
+    return result;
+  };
+
   const createDoc = async (title: string): Promise<DocsCreateResult> => {
     const auth = await runtime.getClient(scopes("docs"));
     const docs = google.docs({ version: "v1", auth });
@@ -91,5 +118,5 @@ export function buildDocsCommandDeps(runtime: ServiceRuntime): Required<DocsComm
     return { id, updated: true };
   };
 
-  return { createDoc, readDoc, toMarkdown, writeDoc };
+  return { listDocs, createDoc, readDoc, toMarkdown, writeDoc };
 }

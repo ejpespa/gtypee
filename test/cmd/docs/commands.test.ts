@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { Command } from "commander";
 
 import { formatDocsReadResult, registerDocsCommands } from "../../../src/cmd/docs/commands.js";
+import type { DocsCommandDeps, DocsSummary } from "../../../src/cmd/docs/commands.js";
 
 describe("docs command formatters", () => {
   it("formats docs read as json", () => {
@@ -40,5 +41,17 @@ describe("docs command formatters", () => {
     }
 
     expect(stdout).toContain("Document update was not applied");
+  });
+});
+
+describe("docs types", () => {
+  it("DocsSummary should have id and name fields", () => {
+    const doc: DocsSummary = {
+      id: "abc123",
+      name: "My Document",
+      mimeType: "application/vnd.google-apps.document",
+    };
+    expect(doc.id).toBe("abc123");
+    expect(doc.name).toBe("My Document");
   });
 });
