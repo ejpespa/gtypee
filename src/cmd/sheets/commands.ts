@@ -51,6 +51,24 @@ export function formatSheetsRead(result: SheetsReadResult, mode: OutputMode): st
   return [`Range: ${result.range}`, ...rows].join("\n");
 }
 
+export function formatSheetsList(result: PaginatedResult<SheetsSummary>, mode: OutputMode): string {
+  if (mode === "json") {
+    return JSON.stringify(result, null, 2);
+  }
+  if (result.items.length === 0) {
+    return "No spreadsheets found";
+  }
+  const lines = ["ID\tNAME"];
+  for (const sheet of result.items) {
+    lines.push(`${sheet.id}\t${sheet.name}`);
+  }
+  if (result.nextPageToken) {
+    lines.push("---");
+    lines.push(`Next page token: ${result.nextPageToken}`);
+  }
+  return lines.join("\n");
+}
+
 function parseValues(raw: string): string[][] {
   if (raw.trim() === "") {
     return [];
