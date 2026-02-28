@@ -51,6 +51,24 @@ async function runWithStableApiError<T>(service: string, call: () => Promise<T>)
   }
 }
 
+export function formatDocsList(result: PaginatedResult<DocsSummary>, mode: OutputMode): string {
+  if (mode === "json") {
+    return JSON.stringify(result, null, 2);
+  }
+  if (result.items.length === 0) {
+    return "No documents found";
+  }
+  const lines = ["ID\tNAME"];
+  for (const doc of result.items) {
+    lines.push(`${doc.id}\t${doc.name}`);
+  }
+  if (result.nextPageToken) {
+    lines.push("---");
+    lines.push(`Next page token: ${result.nextPageToken}`);
+  }
+  return lines.join("\n");
+}
+
 export function formatDocsReadResult(result: DocsReadResult, mode: OutputMode): string {
   if (mode === "json") {
     return JSON.stringify(result, null, 2);
