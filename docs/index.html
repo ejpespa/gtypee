@@ -964,23 +964,33 @@ gtypee workspace report logins --days 30</code></pre>
                             <div>
                                 <h4 class="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-3">Docs</h4>
                                 <div class="bg-surface-950 rounded-xl p-4 font-mono text-xs overflow-x-auto">
-                                    <pre><code class="language-bash">gtypee docs create --title "Doc"
+                                    <pre><code class="language-bash">gtypee docs list
+gtypee docs list --page-size 50 --json
+gtypee docs create --title "Doc"
 gtypee docs read --id &lt;id&gt;
 gtypee docs markdown --id &lt;id&gt;
 gtypee docs write --id &lt;id&gt; \
-  --markdown "# Hello"</code></pre>
+  --markdown "# Hello"
+gtypee docs export --id &lt;id&gt; --format pdf
+gtypee docs export --id &lt;id&gt; --format docx \
+  --out ./mydoc.docx</code></pre>
                                 </div>
                             </div>
                             <div>
                                 <h4 class="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-3">Sheets
                                 </h4>
                                 <div class="bg-surface-950 rounded-xl p-4 font-mono text-xs overflow-x-auto">
-                                    <pre><code class="language-bash">gtypee sheets create --title "Sheet"
+                                    <pre><code class="language-bash">gtypee sheets list
+gtypee sheets list --page-size 50 --json
+gtypee sheets create --title "Sheet"
 gtypee sheets read --id &lt;id&gt; \
   --range "Sheet1!A1:D10"
 gtypee sheets update --id &lt;id&gt; \
   --range "A1:B2" \
-  --values "Name,Age;John,30"</code></pre>
+  --values "Name,Age;John,30"
+gtypee sheets export --id &lt;id&gt; --format xlsx
+gtypee sheets export --id &lt;id&gt; --format csv \
+  --out ./data.csv</code></pre>
                                 </div>
                             </div>
                             <div>
