@@ -1,5 +1,8 @@
 import { google } from "googleapis";
 
+import * as fs from "fs";
+import * as path from "path";
+
 import { ServiceRuntime } from "../../googleapi/auth-factory.js";
 import { scopes } from "../../googleauth/service.js";
 import type { SheetsCommandDeps, SheetsCreateResult, SheetsExportResult, SheetsReadResult, SheetsSummary } from "./commands.js";
@@ -71,8 +74,42 @@ export function buildSheetsCommandDeps(runtime: ServiceRuntime): Required<Sheets
   };
 
   const exportSheet = async (id: string, format: string, out?: string): Promise<SheetsExportResult> => {
-    // TODO: Implement export functionality in Task 13
-    return { id, format, path: out ?? "", exported: false };
+    const SHEETS_EXPORT_MIME_TYPES: Record<string, string> = {
+      xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      csv: "text/csv",
+      pdf: "application/pdf",
+      ods: "application/vnd.oasis.opendocument.spreadsheet",
+      tsv: "text/tab-separated-values",
+      zip: "application/zip",
+    };
+
+    const mimeType = SHEETS_EXPORT_MIME_TYPES[format];
+    if (!mimeType) {
+      throw new Error(`Unsupported export format: ${format}. Supported formats: ${Object.keys(SHEETS_EXPORT_MIME_TYPES).join(", ")}`);
+    }
+
+    const auth = await runtime.getClient(scopes("drive"));
+    const drive = google.drive({ version: "v3", auth });
+
+    const response = await drive.files.export({
+      fileId: id,
+      mimeType,
+    }, { responseType: "arraybuffer" });
+
+    const outputPath = out ?? `${id}.${format}`;
+    const dir = path.dirname(outputPath);
+    if (dir && !fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+
+    fs.writeFileSync(outputPath, Buffer.from(response.data as ArrayBuffer));
+
+    return {
+      id,
+      format,
+      path: outputPath,
+      exported: true,
+    };
   };
 
   return { listSheets, exportSheet, createSheet, readRange, updateRange };
