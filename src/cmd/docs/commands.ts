@@ -82,6 +82,28 @@ export function registerDocsCommands(docsCommand: Command, deps: DocsCommandDeps
     ...deps,
   };
 
+  // typee docs list
+  docsCommand
+    .command("list")
+    .alias("ls")
+    .description("List all Google Docs")
+    .option("--page-size <number>", "Number of documents per page", parseInt)
+    .option("--page-token <token>", "Token for the next page")
+    .action(async function actionListDocs(this: Command) {
+      const rootOptions = this.optsWithGlobals() as RootOptions;
+      const ctx = buildExecutionContext(rootOptions);
+      const opts = this.opts<{ pageSize?: number; pageToken?: string }>();
+
+      const paginationOpts: PaginationOptions = {};
+      if (opts.pageSize !== undefined) paginationOpts.pageSize = opts.pageSize;
+      if (opts.pageToken !== undefined) paginationOpts.pageToken = opts.pageToken;
+
+      const result = await runWithStableApiError("docs", () =>
+        resolvedDeps.listDocs(paginationOpts)
+      );
+      process.stdout.write(`${formatDocsList(result, ctx.output.mode)}\n`);
+    });
+
   docsCommand
     .command("create")
     .description("Create a new document")

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { Command } from "commander";
 
 import { formatDocsReadResult, registerDocsCommands } from "../../../src/cmd/docs/commands.js";
@@ -41,6 +41,57 @@ describe("docs command formatters", () => {
     }
 
     expect(stdout).toContain("Document update was not applied");
+  });
+});
+
+describe("docs list command", () => {
+  it("should register list subcommand", () => {
+    const docs = new Command("docs");
+    registerDocsCommands(docs);
+    const listCmd = docs.commands.find((cmd) => cmd.name() === "list");
+    expect(listCmd).toBeDefined();
+  });
+
+  it("list command should return documents", async () => {
+    const root = new Command();
+    const docs = root.command("docs");
+    registerDocsCommands(docs, {
+      listDocs: async () => ({
+        items: [
+          { id: "doc1", name: "My Document", mimeType: "application/vnd.google-apps.document" },
+        ],
+      }),
+    });
+
+    let stdout = "";
+    const originalWrite = process.stdout.write.bind(process.stdout);
+    process.stdout.write = ((chunk: unknown): boolean => {
+      stdout += String(chunk);
+      return true;
+    }) as typeof process.stdout.write;
+
+    try {
+      await root.parseAsync(["node", "typee", "docs", "list"]);
+    } finally {
+      process.stdout.write = originalWrite;
+    }
+
+    expect(stdout).toContain("doc1");
+    expect(stdout).toContain("My Document");
+  });
+
+  it("list command should pass pagination options", async () => {
+    const listDocs = vi.fn().mockResolvedValue({ items: [] });
+    const root = new Command();
+    root.option("--json");
+    const docs = root.command("docs");
+    registerDocsCommands(docs, { listDocs });
+
+    await root.parseAsync(["node", "typee", "docs", "list", "--page-size", "50"]);
+
+    expect(listDocs).toHaveBeenCalledWith(
+      expect.objectContaining({ pageSize: 50 })
+    );
   });
 });
 
