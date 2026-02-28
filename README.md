@@ -489,19 +489,31 @@ gtypee workspace report admin --days 7
 **Google Docs**
 
 ```bash
+gtypee docs list                              # List all documents
+gtypee docs list --page-size 50 --json        # List with pagination
 gtypee docs create --title "My Document"
 gtypee docs read --id <doc-id>
-gtypee docs markdown --id <doc-id>          # Export as markdown
+gtypee docs markdown --id <doc-id>            # Export as markdown
 gtypee docs write --id <doc-id> --markdown "# Heading\nContent"
+gtypee docs export --id <doc-id> --format pdf              # Export as PDF
+gtypee docs export --id <doc-id> --format docx --out ./mydoc.docx
 ```
+
+Supported export formats: pdf, docx, odt, txt, html, epub
 
 **Google Sheets**
 
 ```bash
+gtypee sheets list                            # List all spreadsheets
+gtypee sheets list --page-size 50 --json      # List with pagination
 gtypee sheets create --title "My Spreadsheet"
 gtypee sheets read --id <sheet-id> --range "Sheet1!A1:D10"
 gtypee sheets update --id <sheet-id> --range "Sheet1!A1:B2" --values "Name,Age;John,30;Jane,25"
+gtypee sheets export --id <sheet-id> --format xlsx          # Export as Excel
+gtypee sheets export --id <sheet-id> --format csv --out ./data.csv
 ```
+
+Supported export formats: xlsx, csv, pdf, ods, tsv, zip
 
 **Google Slides**
 
