@@ -120,3 +120,41 @@ describe("docs export types", () => {
     expect(result.exported).toBe(true);
   });
 });
+
+describe("docs export command", () => {
+  it("should register export subcommand", () => {
+    const docs = new Command("docs");
+    registerDocsCommands(docs);
+
+    const exportCmd = docs.commands.find((cmd) => cmd.name() === "export");
+    expect(exportCmd).toBeDefined();
+  });
+
+  it("export command should call exportDoc with correct params", async () => {
+    const exportDoc = vi.fn().mockResolvedValue({
+      id: "doc1",
+      format: "pdf",
+      path: "./doc1.pdf",
+      exported: true,
+    });
+    const root = new Command();
+    const docs = root.command("docs");
+    registerDocsCommands(docs, { exportDoc });
+
+    let stdout = "";
+    const originalWrite = process.stdout.write.bind(process.stdout);
+    process.stdout.write = ((chunk: unknown): boolean => {
+      stdout += String(chunk);
+      return true;
+    }) as typeof process.stdout.write;
+
+    try {
+      await root.parseAsync(["node", "typee", "docs", "export", "--id", "doc1", "--format", "pdf"]);
+    } finally {
+      process.stdout.write = originalWrite;
+    }
+
+    expect(exportDoc).toHaveBeenCalledWith("doc1", "pdf", undefined);
+    expect(stdout).toContain("doc1");
+  });
+});

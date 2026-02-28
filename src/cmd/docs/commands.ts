@@ -170,4 +170,21 @@ export function registerDocsCommands(docsCommand: Command, deps: DocsCommandDeps
 
       process.stdout.write(result.updated ? `Document updated (id=${result.id || "unknown"})\n` : "Document update was not applied\n");
     });
+
+  docsCommand
+    .command("export")
+    .description("Export a Google Doc to a file (pdf, docx, odt, txt, html, epub)")
+    .requiredOption("--id <id>", "Document ID")
+    .requiredOption("--format <format>", "Export format (pdf, docx, odt, txt, html, epub)")
+    .option("--out <path>", "Output file path")
+    .action(async function actionExportDoc(this: Command) {
+      const opts = this.opts<{ id: string; format: string; out?: string }>();
+      const result = await runWithStableApiError("docs", () =>
+        resolvedDeps.exportDoc(opts.id, opts.format, opts.out)
+      );
+      process.stdout.write(result.exported
+        ? `Exported ${result.id} to ${result.path}\n`
+        : `Export failed for ${result.id}\n`
+      );
+    });
 }
