@@ -2,6 +2,26 @@ import { describe, expect, it } from "vitest";
 import { Command } from "commander";
 
 import { formatSheetsRead, registerSheetsCommands } from "../../../src/cmd/sheets/commands.js";
+import type { SheetsCommandDeps, SheetsSummary } from "../../../src/cmd/sheets/commands.js";
+
+describe("sheets types", () => {
+  it("SheetsSummary should have id and name fields", () => {
+    const sheet: SheetsSummary = {
+      id: "xyz789",
+      name: "My Spreadsheet",
+      mimeType: "application/vnd.google-apps.spreadsheet",
+    };
+    expect(sheet.id).toBe("xyz789");
+    expect(sheet.name).toBe("My Spreadsheet");
+  });
+
+  it("SheetsCommandDeps should include listSheets function", () => {
+    const deps: SheetsCommandDeps = {
+      listSheets: async (options) => ({ items: [] }),
+    };
+    expect(deps.listSheets).toBeDefined();
+  });
+});
 
 describe("sheets command formatters", () => {
   it("formats sheets read as json", () => {

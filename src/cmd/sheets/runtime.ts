@@ -2,9 +2,36 @@ import { google } from "googleapis";
 
 import { ServiceRuntime } from "../../googleapi/auth-factory.js";
 import { scopes } from "../../googleauth/service.js";
-import type { SheetsCommandDeps, SheetsCreateResult, SheetsReadResult } from "./commands.js";
+import type { SheetsCommandDeps, SheetsCreateResult, SheetsReadResult, SheetsSummary } from "./commands.js";
+import type { PaginatedResult, PaginationOptions } from "../../types/pagination.js";
 
 export function buildSheetsCommandDeps(runtime: ServiceRuntime): Required<SheetsCommandDeps> {
+  const listSheets = async (options?: PaginationOptions): Promise<PaginatedResult<SheetsSummary>> => {
+    const auth = await runtime.getClient(scopes("drive"));
+    const drive = google.drive({ version: "v3", auth });
+    const params: { q: string; pageSize: number; pageToken?: string; fields: string } = {
+      q: "mimeType='application/vnd.google-apps.spreadsheet'",
+      pageSize: options?.pageSize ?? 100,
+      fields: "nextPageToken,files(id,name,mimeType)",
+    };
+    if (options?.pageToken !== undefined) {
+      params.pageToken = options.pageToken;
+    }
+    const res = await drive.files.list(params);
+    const files = res.data.files ?? [];
+    const result: PaginatedResult<SheetsSummary> = {
+      items: files.map((f) => ({
+        id: f.id ?? "",
+        name: f.name ?? "",
+        mimeType: f.mimeType ?? "",
+      })),
+    };
+    if (res.data.nextPageToken) {
+      result.nextPageToken = res.data.nextPageToken;
+    }
+    return result;
+  };
+
   const createSheet = async (title: string): Promise<SheetsCreateResult> => {
     const auth = await runtime.getClient(scopes("sheets"));
     const sheets = google.sheets({ version: "v4", auth });
@@ -43,5 +70,5 @@ export function buildSheetsCommandDeps(runtime: ServiceRuntime): Required<Sheets
     return { updated: true };
   };
 
-  return { createSheet, readRange, updateRange };
+  return { listSheets, createSheet, readRange, updateRange };
 }

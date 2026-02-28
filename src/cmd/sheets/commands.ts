@@ -3,6 +3,13 @@ import type { Command } from "commander";
 import type { OutputMode } from "../../outfmt/outfmt.js";
 import { toCliApiErrorMessage } from "../../googleapi/errors.js";
 import { buildExecutionContext, type RootOptions } from "../execution-context.js";
+import type { PaginatedResult, PaginationOptions } from "../../types/pagination.js";
+
+export type SheetsSummary = {
+  id: string;
+  name: string;
+  mimeType: string;
+};
 
 export type SheetsReadResult = {
   range: string;
@@ -15,13 +22,15 @@ export type SheetsCreateResult = {
 };
 
 export type SheetsCommandDeps = {
+  listSheets?: (options?: PaginationOptions) => Promise<PaginatedResult<SheetsSummary>>;
   createSheet?: (title: string) => Promise<SheetsCreateResult>;
   readRange?: (sheetId: string, range: string) => Promise<SheetsReadResult>;
   updateRange?: (sheetId: string, range: string, values: string[][]) => Promise<{ updated: boolean }>;
 };
 
 const defaultDeps: Required<SheetsCommandDeps> = {
-  createSheet: async (title) => ({ id: "", title }),
+  listSheets: async () => ({ items: [] }),
+  createSheet: async (title) => ({ id: "", title: title! }),
   readRange: async (_id, range) => ({ range, values: [] }),
   updateRange: async () => ({ updated: false }),
 };
