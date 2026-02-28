@@ -21,8 +21,16 @@ export type SheetsCreateResult = {
   title: string;
 };
 
+export type SheetsExportResult = {
+  id: string;
+  format: string;
+  path: string;
+  exported: boolean;
+};
+
 export type SheetsCommandDeps = {
   listSheets?: (options?: PaginationOptions) => Promise<PaginatedResult<SheetsSummary>>;
+  exportSheet?: (id: string, format: string, out?: string) => Promise<SheetsExportResult>;
   createSheet?: (title: string) => Promise<SheetsCreateResult>;
   readRange?: (sheetId: string, range: string) => Promise<SheetsReadResult>;
   updateRange?: (sheetId: string, range: string, values: string[][]) => Promise<{ updated: boolean }>;
@@ -30,6 +38,7 @@ export type SheetsCommandDeps = {
 
 const defaultDeps: Required<SheetsCommandDeps> = {
   listSheets: async () => ({ items: [] }),
+  exportSheet: async (id, format, out) => ({ id, format, path: out ?? "", exported: false }),
   createSheet: async (title) => ({ id: "", title: title! }),
   readRange: async (_id, range) => ({ range, values: [] }),
   updateRange: async () => ({ updated: false }),

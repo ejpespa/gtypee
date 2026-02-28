@@ -2,7 +2,7 @@ import { google } from "googleapis";
 
 import { ServiceRuntime } from "../../googleapi/auth-factory.js";
 import { scopes } from "../../googleauth/service.js";
-import type { SheetsCommandDeps, SheetsCreateResult, SheetsReadResult, SheetsSummary } from "./commands.js";
+import type { SheetsCommandDeps, SheetsCreateResult, SheetsExportResult, SheetsReadResult, SheetsSummary } from "./commands.js";
 import type { PaginatedResult, PaginationOptions } from "../../types/pagination.js";
 
 export function buildSheetsCommandDeps(runtime: ServiceRuntime): Required<SheetsCommandDeps> {
@@ -70,5 +70,10 @@ export function buildSheetsCommandDeps(runtime: ServiceRuntime): Required<Sheets
     return { updated: true };
   };
 
-  return { listSheets, createSheet, readRange, updateRange };
+  const exportSheet = async (id: string, format: string, out?: string): Promise<SheetsExportResult> => {
+    // TODO: Implement export functionality in Task 13
+    return { id, format, path: out ?? "", exported: false };
+  };
+
+  return { listSheets, exportSheet, createSheet, readRange, updateRange };
 }

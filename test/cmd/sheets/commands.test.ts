@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { Command } from "commander";
 
 import { formatSheetsRead, registerSheetsCommands } from "../../../src/cmd/sheets/commands.js";
-import type { SheetsCommandDeps, SheetsSummary } from "../../../src/cmd/sheets/commands.js";
+import type { SheetsCommandDeps, SheetsExportResult, SheetsSummary } from "../../../src/cmd/sheets/commands.js";
 
 describe("sheets types", () => {
   it("SheetsSummary should have id and name fields", () => {
@@ -20,6 +20,20 @@ describe("sheets types", () => {
       listSheets: async (options) => ({ items: [] }),
     };
     expect(deps.listSheets).toBeDefined();
+  });
+});
+
+describe("sheets export types", () => {
+  it("SheetsExportResult should have required fields", () => {
+    const result: SheetsExportResult = {
+      id: "sheet123",
+      format: "xlsx",
+      path: "/path/to/sheet.xlsx",
+      exported: true,
+    };
+    expect(result.id).toBe("sheet123");
+    expect(result.format).toBe("xlsx");
+    expect(result.exported).toBe(true);
   });
 });
 
