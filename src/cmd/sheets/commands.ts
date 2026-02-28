@@ -161,4 +161,21 @@ export function registerSheetsCommands(sheetsCommand: Command, deps: SheetsComma
       }
       process.stdout.write(result.updated ? "Range updated\n" : "Range update was not applied\n");
     });
+
+  sheetsCommand
+    .command("export")
+    .description("Export a Google Sheet to a file (xlsx, csv, pdf, ods, tsv, zip)")
+    .requiredOption("--id <id>", "Spreadsheet ID")
+    .requiredOption("--format <format>", "Export format (xlsx, csv, pdf, ods, tsv, zip)")
+    .option("--out <path>", "Output file path")
+    .action(async function actionExportSheet(this: Command) {
+      const opts = this.opts<{ id: string; format: string; out?: string }>();
+      const result = await runWithStableApiError("sheets", () =>
+        resolvedDeps.exportSheet(opts.id, opts.format, opts.out)
+      );
+      process.stdout.write(result.exported
+        ? `Exported ${result.id} to ${result.path}\n`
+        : `Export failed for ${result.id}\n`
+      );
+    });
 }

@@ -127,3 +127,41 @@ describe("sheets list command", () => {
     );
   });
 });
+
+describe("sheets export command", () => {
+  it("should register export subcommand", () => {
+    const sheets = new Command("sheets");
+    registerSheetsCommands(sheets);
+
+    const exportCmd = sheets.commands.find((cmd) => cmd.name() === "export");
+    expect(exportCmd).toBeDefined();
+  });
+
+  it("export command should call exportSheet with correct params", async () => {
+    const exportSheet = vi.fn().mockResolvedValue({
+      id: "sheet1",
+      format: "xlsx",
+      path: "./sheet1.xlsx",
+      exported: true,
+    });
+    const root = new Command();
+    const sheets = root.command("sheets");
+    registerSheetsCommands(sheets, { exportSheet });
+
+    let stdout = "";
+    const originalWrite = process.stdout.write.bind(process.stdout);
+    process.stdout.write = ((chunk: unknown): boolean => {
+      stdout += String(chunk);
+      return true;
+    }) as typeof process.stdout.write;
+
+    try {
+      await root.parseAsync(["node", "typee", "sheets", "export", "--id", "sheet1", "--format", "xlsx"]);
+    } finally {
+      process.stdout.write = originalWrite;
+    }
+
+    expect(exportSheet).toHaveBeenCalledWith("sheet1", "xlsx", undefined);
+    expect(stdout).toContain("sheet1");
+  });
+});
