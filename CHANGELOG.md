@@ -1,3 +1,21 @@
+# [1.2.0](https://github.com/ejpespa/gtypee/compare/v1.1.0...v1.2.0) (2026-02-28)
+
+
+### Features
+
+* **docs:** add export command ([39e63a3](https://github.com/ejpespa/gtypee/commit/39e63a3861e9e17d045876863d5aed1644b78c29))
+* **docs:** add export types ([7d8ef82](https://github.com/ejpespa/gtypee/commit/7d8ef82e52a504421246abdc01693b91a4fff390))
+* **docs:** add formatDocsList function ([20f3d81](https://github.com/ejpespa/gtypee/commit/20f3d81c5c3b803057799f880952cde1f28bcd83))
+* **docs:** add list command with pagination support ([663d554](https://github.com/ejpespa/gtypee/commit/663d554b7ef0b3a95377044f0e7f47dca52be400))
+* **docs:** add list types and pagination support ([eda3367](https://github.com/ejpespa/gtypee/commit/eda3367215a448d275e9f2529ba738eb078dfe63))
+* **docs:** implement exportDoc runtime function ([1fc4cc3](https://github.com/ejpespa/gtypee/commit/1fc4cc3526fad56e29baeee6ab2ccdcc4f23683e))
+* **sheets:** add export command ([71bf8b9](https://github.com/ejpespa/gtypee/commit/71bf8b9712a82cf2010b2c4365707a956b7ad9d1))
+* **sheets:** add export types ([c81e6a3](https://github.com/ejpespa/gtypee/commit/c81e6a3532742e8f1782fb369d3d1ac823ad6935))
+* **sheets:** add formatSheetsList function ([d921ae2](https://github.com/ejpespa/gtypee/commit/d921ae2b183216da051cf06770c4f12f38b64f7f))
+* **sheets:** add list command with pagination support ([3fd8892](https://github.com/ejpespa/gtypee/commit/3fd8892e281ea12985d04364f61aa953c277d001))
+* **sheets:** add list types and pagination support ([b3822e3](https://github.com/ejpespa/gtypee/commit/b3822e310b1d46b032ef570bb3228b3dd7624084))
+* **sheets:** implement exportSheet runtime function ([4ef34bf](https://github.com/ejpespa/gtypee/commit/4ef34bfebc394055ceff334c1b4c38886ab6b79d))
+
 # [1.1.0](https://github.com/ejpespa/gtypee/compare/v1.0.0...v1.1.0) (2026-02-27)
 
 
