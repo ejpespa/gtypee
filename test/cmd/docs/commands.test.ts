@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { Command } from "commander";
 
 import { formatDocsReadResult, registerDocsCommands } from "../../../src/cmd/docs/commands.js";
-import type { DocsCommandDeps, DocsSummary } from "../../../src/cmd/docs/commands.js";
+import type { DocsCommandDeps, DocsSummary, DocsExportResult } from "../../../src/cmd/docs/commands.js";
 
 describe("docs command formatters", () => {
   it("formats docs read as json", () => {
@@ -104,5 +104,19 @@ describe("docs types", () => {
     };
     expect(doc.id).toBe("abc123");
     expect(doc.name).toBe("My Document");
+  });
+});
+
+describe("docs export types", () => {
+  it("DocsExportResult should have required fields", () => {
+    const result: DocsExportResult = {
+      id: "doc123",
+      format: "pdf",
+      path: "/path/to/doc.pdf",
+      exported: true,
+    };
+    expect(result.id).toBe("doc123");
+    expect(result.format).toBe("pdf");
+    expect(result.exported).toBe(true);
   });
 });

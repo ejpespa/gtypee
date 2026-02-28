@@ -2,7 +2,7 @@ import { google } from "googleapis";
 
 import { ServiceRuntime } from "../../googleapi/auth-factory.js";
 import { scopes } from "../../googleauth/service.js";
-import type { DocsCommandDeps, DocsCreateResult, DocsReadResult, DocsWriteResult, DocsSummary } from "./commands.js";
+import type { DocsCommandDeps, DocsCreateResult, DocsReadResult, DocsWriteResult, DocsExportResult, DocsSummary } from "./commands.js";
 import type { PaginatedResult, PaginationOptions } from "../../types/pagination.js";
 
 function extractText(
@@ -78,6 +78,11 @@ export function buildDocsCommandDeps(runtime: ServiceRuntime): Required<DocsComm
     return readDoc(id);
   };
 
+  const exportDoc = async (id: string, format: string, out?: string): Promise<DocsExportResult> => {
+    // TODO: Implement export functionality in Task 12
+    return { id, format, path: out ?? "", exported: false };
+  };
+
   const writeDoc = async (id: string, markdown: string): Promise<DocsWriteResult> => {
     const auth = await runtime.getClient(scopes("docs"));
     const docs = google.docs({ version: "v1", auth });
@@ -118,5 +123,5 @@ export function buildDocsCommandDeps(runtime: ServiceRuntime): Required<DocsComm
     return { id, updated: true };
   };
 
-  return { listDocs, createDoc, readDoc, toMarkdown, writeDoc };
+  return { listDocs, exportDoc, createDoc, readDoc, toMarkdown, writeDoc };
 }

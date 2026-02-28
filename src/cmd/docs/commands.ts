@@ -27,8 +27,16 @@ export type DocsCreateResult = {
   title: string;
 };
 
+export type DocsExportResult = {
+  id: string;
+  format: string;
+  path: string;
+  exported: boolean;
+};
+
 export type DocsCommandDeps = {
   listDocs?: (options?: PaginationOptions) => Promise<PaginatedResult<DocsSummary>>;
+  exportDoc?: (id: string, format: string, out?: string) => Promise<DocsExportResult>;
   createDoc?: (title: string) => Promise<DocsCreateResult>;
   readDoc?: (id: string) => Promise<DocsReadResult>;
   toMarkdown?: (id: string) => Promise<DocsReadResult>;
@@ -37,6 +45,7 @@ export type DocsCommandDeps = {
 
 const defaultDeps: Required<DocsCommandDeps> = {
   listDocs: async () => ({ items: [] }),
+  exportDoc: async (id, format, out) => ({ id, format, path: out ?? "", exported: false }),
   createDoc: async (title) => ({ id: "", title }),
   readDoc: async (id) => ({ id, title: "", markdown: "" }),
   toMarkdown: async (id) => ({ id, title: "", markdown: "" }),
