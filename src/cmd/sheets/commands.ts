@@ -82,6 +82,28 @@ export function registerSheetsCommands(sheetsCommand: Command, deps: SheetsComma
     ...deps,
   };
 
+  // typee sheets list
+  sheetsCommand
+    .command("list")
+    .alias("ls")
+    .description("List all Google Sheets")
+    .option("--page-size <number>", "Number of spreadsheets per page", parseInt)
+    .option("--page-token <token>", "Token for the next page")
+    .action(async function actionListSheets(this: Command) {
+      const rootOptions = this.optsWithGlobals() as RootOptions;
+      const ctx = buildExecutionContext(rootOptions);
+      const opts = this.opts<{ pageSize?: number; pageToken?: string }>();
+
+      const paginationOpts: PaginationOptions = {};
+      if (opts.pageSize !== undefined) paginationOpts.pageSize = opts.pageSize;
+      if (opts.pageToken !== undefined) paginationOpts.pageToken = opts.pageToken;
+
+      const result = await runWithStableApiError("sheets", () =>
+        resolvedDeps.listSheets(paginationOpts)
+      );
+      process.stdout.write(`${formatSheetsList(result, ctx.output.mode)}\n`);
+    });
+
   sheetsCommand
     .command("create")
     .description("Create a new spreadsheet")

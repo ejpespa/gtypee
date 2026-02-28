@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { Command } from "commander";
 
 import { formatSheetsRead, registerSheetsCommands } from "../../../src/cmd/sheets/commands.js";
@@ -60,5 +60,56 @@ describe("sheets command formatters", () => {
 
     expect(stdout).toContain("Range update was not applied");
     expect(stdout).not.toContain("not implemented yet in TypeScript port");
+  });
+});
+
+describe("sheets list command", () => {
+  it("should register list subcommand", () => {
+    const sheets = new Command("sheets");
+    registerSheetsCommands(sheets);
+    const listCmd = sheets.commands.find((cmd) => cmd.name() === "list");
+    expect(listCmd).toBeDefined();
+  });
+
+  it("list command should return spreadsheets", async () => {
+    const root = new Command();
+    const sheets = root.command("sheets");
+    registerSheetsCommands(sheets, {
+      listSheets: async () => ({
+        items: [
+          { id: "sheet1", name: "My Spreadsheet", mimeType: "application/vnd.google-apps.spreadsheet" },
+        ],
+      }),
+    });
+
+    let stdout = "";
+    const originalWrite = process.stdout.write.bind(process.stdout);
+    process.stdout.write = ((chunk: unknown): boolean => {
+      stdout += String(chunk);
+      return true;
+    }) as typeof process.stdout.write;
+
+    try {
+      await root.parseAsync(["node", "typee", "sheets", "list"]);
+    } finally {
+      process.stdout.write = originalWrite;
+    }
+
+    expect(stdout).toContain("sheet1");
+    expect(stdout).toContain("My Spreadsheet");
+  });
+
+  it("list command should pass pagination options", async () => {
+    const listSheets = vi.fn().mockResolvedValue({ items: [] });
+    const root = new Command();
+    root.option("--json");
+    const sheets = root.command("sheets");
+    registerSheetsCommands(sheets, { listSheets });
+
+    await root.parseAsync(["node", "typee", "sheets", "list", "--page-size", "25"]);
+
+    expect(listSheets).toHaveBeenCalledWith(
+      expect.objectContaining({ pageSize: 25 })
+    );
   });
 });
