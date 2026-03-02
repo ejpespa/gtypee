@@ -158,7 +158,7 @@ export type GmailSignatureSetResult = {
 
 export type GmailCommandDeps = {
   sendEmail?: (input: { to: string; subject: string; body: string }) => Promise<GmailSendResult>;
-  listMessages?: (options?: PaginationOptions) => Promise<PaginatedResult<GmailMessageSummary>>;
+  listMessages?: (query?: string, options?: PaginationOptions) => Promise<PaginatedResult<GmailMessageSummary>>;
   searchEmails?: (query: string) => Promise<GmailMessageSummary[]>;
   listLabels?: () => Promise<GmailLabelSummary[]>;
   getMessage?: (messageId: string) => Promise<GmailMessageDetail>;
@@ -633,18 +633,19 @@ export function registerGmailCommands(
   gmailCommand
     .command("list")
     .description("List messages")
+    .option("--query <query>", "Gmail search query to filter messages")
     .option("--page-size <size>", "Number of results per page")
     .option("--page-token <token>", "Token to fetch next page")
     .action(async function actionList(this: Command) {
       const rootOptions = this.optsWithGlobals() as RootOptions;
       const ctx = buildExecutionContext(rootOptions);
-      const opts = this.opts<{ pageSize?: string; pageToken?: string }>();
+      const opts = this.opts<{ query?: string; pageSize?: string; pageToken?: string }>();
 
       const paginationOpts: PaginationOptions = {};
       if (opts.pageSize !== undefined) paginationOpts.pageSize = parseInt(opts.pageSize, 10);
       if (opts.pageToken !== undefined) paginationOpts.pageToken = opts.pageToken;
 
-      const result = await runWithStableApiError("gmail", () => resolvedDeps.listMessages!(paginationOpts));
+      const result = await runWithStableApiError("gmail", () => resolvedDeps.listMessages!(opts.query, paginationOpts));
       process.stdout.write(`${formatGmailMessages(result, ctx.output.mode)}\n`);
     });
 

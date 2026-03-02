@@ -43,16 +43,19 @@ export function buildGmailCommandDeps(options: ServiceRuntimeOptions): Required<
       };
     },
 
-    listMessages: async (options?: PaginationOptions) => {
+    listMessages: async (query?: string, options?: PaginationOptions) => {
       const auth = await runtime.getClient(scopes("gmail"));
       const gmail = google.gmail({ version: "v1", auth });
 
-      const params: { userId: string; maxResults: number; pageToken?: string } = {
+      const params: { userId: string; maxResults: number; pageToken?: string; q?: string } = {
         userId: "me",
         maxResults: options?.pageSize ?? 50,
       };
       if (options?.pageToken !== undefined) {
         params.pageToken = options.pageToken;
+      }
+      if (query !== undefined) {
+        params.q = query;
       }
       const res = await gmail.users.messages.list(params);
 

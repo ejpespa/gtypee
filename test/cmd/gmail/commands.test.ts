@@ -164,17 +164,20 @@ describe("gmail core commands", () => {
   });
 
   it("uses default query for gmail list", async () => {
+    let querySeen: string | undefined;
     let optsSeen: { pageSize?: number; pageToken?: string } | undefined;
     const root = new Command();
     const gmail = root.command("gmail");
     registerGmailCommands(gmail, {
-      listMessages: async (opts) => {
+      listMessages: async (query, opts) => {
+        querySeen = query;
         optsSeen = opts;
         return { items: [] };
       },
     });
 
     await captureStdout(() => root.parseAsync(["node", "typee", "gmail", "list"]));
+    expect(querySeen).toBeUndefined();
     expect(optsSeen).toEqual({});
   });
 
@@ -400,7 +403,7 @@ describe("gmail list with pagination", () => {
 
     await captureStdout(() => program.parseAsync(["node", "test", "gmail", "list", "--page-size", "25"]));
 
-    expect(listMessages).toHaveBeenCalledWith({ pageSize: 25 });
+    expect(listMessages).toHaveBeenCalledWith(undefined, { pageSize: 25 });
   });
 
   it("should pass pageToken option to listMessages", async () => {
@@ -414,7 +417,21 @@ describe("gmail list with pagination", () => {
 
     await captureStdout(() => program.parseAsync(["node", "test", "gmail", "list", "--page-token", "test-token"]));
 
-    expect(listMessages).toHaveBeenCalledWith({ pageToken: "test-token" });
+    expect(listMessages).toHaveBeenCalledWith(undefined, { pageToken: "test-token" });
+  });
+
+  it("should pass query option to listMessages", async () => {
+    const listMessages = vi.fn().mockResolvedValue({
+      items: [{ id: "msg1", threadId: "thread1", subject: "test" }],
+    });
+    const program = new Command();
+    program.option("--json", "Output as JSON");
+    const gmail = program.command("gmail");
+    registerGmailCommands(gmail, { listMessages });
+
+    await captureStdout(() => program.parseAsync(["node", "test", "gmail", "list", "--query", "is:unread"]));
+
+    expect(listMessages).toHaveBeenCalledWith("is:unread", {});
   });
 
   it("should output nextPageToken in JSON mode", async () => {
