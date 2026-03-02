@@ -95,6 +95,21 @@ export function buildProgram(options: BuildProgramOptions = {}): Command {
         };
       }
 
+      // If --impersonate was passed without --sa, use default service account with impersonation.
+      if (impersonate !== "") {
+        const defaultSa = await store.getDefaultServiceAccount();
+        if (defaultSa !== "") {
+          return {
+            email: defaultSa,
+            clientOverride: currentContext.clientOverride,
+            serviceAccount: defaultSa,
+            impersonate: impersonate,
+          };
+        }
+        // No default SA configured, fall through to error
+        return { email: "", clientOverride: currentContext.clientOverride };
+      }
+
       // Fall back to default user account.
       const defaultEmail = await store.getDefaultAccount("default");
       if (defaultEmail !== "") {
