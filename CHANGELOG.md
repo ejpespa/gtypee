@@ -1,3 +1,10 @@
+# [1.3.0](https://github.com/ejpespa/gtypee/compare/v1.2.0...v1.3.0) (2026-03-02)
+
+
+### Features
+
+* **gmail:** add --query option to list command ([4b72fb4](https://github.com/ejpespa/gtypee/commit/4b72fb4dfd64737db3bb5bf58e3759b1d1e04149))
+
 # [1.2.0](https://github.com/ejpespa/gtypee/compare/v1.1.0...v1.2.0) (2026-02-28)
 
 
