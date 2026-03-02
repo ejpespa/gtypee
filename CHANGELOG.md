@@ -1,3 +1,10 @@
+# [1.4.0](https://github.com/ejpespa/gtypee/compare/v1.3.0...v1.4.0) (2026-03-02)
+
+
+### Features
+
+* **auth:** use default SA when --impersonate is provided without --sa ([2b12599](https://github.com/ejpespa/gtypee/commit/2b12599bb8a93a3a7870ba6eb04c4ddbf5576bfc))
+
 # [1.3.0](https://github.com/ejpespa/gtypee/compare/v1.2.0...v1.3.0) (2026-03-02)
 
 
