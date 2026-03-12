@@ -1,3 +1,16 @@
+# [1.5.0](https://github.com/ejpespa/gtypee/compare/v1.4.0...v1.5.0) (2026-03-12)
+
+
+### Bug Fixes
+
+* trigger release v1.4.1 ([f249036](https://github.com/ejpespa/gtypee/commit/f2490362ba3f3fed7e3b456b15f12766b60bc81f))
+
+
+### Features
+
+* **gmail:** add senders command to extract unique sender emails ([f3fa28c](https://github.com/ejpespa/gtypee/commit/f3fa28c60253cce20e6ebe0ea673c6be53cffd78))
+* trigger new release v1.4.1 ([5643cdb](https://github.com/ejpespa/gtypee/commit/5643cdbd7e705dbe6dfecdef4b1e244b33d5cf48))
+
 # [1.3.0](https://github.com/ejpespa/gtypee/compare/v1.2.0...v1.3.0) (2026-03-02)
 
 
