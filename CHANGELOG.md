@@ -1,3 +1,10 @@
+# [1.7.0](https://github.com/ejpespa/gtypee/compare/v1.6.0...v1.7.0) (2026-03-12)
+
+
+### Features
+
+* **gmail:** add attachment download command ([2646780](https://github.com/ejpespa/gtypee/commit/2646780929398d117fc7d909ad15afa3f4174f57))
+
 # [1.6.0](https://github.com/ejpespa/gtypee/compare/v1.5.1...v1.6.0) (2026-03-12)
 
 
