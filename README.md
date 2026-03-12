@@ -286,6 +286,11 @@ gtypee --impersonate user@domain.com drive ls
 
 ### Gmail Commands
 
+> **Workspace Admins:** Use `--impersonate` to access another user's Gmail:
+> ```bash
+> gtypee --impersonate user@company.com gmail list --query "is:unread"
+> ```
+
 **Messages**
 
 ```bash
@@ -298,6 +303,19 @@ gtypee gmail trash <message-id>                      # Move to trash
 gtypee gmail untrash <message-id>                    # Restore from trash
 gtypee gmail modify <message-id> --add-label STARRED --remove-label UNREAD
 gtypee gmail send --to person@example.com --subject "Hello" --body "Hi there"
+```
+
+**Senders** (Extract unique sender emails)
+
+```bash
+gtypee gmail senders                                # List all unique senders
+gtypee gmail senders --query "after:2024/01/01"     # Filter by date
+gtypee gmail senders --label "Work"                 # Filter by label
+gtypee gmail senders --counts --sort count          # Show counts, sorted by frequency
+gtypee gmail senders --max 1000                     # Scan up to 1000 messages
+gtypee gmail senders --json                         # JSON output
+# As workspace admin, extract from another user's inbox
+gtypee --impersonate hr@company.com gmail senders --counts --sort count
 ```
 
 **Drafts**
