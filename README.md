@@ -297,12 +297,35 @@ gtypee --impersonate user@domain.com drive ls
 gtypee gmail list                                    # List recent messages
 gtypee gmail list --query "is:unread"                # Filter with Gmail query
 gtypee gmail search --query "from:boss@company.com"  # Search messages
-gtypee gmail get <message-id>                        # Get full message
+gtypee gmail get <message-id>                        # Get full message (includes attachments info)
 gtypee gmail delete <message-id> --force             # Permanently delete
 gtypee gmail trash <message-id>                      # Move to trash
 gtypee gmail untrash <message-id>                    # Restore from trash
 gtypee gmail modify <message-id> --add-label STARRED --remove-label UNREAD
 gtypee gmail send --to person@example.com --subject "Hello" --body "Hi there"
+```
+
+**Attachments** (Download email attachments)
+
+```bash
+# First, get message to see attachments
+gtypee gmail get <message-id>
+# Output shows: Attachments: 2
+#   - report.pdf (application/pdf, 1.5MB)
+#   - image.png (image/png, 50.0KB)
+
+# Download attachment using attachmentId from JSON output
+gtypee gmail get <message-id> --json | jq '.attachments'
+gtypee gmail attachment download <message-id> <attachment-id>
+
+# Download with custom filename
+gtypee gmail attachment download <message-id> <attachment-id> "my-report.pdf"
+
+# Download to specific directory
+gtypee gmail attachment download <message-id> <attachment-id> -o ./downloads/
+
+# As workspace admin, download from another user's email
+gtypee --impersonate user@company.com gmail attachment download <message-id> <attachment-id>
 ```
 
 **Senders** (Extract unique sender emails)
