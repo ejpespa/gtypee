@@ -6,6 +6,7 @@ import { AuthRequiredError } from "../../../src/googleapi/errors.js";
 import {
   formatGmailLabels,
   formatGmailSearchResult,
+  formatGmailSenders,
   registerGmailCommands,
 } from "../../../src/cmd/gmail/commands.js";
 
@@ -504,5 +505,198 @@ describe("gmail list with pagination", () => {
     await captureStdout(() => program.parseAsync(["node", "test", "gmail", "thread", "list", "--page-token", "thread-token"]));
 
     expect(listThreads).toHaveBeenCalledWith(undefined, { pageToken: "thread-token" });
+  });
+});
+
+describe("gmail senders formatter", () => {
+  it("formats senders as plain list", () => {
+    const out = formatGmailSenders(
+      [
+        { email: "alice@example.com", count: 5 },
+        { email: "bob@example.com", count: 3 },
+      ],
+      "human",
+      false,
+      "email"
+    );
+    expect(out).toBe("alice@example.com\nbob@example.com");
+  });
+
+  it("formats senders with counts", () => {
+    const out = formatGmailSenders(
+      [
+        { email: "alice@example.com", count: 5 },
+        { email: "bob@example.com", count: 3 },
+      ],
+      "human",
+      true,
+      "email"
+    );
+    expect(out).toContain("alice@example.com");
+    expect(out).toContain("5");
+  });
+
+  it("formats senders as JSON", () => {
+    const out = formatGmailSenders(
+      [{ email: "alice@example.com", count: 5 }],
+      "json",
+      false,
+      "email"
+    );
+    const parsed = JSON.parse(out);
+    expect(parsed).toHaveLength(1);
+    expect(parsed[0].email).toBe("alice@example.com");
+  });
+
+  it("sorts by count when sortBy is count", () => {
+    const out = formatGmailSenders(
+      [
+        { email: "alice@example.com", count: 5 },
+        { email: "bob@example.com", count: 10 },
+      ],
+      "human",
+      true,
+      "count"
+    );
+    const lines = out.split("\n");
+    expect(lines[0]).toContain("bob@example.com");
+    expect(lines[1]).toContain("alice@example.com");
+  });
+
+  it("returns message for empty senders", () => {
+    const out = formatGmailSenders([], "human", false, "email");
+    expect(out).toBe("No senders found");
+  });
+});
+
+describe("gmail senders command", () => {
+  it("registers senders subcommand", () => {
+    const gmail = new Command("gmail");
+    registerGmailCommands(gmail);
+
+    const names = gmail.commands.map((cmd) => cmd.name());
+    expect(names).toContain("senders");
+  });
+
+  it("lists unique senders", async () => {
+    const root = new Command();
+    const gmail = root.command("gmail");
+    registerGmailCommands(gmail, {
+      listSenders: async () => [
+        { email: "alice@example.com", count: 5 },
+        { email: "bob@example.com", count: 3 },
+      ],
+    });
+
+    const stdout = await captureStdout(() =>
+      root.parseAsync(["node", "typee", "gmail", "senders"])
+    );
+
+    expect(stdout).toContain("alice@example.com");
+    expect(stdout).toContain("bob@example.com");
+  });
+
+  it("shows counts when --counts flag is set", async () => {
+    const root = new Command();
+    const gmail = root.command("gmail");
+    registerGmailCommands(gmail, {
+      listSenders: async () => [
+        { email: "alice@example.com", count: 5 },
+      ],
+    });
+
+    const stdout = await captureStdout(() =>
+      root.parseAsync(["node", "typee", "gmail", "senders", "--counts"])
+    );
+
+    expect(stdout).toContain("5");
+    expect(stdout).toContain("alice@example.com");
+  });
+
+  it("outputs JSON when --json flag is set", async () => {
+    const root = new Command();
+    root.option("--json", "Output as JSON");
+    const gmail = root.command("gmail");
+    registerGmailCommands(gmail, {
+      listSenders: async () => [
+        { email: "alice@example.com", count: 5 },
+      ],
+    });
+
+    const stdout = await captureStdout(() =>
+      root.parseAsync(["node", "typee", "gmail", "senders", "--json"])
+    );
+
+    const parsed = JSON.parse(stdout);
+    expect(parsed).toHaveLength(1);
+    expect(parsed[0].email).toBe("alice@example.com");
+  });
+
+  it("passes query option to listSenders", async () => {
+    const listSenders = vi.fn().mockResolvedValue([
+      { email: "test@example.com", count: 1 },
+    ]);
+    const root = new Command();
+    const gmail = root.command("gmail");
+    registerGmailCommands(gmail, { listSenders });
+
+    await captureStdout(() =>
+      root.parseAsync(["node", "typee", "gmail", "senders", "--query", "from:company.com"])
+    );
+
+    expect(listSenders).toHaveBeenCalledWith(
+      expect.objectContaining({ query: "from:company.com" })
+    );
+  });
+
+  it("passes label option to listSenders", async () => {
+    const listSenders = vi.fn().mockResolvedValue([
+      { email: "test@example.com", count: 1 },
+    ]);
+    const root = new Command();
+    const gmail = root.command("gmail");
+    registerGmailCommands(gmail, { listSenders });
+
+    await captureStdout(() =>
+      root.parseAsync(["node", "typee", "gmail", "senders", "--label", "INBOX"])
+    );
+
+    expect(listSenders).toHaveBeenCalledWith(
+      expect.objectContaining({ label: "INBOX" })
+    );
+  });
+
+  it("passes max option to listSenders", async () => {
+    const listSenders = vi.fn().mockResolvedValue([]);
+    const root = new Command();
+    const gmail = root.command("gmail");
+    registerGmailCommands(gmail, { listSenders });
+
+    await captureStdout(() =>
+      root.parseAsync(["node", "typee", "gmail", "senders", "--max", "100"])
+    );
+
+    expect(listSenders).toHaveBeenCalledWith(
+      expect.objectContaining({ maxResults: 100 })
+    );
+  });
+
+  it("sorts by count when --sort count is set", async () => {
+    const root = new Command();
+    const gmail = root.command("gmail");
+    registerGmailCommands(gmail, {
+      listSenders: async () => [
+        { email: "alice@example.com", count: 5 },
+        { email: "bob@example.com", count: 10 },
+      ],
+    });
+
+    const stdout = await captureStdout(() =>
+      root.parseAsync(["node", "typee", "gmail", "senders", "--counts", "--sort", "count"])
+    );
+
+    const lines = stdout.trim().split("\n");
+    expect(lines[0]).toContain("bob@example.com");
+    expect(lines[1]).toContain("alice@example.com");
   });
 });

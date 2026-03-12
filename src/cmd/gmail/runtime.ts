@@ -10,6 +10,7 @@ import type {
   GmailLabelDeps,
   GmailFilterDeps,
   GmailSignatureDeps,
+  GmailSendersDeps,
   GmailMessageDetail,
 } from "./commands.js";
 
@@ -821,6 +822,109 @@ export function buildGmailSignatureDeps(options: ServiceRuntimeOptions): Require
       } catch {
         return { email, applied: false };
       }
+    },
+  };
+}
+
+/**
+ * Extract email address from From header
+ * Handles formats: "Name <email@domain.com>" or "email@domain.com"
+ */
+function extractEmailAddress(fromHeader: string): string {
+  const match = fromHeader.match(/<([^>]+)>/);
+  if (match && match[1]) {
+    return match[1].toLowerCase().trim();
+  }
+  return fromHeader.toLowerCase().trim();
+}
+
+export function buildGmailSendersDeps(options: ServiceRuntimeOptions): Required<GmailSendersDeps> {
+  const runtime = new ServiceRuntime(options);
+
+  return {
+    listSenders: async (opts) => {
+      const auth = await runtime.getClient(scopes("gmail"));
+      const gmail = google.gmail({ version: "v1", auth });
+
+      const maxResults = opts?.maxResults ?? 500;
+      const senderCounts = new Map<string, number>();
+
+      // Build query
+      let query = opts?.query;
+      if (opts?.label) {
+        const labelQuery = `label:${opts.label}`;
+        query = query ? `${query} ${labelQuery}` : labelQuery;
+      }
+
+      // Fetch messages with pagination
+      let pageToken: string | undefined;
+      let fetched = 0;
+
+      while (fetched < maxResults || maxResults === 0) {
+        const params: {
+          userId: string;
+          maxResults: number;
+          q?: string;
+          pageToken?: string;
+        } = {
+          userId: "me",
+          maxResults: Math.min(100, maxResults === 0 ? 100 : maxResults - fetched),
+        };
+
+        if (query) {
+          params.q = query;
+        }
+        if (pageToken) {
+          params.pageToken = pageToken;
+        }
+
+        const response = await gmail.users.messages.list(params);
+        const messages = response.data.messages ?? [];
+
+        if (messages.length === 0) {
+          break;
+        }
+
+        // Fetch From header for each message
+        await Promise.all(
+          messages.map(async (msg) => {
+            try {
+              const detail = await gmail.users.messages.get({
+                userId: "me",
+                id: msg.id!,
+                format: "metadata",
+                metadataHeaders: ["From"],
+              });
+
+              const fromHeader = detail.data.payload?.headers?.find(
+                (h) => h.name?.toLowerCase() === "from"
+              )?.value;
+
+              if (fromHeader) {
+                const email = extractEmailAddress(fromHeader);
+                senderCounts.set(email, (senderCounts.get(email) ?? 0) + 1);
+              }
+            } catch {
+              // Skip messages we can't fetch
+            }
+          })
+        );
+
+        fetched += messages.length;
+        pageToken = response.data.nextPageToken ?? undefined;
+
+        if (!pageToken) {
+          break;
+        }
+      }
+
+      // Convert map to array
+      const results: { email: string; count: number }[] = [];
+      for (const [email, count] of senderCounts) {
+        results.push({ email, count });
+      }
+
+      return results;
     },
   };
 }

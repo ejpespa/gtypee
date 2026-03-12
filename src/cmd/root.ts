@@ -38,7 +38,7 @@ import { buildExecutionContext, type RootOptions } from "./execution-context.js"
 import { ServiceRuntime, type ServiceRuntimeOptions } from "../googleapi/auth-factory.js";
 import { KeyringStore, EncryptedFileBackend } from "../secrets/store.js";
 import { credentialsEncPath } from "../config/paths.js";
-import { buildGmailCommandDeps, buildGmailDraftDeps, buildGmailThreadDeps, buildGmailLabelDeps, buildGmailFilterDeps, buildGmailSignatureDeps } from "./gmail/runtime.js";
+import { buildGmailCommandDeps, buildGmailDraftDeps, buildGmailThreadDeps, buildGmailLabelDeps, buildGmailFilterDeps, buildGmailSignatureDeps, buildGmailSendersDeps } from "./gmail/runtime.js";
 import { buildCalendarCommandDeps } from "./calendar/runtime.js";
 import { buildDriveCommandDeps } from "./drive/runtime.js";
 import { buildDocsCommandDeps } from "./docs/runtime.js";
@@ -146,6 +146,7 @@ export function buildProgram(options: BuildProgramOptions = {}): Command {
     ...buildGmailLabelDeps(runtimeOptions),
     ...buildGmailFilterDeps(runtimeOptions),
     ...buildGmailSignatureDeps(runtimeOptions),
+    ...buildGmailSendersDeps(runtimeOptions),
   };
   const calendarDeps = buildCalendarCommandDeps(runtimeOptions);
   const chatDeps = buildChatCommandDeps(runtimeOptions);

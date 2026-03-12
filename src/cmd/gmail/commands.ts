@@ -200,6 +200,16 @@ export type GmailSignatureDeps = {
   setSignature?: (email: string, signature: string) => Promise<GmailSignatureSetResult>;
 };
 
+// Senders types
+export type GmailSenderResult = {
+  email: string;
+  count: number;
+};
+
+export type GmailSendersDeps = {
+  listSenders?: (options?: { query?: string; label?: string; maxResults?: number }) => Promise<GmailSenderResult[]>;
+};
+
 const defaultDeps: Required<GmailCommandDeps> = {
   sendEmail: async () => ({
     id: "",
@@ -314,6 +324,10 @@ const defaultSignatureDeps: Required<GmailSignatureDeps> = {
     email: "",
     applied: false,
   }),
+};
+
+const defaultSendersDeps: Required<GmailSendersDeps> = {
+  listSenders: async () => [],
 };
 
 export function formatGmailLabels(labels: GmailLabelSummary[], mode: OutputMode): string {
@@ -590,9 +604,42 @@ export function formatGmailSendAsAlias(alias: GmailSendAsAlias, mode: OutputMode
   return lines.join("\n");
 }
 
+export function formatGmailSenders(
+  senders: GmailSenderResult[],
+  mode: OutputMode,
+  showCounts: boolean,
+  sortBy: string,
+): string {
+  // Sort results
+  const sorted = [...senders].sort((a, b) => {
+    if (sortBy === "count") {
+      return b.count - a.count;
+    }
+    return a.email.localeCompare(b.email);
+  });
+
+  if (mode === "json") {
+    return JSON.stringify(sorted, null, 2);
+  }
+
+  if (sorted.length === 0) {
+    return "No senders found";
+  }
+
+  const lines: string[] = [];
+  for (const sender of sorted) {
+    if (showCounts) {
+      lines.push(`${sender.count.toString().padStart(6)} ${sender.email}`);
+    } else {
+      lines.push(sender.email);
+    }
+  }
+  return lines.join("\n");
+}
+
 export function registerGmailCommands(
   gmailCommand: Command,
-  deps: GmailCommandDeps & GmailDraftDeps & GmailThreadDeps & GmailLabelDeps & GmailFilterDeps & GmailSignatureDeps = {},
+  deps: GmailCommandDeps & GmailDraftDeps & GmailThreadDeps & GmailLabelDeps & GmailFilterDeps & GmailSignatureDeps & GmailSendersDeps = {},
 ): void {
   const resolvedDeps: Required<GmailCommandDeps> = {
     ...defaultDeps,
@@ -603,6 +650,7 @@ export function registerGmailCommands(
   const labelDeps: Required<GmailLabelDeps> = { ...defaultLabelDeps, ...deps };
   const filterDeps: Required<GmailFilterDeps> = { ...defaultFilterDeps, ...deps };
   const signatureDeps: Required<GmailSignatureDeps> = { ...defaultSignatureDeps, ...deps };
+  const sendersDeps: Required<GmailSendersDeps> = { ...defaultSendersDeps, ...deps };
 
   gmailCommand
     .command("send")
@@ -1162,5 +1210,44 @@ export function registerGmailCommands(
       }
 
       process.stdout.write(result.applied ? `Signature set for ${result.email}\n` : "Failed to set signature\n");
+    });
+
+  // ========================
+  // Senders command (gmail senders)
+  // ========================
+  gmailCommand
+    .command("senders")
+    .description("Extract unique sender email addresses")
+    .option("--query <query>", "Gmail search query to filter messages")
+    .option("--label <label>", "Filter by Gmail label")
+    .option("--max <number>", "Maximum messages to scan (0 for all)", "500")
+    .option("--counts", "Show email count per sender", false)
+    .option("--sort <field>", "Sort by 'email' or 'count'", "email")
+    .action(async function actionSenders(this: Command) {
+      const rootOptions = this.optsWithGlobals() as RootOptions;
+      const ctx = buildExecutionContext(rootOptions);
+      const opts = this.opts<{
+        query?: string;
+        label?: string;
+        max?: string;
+        counts?: boolean;
+        sort?: string;
+      }>();
+
+      const maxResults = parseInt(opts.max ?? "500", 10);
+
+      // Build options object conditionally to satisfy exactOptionalPropertyTypes
+      const listOptions: { query?: string; label?: string; maxResults?: number } = {};
+      if (opts.query !== undefined) listOptions.query = opts.query;
+      if (opts.label !== undefined) listOptions.label = opts.label;
+      if (maxResults !== 0) listOptions.maxResults = maxResults;
+
+      const senders = await runWithStableApiError("gmail", () =>
+        sendersDeps.listSenders(listOptions),
+      );
+
+      process.stdout.write(
+        `${formatGmailSenders(senders, ctx.output.mode, opts.counts ?? false, opts.sort ?? "email")}\n`,
+      );
     });
 }
