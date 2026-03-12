@@ -1,3 +1,10 @@
+## [1.5.1](https://github.com/ejpespa/gtypee/compare/v1.5.0...v1.5.1) (2026-03-12)
+
+
+### Bug Fixes
+
+* **gmail:** improve body extraction for nested multipart emails ([2944410](https://github.com/ejpespa/gtypee/commit/2944410629b0c3cf451389b572f76085a96db03f))
+
 # [1.5.0](https://github.com/ejpespa/gtypee/compare/v1.4.0...v1.5.0) (2026-03-12)
 
 
