@@ -1,3 +1,10 @@
+# [1.6.0](https://github.com/ejpespa/gtypee/compare/v1.5.1...v1.6.0) (2026-03-12)
+
+
+### Features
+
+* **gmail:** display attachments in get command ([36a1f16](https://github.com/ejpespa/gtypee/commit/36a1f1624eac113ff739cddce8ed77eacfd7c94c))
+
 ## [1.5.1](https://github.com/ejpespa/gtypee/compare/v1.5.0...v1.5.1) (2026-03-12)
 
 
