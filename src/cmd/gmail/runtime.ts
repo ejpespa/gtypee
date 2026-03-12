@@ -153,25 +153,42 @@ export function buildGmailCommandDeps(options: ServiceRuntimeOptions): Required<
         return header?.value ?? "";
       };
 
-      // Extract text body from the message
-      let body = "";
-      const payload = response.data.payload;
-
-      if (payload?.body?.data) {
-        // Simple text/plain message
-        body = Buffer.from(payload.body.data, "base64url").toString("utf-8");
-      } else if (payload?.parts) {
-        // Multipart message - find text/plain part
-        const textPart = payload.parts.find(
-          (part) => part.mimeType === "text/plain" || part.mimeType?.startsWith("text/plain"),
-        );
-        if (textPart?.body?.data) {
-          body = Buffer.from(textPart.body.data, "base64url").toString("utf-8");
-        } else if (payload.parts[0]?.body?.data) {
-          // Fallback to first part
-          body = Buffer.from(payload.parts[0].body.data, "base64url").toString("utf-8");
+      // Recursively extract text body from the message
+      const extractTextBody = (part: typeof response.data.payload): string => {
+        // Direct body data
+        if (part?.body?.data) {
+          const mimeType = part.mimeType ?? "";
+          // Prefer text/plain, but also accept text/html as fallback
+          if (mimeType.startsWith("text/")) {
+            return Buffer.from(part.body.data, "base64url").toString("utf-8");
+          }
         }
-      }
+
+        // Recursively search parts
+        if (part?.parts) {
+          // First, try to find text/plain
+          for (const subPart of part.parts) {
+            if (subPart.mimeType === "text/plain" && subPart.body?.data) {
+              return Buffer.from(subPart.body.data, "base64url").toString("utf-8");
+            }
+          }
+          // Then recursively search nested parts
+          for (const subPart of part.parts) {
+            const result = extractTextBody(subPart);
+            if (result) return result;
+          }
+          // Fallback: first part with data
+          for (const subPart of part.parts) {
+            if (subPart.body?.data) {
+              return Buffer.from(subPart.body.data, "base64url").toString("utf-8");
+            }
+          }
+        }
+
+        return "";
+      };
+
+      const body = extractTextBody(response.data.payload);
 
       return {
         id: response.data.id ?? "",
