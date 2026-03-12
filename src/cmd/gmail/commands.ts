@@ -29,6 +29,12 @@ export type GmailAttachment = {
   attachmentId: string;
 };
 
+export type GmailAttachmentDownloadResult = {
+  filename: string;
+  size: number;
+  saved: boolean;
+};
+
 export type GmailMessageDetail = {
   id: string;
   threadId: string;
@@ -218,6 +224,10 @@ export type GmailSendersDeps = {
   listSenders?: (options?: { query?: string; label?: string; maxResults?: number }) => Promise<GmailSenderResult[]>;
 };
 
+export type GmailAttachmentDeps = {
+  downloadAttachment?: (messageId: string, attachmentId: string, filename: string, outputPath?: string) => Promise<GmailAttachmentDownloadResult>;
+};
+
 const defaultDeps: Required<GmailCommandDeps> = {
   sendEmail: async () => ({
     id: "",
@@ -337,6 +347,10 @@ const defaultSignatureDeps: Required<GmailSignatureDeps> = {
 
 const defaultSendersDeps: Required<GmailSendersDeps> = {
   listSenders: async () => [],
+};
+
+const defaultAttachmentDeps: Required<GmailAttachmentDeps> = {
+  downloadAttachment: async () => ({ filename: "", size: 0, saved: false }),
 };
 
 export function formatGmailLabels(labels: GmailLabelSummary[], mode: OutputMode): string {
@@ -660,7 +674,7 @@ export function formatGmailSenders(
 
 export function registerGmailCommands(
   gmailCommand: Command,
-  deps: GmailCommandDeps & GmailDraftDeps & GmailThreadDeps & GmailLabelDeps & GmailFilterDeps & GmailSignatureDeps & GmailSendersDeps = {},
+  deps: GmailCommandDeps & GmailDraftDeps & GmailThreadDeps & GmailLabelDeps & GmailFilterDeps & GmailSignatureDeps & GmailSendersDeps & GmailAttachmentDeps = {},
 ): void {
   const resolvedDeps: Required<GmailCommandDeps> = {
     ...defaultDeps,
@@ -672,6 +686,7 @@ export function registerGmailCommands(
   const filterDeps: Required<GmailFilterDeps> = { ...defaultFilterDeps, ...deps };
   const signatureDeps: Required<GmailSignatureDeps> = { ...defaultSignatureDeps, ...deps };
   const sendersDeps: Required<GmailSendersDeps> = { ...defaultSendersDeps, ...deps };
+  const attachmentDeps: Required<GmailAttachmentDeps> = { ...defaultAttachmentDeps, ...deps };
 
   gmailCommand
     .command("send")
@@ -1270,5 +1285,59 @@ export function registerGmailCommands(
       process.stdout.write(
         `${formatGmailSenders(senders, ctx.output.mode, opts.counts ?? false, opts.sort ?? "email")}\n`,
       );
+    });
+
+  // ========================
+  // Attachment command (gmail attachment)
+  // ========================
+  const attachmentCommand = gmailCommand
+    .command("attachment")
+    .description("Download email attachments");
+
+  attachmentCommand
+    .command("download")
+    .description("Download an attachment from an email")
+    .argument("<message-id>", "Message ID")
+    .argument("<attachment-id>", "Attachment ID")
+    .argument("[filename]", "Filename to save as (optional, uses original if not provided)")
+    .option("-o, --output <path>", "Output directory or file path")
+    .action(async function actionDownloadAttachment(this: Command, messageId: string, attachmentId: string, filename?: string) {
+      const rootOptions = this.optsWithGlobals() as RootOptions;
+      const ctx = buildExecutionContext(rootOptions);
+      const opts = this.opts<{
+        output?: string;
+      }>();
+
+      // Get message to find the attachment filename if not provided
+      let actualFilename = filename;
+      if (!actualFilename) {
+        const message = await runWithStableApiError("gmail", () => resolvedDeps.getMessage!(messageId));
+        const attachment = message.attachments.find((a) => a.attachmentId === attachmentId);
+        if (!attachment) {
+          process.stderr.write(`Attachment not found: ${attachmentId}\n`);
+          process.exit(1);
+        }
+        actualFilename = attachment.filename;
+      }
+
+      const result = await runWithStableApiError("gmail", () =>
+        attachmentDeps.downloadAttachment!(messageId, attachmentId, actualFilename!, opts.output),
+      );
+
+      if (ctx.output.mode === "json") {
+        process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+      } else {
+        if (result.saved) {
+          const sizeStr = result.size > 1024 * 1024
+            ? `${(result.size / (1024 * 1024)).toFixed(1)}MB`
+            : result.size > 1024
+              ? `${(result.size / 1024).toFixed(1)}KB`
+              : `${result.size}B`;
+          process.stdout.write(`Downloaded: ${result.filename} (${sizeStr})\n`);
+        } else {
+          process.stderr.write(`Failed to download attachment\n`);
+          process.exit(1);
+        }
+      }
     });
 }

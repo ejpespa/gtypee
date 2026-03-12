@@ -11,6 +11,7 @@ import type {
   GmailFilterDeps,
   GmailSignatureDeps,
   GmailSendersDeps,
+  GmailAttachmentDeps,
   GmailMessageDetail,
   GmailAttachment,
 } from "./commands.js";
@@ -972,6 +973,42 @@ export function buildGmailSendersDeps(options: ServiceRuntimeOptions): Required<
       }
 
       return results;
+    },
+  };
+}
+
+export function buildGmailAttachmentDeps(options: ServiceRuntimeOptions): Required<GmailAttachmentDeps> {
+  const runtime = new ServiceRuntime(options);
+
+  return {
+    downloadAttachment: async (messageId: string, attachmentId: string, filename: string, outputPath?: string) => {
+      const auth = await runtime.getClient(scopes("gmail"));
+      const gmail = google.gmail({ version: "v1", auth });
+
+      const response = await gmail.users.messages.attachments.get({
+        userId: "me",
+        messageId,
+        id: attachmentId,
+      });
+
+      const data = response.data.data;
+      if (!data) {
+        return { filename, size: 0, saved: false };
+      }
+
+      // Decode base64url data to buffer
+      const buffer = Buffer.from(data, "base64url");
+      const size = buffer.length;
+
+      // Determine output path
+      const fs = await import("fs");
+      const path = await import("path");
+      const savePath = outputPath ?? path.join(process.cwd(), filename);
+
+      // Write file
+      await fs.promises.writeFile(savePath, buffer);
+
+      return { filename, size, saved: true };
     },
   };
 }

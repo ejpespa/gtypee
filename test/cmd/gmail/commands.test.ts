@@ -807,3 +807,105 @@ describe("gmail senders command", () => {
     expect(lines[1]).toContain("alice@example.com");
   });
 });
+
+describe("gmail attachment download command", () => {
+  it("downloads attachment with filename from message", async () => {
+    const root = new Command();
+    const gmail = root.command("gmail");
+    registerGmailCommands(gmail, {
+      getMessage: async () => ({
+        id: "msg1",
+        threadId: "t1",
+        from: "sender@example.com",
+        to: "me@example.com",
+        subject: "Test",
+        date: "2024-01-01",
+        body: "Hello",
+        attachments: [
+          { filename: "document.pdf", mimeType: "application/pdf", size: 1024, attachmentId: "att1" },
+        ],
+      }),
+      downloadAttachment: async () => ({
+        filename: "document.pdf",
+        size: 1024,
+        saved: true,
+      }),
+    });
+
+    const stdout = await captureStdout(() =>
+      root.parseAsync(["node", "typee", "gmail", "attachment", "download", "msg1", "att1"])
+    );
+
+    expect(stdout).toContain("Downloaded:");
+    expect(stdout).toContain("document.pdf");
+  });
+
+  it("uses provided filename", async () => {
+    const root = new Command();
+    const gmail = root.command("gmail");
+    const downloadAttachment = vi.fn().mockResolvedValue({
+      filename: "custom.pdf",
+      size: 1024,
+      saved: true,
+    });
+    registerGmailCommands(gmail, {
+      getMessage: async () => ({
+        id: "msg1",
+        threadId: "t1",
+        from: "sender@example.com",
+        to: "me@example.com",
+        subject: "Test",
+        date: "2024-01-01",
+        body: "Hello",
+        attachments: [
+          { filename: "document.pdf", mimeType: "application/pdf", size: 1024, attachmentId: "att1" },
+        ],
+      }),
+      downloadAttachment,
+    });
+
+    await captureStdout(() =>
+      root.parseAsync(["node", "typee", "gmail", "attachment", "download", "msg1", "att1", "custom.pdf"])
+    );
+
+    expect(downloadAttachment).toHaveBeenCalledWith(
+      "msg1",
+      "att1",
+      "custom.pdf",
+      undefined
+    );
+  });
+
+  it("outputs JSON when --json flag is set", async () => {
+    const root = new Command();
+    root.option("--json", "Output as JSON");
+    const gmail = root.command("gmail");
+    registerGmailCommands(gmail, {
+      getMessage: async () => ({
+        id: "msg1",
+        threadId: "t1",
+        from: "sender@example.com",
+        to: "me@example.com",
+        subject: "Test",
+        date: "2024-01-01",
+        body: "Hello",
+        attachments: [
+          { filename: "document.pdf", mimeType: "application/pdf", size: 1024, attachmentId: "att1" },
+        ],
+      }),
+      downloadAttachment: async () => ({
+        filename: "document.pdf",
+        size: 1024,
+        saved: true,
+      }),
+    });
+
+    const stdout = await captureStdout(() =>
+      root.parseAsync(["node", "typee", "gmail", "attachment", "download", "msg1", "att1", "--json"])
+    );
+
+    const parsed = JSON.parse(stdout);
+    expect(parsed.filename).toBe("document.pdf");
+    expect(parsed.saved).toBe(true);
+  });
+});
