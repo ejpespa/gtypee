@@ -22,6 +22,13 @@ export type GmailLabelSummary = {
   name: string;
 };
 
+export type GmailAttachment = {
+  filename: string;
+  mimeType: string;
+  size: number;
+  attachmentId: string;
+};
+
 export type GmailMessageDetail = {
   id: string;
   threadId: string;
@@ -30,6 +37,7 @@ export type GmailMessageDetail = {
   subject: string;
   date: string;
   body: string;
+  attachments: GmailAttachment[];
 };
 
 export type GmailDeleteResult = {
@@ -227,6 +235,7 @@ const defaultDeps: Required<GmailCommandDeps> = {
     subject: "",
     date: "",
     body: "",
+    attachments: [],
   }),
   deleteMessage: async () => ({
     id: "",
@@ -257,7 +266,7 @@ const defaultDraftDeps: Required<GmailDraftDeps> = {
   listDrafts: async () => ({ items: [] }),
   getDraft: async () => ({
     id: "",
-    message: { id: "", threadId: "", from: "", to: "", subject: "", date: "", body: "" },
+    message: { id: "", threadId: "", from: "", to: "", subject: "", date: "", body: "", attachments: [] },
   }),
   deleteDraft: async () => ({
     id: "",
@@ -402,9 +411,21 @@ export function formatGmailMessageDetail(message: GmailMessageDetail, mode: Outp
     `To: ${message.to}`,
     `Subject: ${message.subject}`,
     `Date: ${message.date}`,
-    "",
-    message.body,
   ];
+
+  if (message.attachments.length > 0) {
+    lines.push(`Attachments: ${message.attachments.length}`);
+    for (const att of message.attachments) {
+      const sizeStr = att.size > 1024 * 1024
+        ? `${(att.size / (1024 * 1024)).toFixed(1)}MB`
+        : att.size > 1024
+          ? `${(att.size / 1024).toFixed(1)}KB`
+          : `${att.size}B`;
+      lines.push(`  - ${att.filename} (${att.mimeType}, ${sizeStr})`);
+    }
+  }
+
+  lines.push("", message.body);
   return lines.join("\n");
 }
 

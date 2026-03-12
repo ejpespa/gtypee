@@ -12,6 +12,7 @@ import type {
   GmailSignatureDeps,
   GmailSendersDeps,
   GmailMessageDetail,
+  GmailAttachment,
 } from "./commands.js";
 
 export function buildGmailCommandDeps(options: ServiceRuntimeOptions): Required<GmailCommandDeps> {
@@ -188,7 +189,34 @@ export function buildGmailCommandDeps(options: ServiceRuntimeOptions): Required<
         return "";
       };
 
+      // Recursively extract attachments from the message
+      const extractAttachments = (part: typeof response.data.payload): GmailAttachment[] => {
+        const attachments: GmailAttachment[] = [];
+
+        if (!part) return attachments;
+
+        // Check if this part is an attachment
+        if (part.body?.attachmentId && part.filename) {
+          attachments.push({
+            filename: part.filename,
+            mimeType: part.mimeType ?? "application/octet-stream",
+            size: part.body.size ?? 0,
+            attachmentId: part.body.attachmentId,
+          });
+        }
+
+        // Recursively check nested parts
+        if (part.parts) {
+          for (const subPart of part.parts) {
+            attachments.push(...extractAttachments(subPart));
+          }
+        }
+
+        return attachments;
+      };
+
       const body = extractTextBody(response.data.payload);
+      const attachments = extractAttachments(response.data.payload);
 
       return {
         id: response.data.id ?? "",
@@ -198,6 +226,7 @@ export function buildGmailCommandDeps(options: ServiceRuntimeOptions): Required<
         subject: getHeader("subject") || "(no subject)",
         date: getHeader("date"),
         body,
+        attachments,
       };
     },
 
@@ -312,6 +341,7 @@ function extractMessageDetail(message: { id?: string | null; threadId?: string |
     subject: getHeader("subject") || "(no subject)",
     date: getHeader("date"),
     body,
+    attachments: [],
   };
 }
 

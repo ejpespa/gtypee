@@ -5,6 +5,7 @@ import { buildProgram } from "../../../src/cmd/root.js";
 import { AuthRequiredError } from "../../../src/googleapi/errors.js";
 import {
   formatGmailLabels,
+  formatGmailMessageDetail,
   formatGmailSearchResult,
   formatGmailSenders,
   registerGmailCommands,
@@ -224,12 +225,40 @@ describe("gmail message commands", () => {
         subject: "Test Subject",
         date: "2024-01-01",
         body: "Hello World",
+        attachments: [],
       }),
     });
 
     const stdout = await captureStdout(() => root.parseAsync(["node", "typee", "gmail", "get", "msg1"]));
     expect(stdout).toContain("Test Subject");
     expect(stdout).toContain("sender@example.com");
+  });
+
+  it("gmail get shows attachment info", async () => {
+    const root = new Command();
+    const gmail = root.command("gmail");
+    registerGmailCommands(gmail, {
+      getMessage: async () => ({
+        id: "msg1",
+        threadId: "t1",
+        from: "sender@example.com",
+        to: "me@example.com",
+        subject: "With Attachment",
+        date: "2024-01-01",
+        body: "See attached file",
+        attachments: [
+          { filename: "report.pdf", mimeType: "application/pdf", size: 1024000, attachmentId: "att1" },
+          { filename: "image.png", mimeType: "image/png", size: 51200, attachmentId: "att2" },
+        ],
+      }),
+    });
+
+    const stdout = await captureStdout(() => root.parseAsync(["node", "typee", "gmail", "get", "msg1"]));
+    expect(stdout).toContain("Attachments: 2");
+    expect(stdout).toContain("report.pdf");
+    expect(stdout).toContain("image.png");
+    expect(stdout).toContain("1000.0KB");
+    expect(stdout).toContain("50.0KB");
   });
 
   it("gmail delete requires force flag", async () => {
@@ -505,6 +534,84 @@ describe("gmail list with pagination", () => {
     await captureStdout(() => program.parseAsync(["node", "test", "gmail", "thread", "list", "--page-token", "thread-token"]));
 
     expect(listThreads).toHaveBeenCalledWith(undefined, { pageToken: "thread-token" });
+  });
+});
+
+describe("gmail message detail formatter", () => {
+  it("formats message with attachments", () => {
+    const out = formatGmailMessageDetail(
+      {
+        id: "msg1",
+        threadId: "t1",
+        from: "sender@example.com",
+        to: "me@example.com",
+        subject: "Test",
+        date: "2024-01-01",
+        body: "Hello",
+        attachments: [
+          { filename: "doc.pdf", mimeType: "application/pdf", size: 2048, attachmentId: "a1" },
+        ],
+      },
+      "human"
+    );
+    expect(out).toContain("Attachments: 1");
+    expect(out).toContain("doc.pdf");
+    expect(out).toContain("2.0KB");
+  });
+
+  it("formats message without attachments", () => {
+    const out = formatGmailMessageDetail(
+      {
+        id: "msg1",
+        threadId: "t1",
+        from: "sender@example.com",
+        to: "me@example.com",
+        subject: "Test",
+        date: "2024-01-01",
+        body: "Hello",
+        attachments: [],
+      },
+      "human"
+    );
+    expect(out).not.toContain("Attachments:");
+  });
+
+  it("formats attachment size in MB for large files", () => {
+    const out = formatGmailMessageDetail(
+      {
+        id: "msg1",
+        threadId: "t1",
+        from: "sender@example.com",
+        to: "me@example.com",
+        subject: "Test",
+        date: "2024-01-01",
+        body: "Hello",
+        attachments: [
+          { filename: "video.mp4", mimeType: "video/mp4", size: 5 * 1024 * 1024, attachmentId: "a1" },
+        ],
+      },
+      "human"
+    );
+    expect(out).toContain("5.0MB");
+  });
+
+  it("formats as JSON when mode is json", () => {
+    const out = formatGmailMessageDetail(
+      {
+        id: "msg1",
+        threadId: "t1",
+        from: "sender@example.com",
+        to: "me@example.com",
+        subject: "Test",
+        date: "2024-01-01",
+        body: "Hello",
+        attachments: [],
+      },
+      "json"
+    );
+    const parsed = JSON.parse(out);
+    expect(parsed.id).toBe("msg1");
+    expect(parsed.attachments).toEqual([]);
   });
 });
 
