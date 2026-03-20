@@ -185,16 +185,17 @@ Create `credentials.json` in the config directory:
 **5. Authenticate**
 
 ```bash
-# Browser flow
+# Interactive browser flow (opens browser automatically)
 gtypee auth add --email you@gmail.com
 
-# Manual flow (no browser auto-open)
-gtypee auth add --email you@gmail.com --manual
-
-# Remote/headless (SSH, server)
+# Remote/headless flow (SSH, server, CI/CD)
+# Step 1: Get the authorization URL
 gtypee auth add --email you@gmail.com --remote --step 1
-# Open URL in browser, then:
+# Step 2: After opening URL and authorizing, paste the redirect URL
 gtypee auth add --email you@gmail.com --remote --step 2 --auth-url "http://localhost:PORT/?code=..."
+
+# Using with --impersonate (Workspace admin)
+gtypee --impersonate user@company.com gmail list
 ```
 
 **6. Verify**
