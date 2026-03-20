@@ -14,6 +14,7 @@ import type {
   GmailAttachmentDeps,
   GmailMessageDetail,
   GmailAttachment,
+  GmailBulkDownloadResult,
 } from "./commands.js";
 
 export function buildGmailCommandDeps(options: ServiceRuntimeOptions): Required<GmailCommandDeps> {
@@ -980,35 +981,216 @@ export function buildGmailSendersDeps(options: ServiceRuntimeOptions): Required<
 export function buildGmailAttachmentDeps(options: ServiceRuntimeOptions): Required<GmailAttachmentDeps> {
   const runtime = new ServiceRuntime(options);
 
+  const downloadSingle = async (messageId: string, attachmentId: string, filename: string, outputPath?: string) => {
+    const fs = await import("fs");
+    const path = await import("path");
+    const auth = await runtime.getClient(scopes("gmail"));
+    const gmail = google.gmail({ version: "v1", auth });
+
+    const response = await gmail.users.messages.attachments.get({
+      userId: "me",
+      messageId,
+      id: attachmentId,
+    });
+
+    const data = response.data.data;
+    if (!data) {
+      return { filename, size: 0, saved: false };
+    }
+
+    // Decode base64url data to buffer
+    const buffer = Buffer.from(data, "base64url");
+    const size = buffer.length;
+
+    // Determine output path
+    const savePath = outputPath ?? path.join(process.cwd(), filename);
+
+    // Write file
+    await fs.promises.writeFile(savePath, buffer);
+
+    return { filename, size, saved: true };
+  };
+
   return {
-    downloadAttachment: async (messageId: string, attachmentId: string, filename: string, outputPath?: string) => {
+    downloadAttachment: downloadSingle,
+
+    downloadAllAttachments: async (messageId: string, outputPath?: string) => {
+      const fs = await import("fs");
       const auth = await runtime.getClient(scopes("gmail"));
       const gmail = google.gmail({ version: "v1", auth });
 
-      const response = await gmail.users.messages.attachments.get({
+      const response = await gmail.users.messages.get({
         userId: "me",
-        messageId,
-        id: attachmentId,
+        id: messageId,
+        format: "full",
       });
 
-      const data = response.data.data;
-      if (!data) {
-        return { filename, size: 0, saved: false };
+      // Extract attachments recursively
+      const extractAttachments = (part: typeof response.data.payload): GmailAttachment[] => {
+        const attachments: GmailAttachment[] = [];
+
+        if (!part) return attachments;
+
+        if (part.body?.attachmentId && part.filename) {
+          attachments.push({
+            filename: part.filename,
+            mimeType: part.mimeType ?? "application/octet-stream",
+            size: part.body.size ?? 0,
+            attachmentId: part.body.attachmentId,
+          });
+        }
+
+        if (part.parts) {
+          for (const subPart of part.parts) {
+            attachments.push(...extractAttachments(subPart));
+          }
+        }
+
+        return attachments;
+      };
+
+      const attachments = extractAttachments(response.data.payload);
+
+      if (attachments.length === 0) {
+        return { downloaded: 0, failed: 0, skipped: 0, files: [] };
       }
 
-      // Decode base64url data to buffer
-      const buffer = Buffer.from(data, "base64url");
-      const size = buffer.length;
+      // Create output directory if specified and doesn't exist
+      const targetDir = outputPath ?? process.cwd();
+      if (outputPath) {
+        await fs.promises.mkdir(targetDir, { recursive: true });
+      }
 
-      // Determine output path
+      const files: { filename: string; size: number; saved: boolean }[] = [];
+      let downloaded = 0;
+      let failed = 0;
+
+      for (const attachment of attachments) {
+        const result = await downloadSingle(
+          messageId,
+          attachment.attachmentId,
+          attachment.filename,
+          targetDir
+        );
+        files.push(result);
+        if (result.saved) {
+          downloaded++;
+        } else {
+          failed++;
+        }
+      }
+
+      return { downloaded, failed, skipped: 0, files };
+    },
+
+    downloadAttachmentsBatch: async (query: string, outputPath?: string, maxResults = 50) => {
       const fs = await import("fs");
-      const path = await import("path");
-      const savePath = outputPath ?? path.join(process.cwd(), filename);
+      const auth = await runtime.getClient(scopes("gmail"));
+      const gmail = google.gmail({ version: "v1", auth });
 
-      // Write file
-      await fs.promises.writeFile(savePath, buffer);
+      // Create output directory if specified
+      const targetDir = outputPath ?? process.cwd();
+      if (outputPath) {
+        await fs.promises.mkdir(targetDir, { recursive: true });
+      }
 
-      return { filename, size, saved: true };
+      const files: { filename: string; size: number; saved: boolean }[] = [];
+      let downloaded = 0;
+      let failed = 0;
+      let skipped = 0;
+
+      // Fetch messages matching query
+      let pageToken: string | undefined = undefined;
+      let remaining = maxResults;
+
+      while (remaining > 0) {
+        const listParams: {
+          userId: string;
+          q: string;
+          maxResults: number;
+          pageToken?: string;
+        } = {
+          userId: "me",
+          q: query,
+          maxResults: Math.min(100, remaining),
+        };
+        if (pageToken !== undefined) {
+          listParams.pageToken = pageToken;
+        }
+
+        const response = await gmail.users.messages.list(listParams);
+
+        const messages = response.data.messages ?? [];
+        if (messages.length === 0) break;
+
+        // Process each message
+        for (const msg of messages) {
+          try {
+            const msgResponse = await gmail.users.messages.get({
+              userId: "me",
+              id: msg.id!,
+              format: "full",
+            });
+
+            // Extract attachments recursively
+            const extractAttachments = (part: typeof msgResponse.data.payload): GmailAttachment[] => {
+              const attachments: GmailAttachment[] = [];
+
+              if (!part) return attachments;
+
+              if (part.body?.attachmentId && part.filename) {
+                attachments.push({
+                  filename: part.filename,
+                  mimeType: part.mimeType ?? "application/octet-stream",
+                  size: part.body.size ?? 0,
+                  attachmentId: part.body.attachmentId,
+                });
+              }
+
+              if (part.parts) {
+                for (const subPart of part.parts) {
+                  attachments.push(...extractAttachments(subPart));
+                }
+              }
+
+              return attachments;
+            };
+
+            const attachments = extractAttachments(msgResponse.data.payload);
+
+            if (attachments.length === 0) {
+              skipped++;
+              continue;
+            }
+
+            // Download all attachments from this message
+            for (const attachment of attachments) {
+              const result = await downloadSingle(
+                msg.id!,
+                attachment.attachmentId,
+                attachment.filename,
+                targetDir
+              );
+              files.push(result);
+              if (result.saved) {
+                downloaded++;
+              } else {
+                failed++;
+              }
+            }
+          } catch {
+            // Skip messages we can't process
+            skipped++;
+          }
+
+          remaining--;
+        }
+
+        pageToken = response.data.nextPageToken ?? undefined;
+        if (!pageToken) break;
+      }
+
+      return { downloaded, failed, skipped, files };
     },
   };
 }

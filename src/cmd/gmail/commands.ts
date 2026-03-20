@@ -35,6 +35,13 @@ export type GmailAttachmentDownloadResult = {
   saved: boolean;
 };
 
+export type GmailBulkDownloadResult = {
+  downloaded: number;
+  failed: number;
+  skipped: number;
+  files: { filename: string; size: number; saved: boolean }[];
+};
+
 export type GmailMessageDetail = {
   id: string;
   threadId: string;
@@ -226,6 +233,8 @@ export type GmailSendersDeps = {
 
 export type GmailAttachmentDeps = {
   downloadAttachment?: (messageId: string, attachmentId: string, filename: string, outputPath?: string) => Promise<GmailAttachmentDownloadResult>;
+  downloadAllAttachments?: (messageId: string, outputPath?: string) => Promise<GmailBulkDownloadResult>;
+  downloadAttachmentsBatch?: (query: string, outputPath?: string, maxResults?: number) => Promise<GmailBulkDownloadResult>;
 };
 
 const defaultDeps: Required<GmailCommandDeps> = {
@@ -351,6 +360,8 @@ const defaultSendersDeps: Required<GmailSendersDeps> = {
 
 const defaultAttachmentDeps: Required<GmailAttachmentDeps> = {
   downloadAttachment: async () => ({ filename: "", size: 0, saved: false }),
+  downloadAllAttachments: async () => ({ downloaded: 0, failed: 0, skipped: 0, files: [] }),
+  downloadAttachmentsBatch: async () => ({ downloaded: 0, failed: 0, skipped: 0, files: [] }),
 };
 
 export function formatGmailLabels(labels: GmailLabelSummary[], mode: OutputMode): string {
@@ -1337,6 +1348,65 @@ export function registerGmailCommands(
         } else {
           process.stderr.write(`Failed to download attachment\n`);
           process.exit(1);
+        }
+      }
+    });
+
+  attachmentCommand
+    .command("download-all")
+    .description("Download all attachments from a single email")
+    .argument("<message-id>", "Message ID")
+    .option("-o, --output <path>", "Output directory (default: current directory)")
+    .action(async function actionDownloadAll(this: Command, messageId: string) {
+      const rootOptions = this.optsWithGlobals() as RootOptions;
+      const ctx = buildExecutionContext(rootOptions);
+      const opts = this.opts<{
+        output?: string;
+      }>();
+
+      const result = await runWithStableApiError("gmail", () =>
+        attachmentDeps.downloadAllAttachments!(messageId, opts.output),
+      );
+
+      if (ctx.output.mode === "json") {
+        process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+      } else {
+        process.stdout.write(`Downloaded: ${result.downloaded} file(s)\n`);
+        if (result.failed > 0) {
+          process.stderr.write(`Failed: ${result.failed} file(s)\n`);
+        }
+      }
+    });
+
+  attachmentCommand
+    .command("download-batch")
+    .description("Download all attachments from multiple emails matching a query")
+    .argument("<query>", "Gmail search query (e.g., 'has:attachment' or 'label:Work')")
+    .option("-o, --output <path>", "Output directory (default: current directory)")
+    .option("--max <number>", "Maximum messages to process", "50")
+    .action(async function actionDownloadBatch(this: Command, query: string) {
+      const rootOptions = this.optsWithGlobals() as RootOptions;
+      const ctx = buildExecutionContext(rootOptions);
+      const opts = this.opts<{
+        output?: string;
+        max?: string;
+      }>();
+
+      const max = parseInt(opts.max ?? "50", 10);
+
+      const result = await runWithStableApiError("gmail", () =>
+        attachmentDeps.downloadAttachmentsBatch!(query, opts.output, max),
+      );
+
+      if (ctx.output.mode === "json") {
+        process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+      } else {
+        process.stdout.write(`Downloaded: ${result.downloaded} file(s)\n`);
+        if (result.failed > 0) {
+          process.stderr.write(`Failed: ${result.failed} file(s)\n`);
+        }
+        if (result.skipped > 0) {
+          process.stdout.write(`Skipped: ${result.skipped} message(s)\n`);
         }
       }
     });

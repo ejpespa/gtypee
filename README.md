@@ -308,14 +308,7 @@ gtypee gmail send --to person@example.com --subject "Hello" --body "Hi there"
 **Attachments** (Download email attachments)
 
 ```bash
-# First, get message to see attachments
-gtypee gmail get <message-id>
-# Output shows: Attachments: 2
-#   - report.pdf (application/pdf, 1.5MB)
-#   - image.png (image/png, 50.0KB)
-
-# Download attachment using attachmentId from JSON output
-gtypee gmail get <message-id> --json | jq '.attachments'
+# Download a single attachment
 gtypee gmail attachment download <message-id> <attachment-id>
 
 # Download with custom filename
@@ -324,8 +317,16 @@ gtypee gmail attachment download <message-id> <attachment-id> "my-report.pdf"
 # Download to specific directory
 gtypee gmail attachment download <message-id> <attachment-id> -o ./downloads/
 
+# Download all attachments from a single message
+gtypee gmail attachment download-all <message-id>
+
+# Download all attachments from messages matching a query
+gtypee gmail attachment download-batch "has:attachment"
+gtypee gmail attachment download-batch "label:Work" -o ./work-attachments/
+gtypee gmail attachment download-batch "from:boss@company.com" --max 100
+
 # As workspace admin, download from another user's email
-gtypee --impersonate user@company.com gmail attachment download <message-id> <attachment-id>
+gtypee --impersonate user@company.com gmail attachment download-all <message-id>
 ```
 
 **Senders** (Extract unique sender emails)

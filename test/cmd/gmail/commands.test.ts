@@ -908,4 +908,195 @@ describe("gmail attachment download command", () => {
     expect(parsed.filename).toBe("document.pdf");
     expect(parsed.saved).toBe(true);
   });
+
+  it("downloads all attachments from a message", async () => {
+    const root = new Command();
+    const gmail = root.command("gmail");
+    registerGmailCommands(gmail, {
+      getMessage: async () => ({
+        id: "msg1",
+        threadId: "t1",
+        from: "sender@example.com",
+        to: "me@example.com",
+        subject: "Test",
+        date: "2024-01-01",
+        body: "Hello",
+        attachments: [
+          { filename: "document.pdf", mimeType: "application/pdf", size: 1024, attachmentId: "att1" },
+          { filename: "image.png", mimeType: "image/png", size: 51200, attachmentId: "att2" },
+        ],
+      }),
+      downloadAllAttachments: async () => ({
+        downloaded: 2,
+        failed: 0,
+        skipped: 0,
+        files: [
+          { filename: "document.pdf", size: 1024, saved: true },
+          { filename: "image.png", size: 51200, saved: true },
+        ],
+      }),
+    });
+
+    const stdout = await captureStdout(() =>
+      root.parseAsync(["node", "typee", "gmail", "attachment", "download-all", "msg1"])
+    );
+
+    expect(stdout).toContain("Downloaded: 2 file(s)");
+  });
+
+  it("downloads all attachments with JSON output", async () => {
+    const root = new Command();
+    root.option("--json", "Output as JSON");
+    const gmail = root.command("gmail");
+    registerGmailCommands(gmail, {
+      getMessage: async () => ({
+        id: "msg1",
+        threadId: "t1",
+        from: "sender@example.com",
+        to: "me@example.com",
+        subject: "Test",
+        date: "2024-01-01",
+        body: "Hello",
+        attachments: [
+          { filename: "document.pdf", mimeType: "application/pdf", size: 1024, attachmentId: "att1" },
+        ],
+      }),
+      downloadAllAttachments: async () => ({
+        downloaded: 1,
+        failed: 0,
+        skipped: 0,
+        files: [
+          { filename: "document.pdf", size: 1024, saved: true },
+        ],
+      }),
+    });
+
+    const stdout = await captureStdout(() =>
+      root.parseAsync(["node", "typee", "gmail", "attachment", "download-all", "msg1", "--json"])
+    );
+
+    const parsed = JSON.parse(stdout);
+    expect(parsed.downloaded).toBe(1);
+    expect(parsed.files).toHaveLength(1);
+    expect(parsed.files[0].filename).toBe("document.pdf");
+  });
+
+  it("shows failed downloads in human output", async () => {
+    const root = new Command();
+    const gmail = root.command("gmail");
+    registerGmailCommands(gmail, {
+      getMessage: async () => ({
+        id: "msg1",
+        threadId: "t1",
+        from: "sender@example.com",
+        to: "me@example.com",
+        subject: "Test",
+        date: "2024-01-01",
+        body: "Hello",
+        attachments: [
+          { filename: "document.pdf", mimeType: "application/pdf", size: 1024, attachmentId: "att1" },
+        ],
+      }),
+      downloadAllAttachments: async () => ({
+        downloaded: 0,
+        failed: 1,
+        skipped: 0,
+        files: [
+          { filename: "document.pdf", size: 0, saved: false },
+        ],
+      }),
+    });
+
+    // Capture both stdout and stderr
+    const output = await new Promise<string>((resolve, reject) => {
+      let stdout = "";
+      let stderr = "";
+      const originalStdoutWrite = process.stdout.write.bind(process.stdout);
+      const originalStderrWrite = process.stderr.write.bind(process.stdout);
+
+      process.stdout.write = ((chunk: unknown): boolean => {
+        stdout += String(chunk);
+        return true;
+      }) as typeof process.stdout.write;
+
+      process.stderr.write = ((chunk: unknown): boolean => {
+        stderr += String(chunk);
+        return true;
+      }) as typeof process.stderr.write;
+
+      root.parseAsync(["node", "typee", "gmail", "attachment", "download-all", "msg1"])
+        .then(() => {
+          process.stdout.write = originalStdoutWrite;
+          process.stderr.write = originalStderrWrite;
+          resolve(stdout + stderr);
+        })
+        .catch((err) => {
+          process.stdout.write = originalStdoutWrite;
+          process.stderr.write = originalStderrWrite;
+          reject(err);
+        });
+    });
+
+    expect(output).toContain("Failed: 1 file(s)");
+  });
+
+  it("downloads attachments in batch from query", async () => {
+    const root = new Command();
+    const gmail = root.command("gmail");
+    registerGmailCommands(gmail, {
+      downloadAttachmentsBatch: async () => ({
+        downloaded: 5,
+        failed: 0,
+        skipped: 2,
+        files: [],
+      }),
+    });
+
+    const stdout = await captureStdout(() =>
+      root.parseAsync(["node", "typee", "gmail", "attachment", "download-batch", "has:attachment"])
+    );
+
+    expect(stdout).toContain("Downloaded: 5 file(s)");
+    expect(stdout).toContain("Skipped: 2 message(s)");
+  });
+
+  it("downloads attachments in batch with custom max", async () => {
+    const root = new Command();
+    const gmail = root.command("gmail");
+    const downloadAttachmentsBatch = vi.fn().mockResolvedValue({
+      downloaded: 10,
+      failed: 0,
+      skipped: 0,
+      files: [],
+    });
+    registerGmailCommands(gmail, {
+      downloadAttachmentsBatch,
+    });
+
+    await captureStdout(() =>
+      root.parseAsync(["node", "typee", "gmail", "attachment", "download-batch", "has:attachment", "--max", "100"])
+    );
+
+    expect(downloadAttachmentsBatch).toHaveBeenCalledWith("has:attachment", undefined, 100);
+  });
+
+  it("downloads attachments in batch with custom output directory", async () => {
+    const root = new Command();
+    const gmail = root.command("gmail");
+    const downloadAttachmentsBatch = vi.fn().mockResolvedValue({
+      downloaded: 3,
+      failed: 0,
+      skipped: 0,
+      files: [],
+    });
+    registerGmailCommands(gmail, {
+      downloadAttachmentsBatch,
+    });
+
+    await captureStdout(() =>
+      root.parseAsync(["node", "typee", "gmail", "attachment", "download-batch", "has:attachment", "-o", "./downloads"])
+    );
+
+    expect(downloadAttachmentsBatch).toHaveBeenCalledWith("has:attachment", "./downloads", 50);
+  });
 });
