@@ -1,3 +1,10 @@
+# [1.8.0](https://github.com/ejpespa/gtypee/compare/v1.7.0...v1.8.0) (2026-03-20)
+
+
+### Features
+
+* **gmail:** add bulk attachment download commands ([7ddd399](https://github.com/ejpespa/gtypee/commit/7ddd399ae77682ff5c306fbfe0e67f4abfa4e06e))
+
 # [1.7.0](https://github.com/ejpespa/gtypee/compare/v1.6.0...v1.7.0) (2026-03-12)
 
 
