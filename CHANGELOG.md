@@ -1,3 +1,10 @@
+# [1.9.0](https://github.com/ejpespa/gtypee/compare/v1.8.0...v1.9.0) (2026-03-24)
+
+
+### Features
+
+* **sheets:** add share command for spreadsheet permissions ([bba7405](https://github.com/ejpespa/gtypee/commit/bba7405b0d0d631fcfa9d98142af8e825f40682d))
+
 # [1.8.0](https://github.com/ejpespa/gtypee/compare/v1.7.0...v1.8.0) (2026-03-20)
 
 
