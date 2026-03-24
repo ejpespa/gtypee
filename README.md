@@ -554,7 +554,16 @@ gtypee sheets read --id <sheet-id> --range "Sheet1!A1:D10"
 gtypee sheets update --id <sheet-id> --range "Sheet1!A1:B2" --values "Name,Age;John,30;Jane,25"
 gtypee sheets export --id <sheet-id> --format xlsx          # Export as Excel
 gtypee sheets export --id <sheet-id> --format csv --out ./data.csv
+
+# Share spreadsheet
+gtypee sheets share <sheet-id> --role writer --type user --email person@example.com
+gtypee sheets share <sheet-id> --role reader --type domain --domain example.com
+gtypee sheets share <sheet-id> --role reader --type anyoneWithLink
+gtypee sheets share <sheet-id> --role commenter --type user --email person@example.com --notify --message "Please review"
 ```
+
+**Share roles:** `reader`, `writer`, `commenter`, `owner`
+**Share types:** `anyone`, `anyoneWithLink`, `domain`, `user`, `group`
 
 Supported export formats: xlsx, csv, pdf, ods, tsv, zip
 
