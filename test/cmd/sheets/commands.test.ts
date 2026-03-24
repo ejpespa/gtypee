@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { Command } from "commander";
 
-import { formatSheetsRead, registerSheetsCommands } from "../../../src/cmd/sheets/commands.js";
-import type { SheetsCommandDeps, SheetsExportResult, SheetsSummary } from "../../../src/cmd/sheets/commands.js";
+import { formatSheetsRead, registerSheetsCommands, type SheetsShareOptions } from "../../../src/cmd/sheets/commands.js";
+import type { SheetsCommandDeps, SheetsExportResult, SheetsShareResult, SheetsSummary } from "../../../src/cmd/sheets/commands.js";
 
 describe("sheets types", () => {
   it("SheetsSummary should have id and name fields", () => {
@@ -163,5 +163,237 @@ describe("sheets export command", () => {
 
     expect(exportSheet).toHaveBeenCalledWith("sheet1", "xlsx", undefined);
     expect(stdout).toContain("sheet1");
+  });
+});
+
+describe("sheets share command", () => {
+  it("should register share subcommand", () => {
+    const sheets = new Command("sheets");
+    registerSheetsCommands(sheets);
+
+    const shareCmd = sheets.commands.find((cmd) => cmd.name() === "share");
+    expect(shareCmd).toBeDefined();
+  });
+
+  it("share command requires email for user type", async () => {
+    const root = new Command();
+    const sheets = root.command("sheets");
+    registerSheetsCommands(sheets, {
+      shareSheet: async () => ({ id: "", fileId: "sheet1", shared: false }),
+    });
+
+    let stderr = "";
+    const originalStderrWrite = process.stderr.write.bind(process.stderr);
+    process.stderr.write = ((chunk: unknown): boolean => {
+      stderr += String(chunk);
+      return true;
+    }) as typeof process.stderr.write;
+
+    try {
+      await root.parseAsync(["node", "typee", "sheets", "share", "sheet1", "--role", "reader", "--type", "user"]);
+    } catch {
+      // Exit code 1 is expected
+    } finally {
+      process.stderr.write = originalStderrWrite;
+    }
+
+    expect(stderr).toContain("--email is required");
+  });
+
+  it("share command requires domain for domain type", async () => {
+    const root = new Command();
+    const sheets = root.command("sheets");
+    registerSheetsCommands(sheets, {
+      shareSheet: async () => ({ id: "", fileId: "sheet1", shared: false }),
+    });
+
+    let stderr = "";
+    const originalStderrWrite = process.stderr.write.bind(process.stderr);
+    process.stderr.write = ((chunk: unknown): boolean => {
+      stderr += String(chunk);
+      return true;
+    }) as typeof process.stderr.write;
+
+    try {
+      await root.parseAsync(["node", "typee", "sheets", "share", "sheet1", "--role", "reader", "--type", "domain"]);
+    } catch {
+      // Exit code 1 is expected
+    } finally {
+      process.stderr.write = originalStderrWrite;
+    }
+
+    expect(stderr).toContain("--domain is required");
+  });
+
+  it("share command calls shareSheet with correct options for user", async () => {
+    const shareSheet = vi.fn().mockResolvedValue({
+      id: "perm123",
+      fileId: "sheet1",
+      shared: true,
+    });
+    const root = new Command();
+    const sheets = root.command("sheets");
+    registerSheetsCommands(sheets, { shareSheet });
+
+    let stdout = "";
+    const originalWrite = process.stdout.write.bind(process.stdout);
+    process.stdout.write = ((chunk: unknown): boolean => {
+      stdout += String(chunk);
+      return true;
+    }) as typeof process.stdout.write;
+
+    try {
+      await root.parseAsync([
+        "node", "typee", "sheets", "share", "sheet1",
+        "--role", "writer",
+        "--type", "user",
+        "--email", "user@example.com"
+      ]);
+    } finally {
+      process.stdout.write = originalWrite;
+    }
+
+    const expectedOptions: SheetsShareOptions = {
+      role: "writer",
+      type: "user",
+      email: "user@example.com",
+    };
+    expect(shareSheet).toHaveBeenCalledWith("sheet1", expectedOptions);
+    expect(stdout).toContain("shared with user@example.com as writer");
+  });
+
+  it("share command works for anyone type", async () => {
+    const shareSheet = vi.fn().mockResolvedValue({
+      id: "perm123",
+      fileId: "sheet1",
+      shared: true,
+    });
+    const root = new Command();
+    const sheets = root.command("sheets");
+    registerSheetsCommands(sheets, { shareSheet });
+
+    let stdout = "";
+    const originalWrite = process.stdout.write.bind(process.stdout);
+    process.stdout.write = ((chunk: unknown): boolean => {
+      stdout += String(chunk);
+      return true;
+    }) as typeof process.stdout.write;
+
+    try {
+      await root.parseAsync([
+        "node", "typee", "sheets", "share", "sheet1",
+        "--role", "reader",
+        "--type", "anyone"
+      ]);
+    } finally {
+      process.stdout.write = originalWrite;
+    }
+
+    const expectedOptions: SheetsShareOptions = {
+      role: "reader",
+      type: "anyone",
+    };
+    expect(shareSheet).toHaveBeenCalledWith("sheet1", expectedOptions);
+    expect(stdout).toContain("publicly (anyone) as reader");
+  });
+
+  it("share command works for domain type", async () => {
+    const shareSheet = vi.fn().mockResolvedValue({
+      id: "perm123",
+      fileId: "sheet1",
+      shared: true,
+    });
+    const root = new Command();
+    const sheets = root.command("sheets");
+    registerSheetsCommands(sheets, { shareSheet });
+
+    let stdout = "";
+    const originalWrite = process.stdout.write.bind(process.stdout);
+    process.stdout.write = ((chunk: unknown): boolean => {
+      stdout += String(chunk);
+      return true;
+    }) as typeof process.stdout.write;
+
+    try {
+      await root.parseAsync([
+        "node", "typee", "sheets", "share", "sheet1",
+        "--role", "writer",
+        "--type", "domain",
+        "--domain", "example.com"
+      ]);
+    } finally {
+      process.stdout.write = originalWrite;
+    }
+
+    const expectedOptions: SheetsShareOptions = {
+      role: "writer",
+      type: "domain",
+      domain: "example.com",
+    };
+    expect(shareSheet).toHaveBeenCalledWith("sheet1", expectedOptions);
+    expect(stdout).toContain("with domain (example.com) as writer");
+  });
+
+  it("share command supports notify and message options", async () => {
+    const shareSheet = vi.fn().mockResolvedValue({
+      id: "perm123",
+      fileId: "sheet1",
+      shared: true,
+    });
+    const root = new Command();
+    const sheets = root.command("sheets");
+    registerSheetsCommands(sheets, { shareSheet });
+
+    await root.parseAsync([
+      "node", "typee", "sheets", "share", "sheet1",
+      "--role", "reader",
+      "--type", "user",
+      "--email", "user@example.com",
+      "--notify",
+      "--message", "Please review this sheet"
+    ]);
+
+    const expectedOptions: SheetsShareOptions = {
+      role: "reader",
+      type: "user",
+      email: "user@example.com",
+      notify: true,
+      message: "Please review this sheet",
+    };
+    expect(shareSheet).toHaveBeenCalledWith("sheet1", expectedOptions);
+  });
+
+  it("share command outputs JSON with --json flag", async () => {
+    const shareSheet = vi.fn().mockResolvedValue({
+      id: "perm123",
+      fileId: "sheet1",
+      shared: true,
+    });
+    const root = new Command();
+    root.option("--json", "Output as JSON");
+    const sheets = root.command("sheets");
+    registerSheetsCommands(sheets, { shareSheet });
+
+    let stdout = "";
+    const originalWrite = process.stdout.write.bind(process.stdout);
+    process.stdout.write = ((chunk: unknown): boolean => {
+      stdout += String(chunk);
+      return true;
+    }) as typeof process.stdout.write;
+
+    try {
+      await root.parseAsync([
+        "node", "typee", "sheets", "share", "sheet1",
+        "--role", "reader",
+        "--type", "anyone",
+        "--json"
+      ]);
+    } finally {
+      process.stdout.write = originalWrite;
+    }
+
+    const parsed = JSON.parse(stdout) as SheetsShareResult;
+    expect(parsed.shared).toBe(true);
+    expect(parsed.fileId).toBe("sheet1");
   });
 });

@@ -28,12 +28,28 @@ export type SheetsExportResult = {
   exported: boolean;
 };
 
+export type SheetsShareResult = {
+  id: string;
+  fileId: string;
+  shared: boolean;
+};
+
+export type SheetsShareOptions = {
+  role: string;          // reader, writer, commenter, owner
+  type: string;          // anyone, anyoneWithLink, domain, user, group
+  email?: string;        // required for user/group type
+  domain?: string;       // required for domain type
+  notify?: boolean;      // send notification email
+  message?: string;      // custom message for notification
+};
+
 export type SheetsCommandDeps = {
   listSheets?: (options?: PaginationOptions) => Promise<PaginatedResult<SheetsSummary>>;
   exportSheet?: (id: string, format: string, out?: string) => Promise<SheetsExportResult>;
   createSheet?: (title: string) => Promise<SheetsCreateResult>;
   readRange?: (sheetId: string, range: string) => Promise<SheetsReadResult>;
   updateRange?: (sheetId: string, range: string, values: string[][]) => Promise<{ updated: boolean }>;
+  shareSheet?: (fileId: string, options: SheetsShareOptions) => Promise<SheetsShareResult>;
 };
 
 const defaultDeps: Required<SheetsCommandDeps> = {
@@ -42,6 +58,7 @@ const defaultDeps: Required<SheetsCommandDeps> = {
   createSheet: async (title) => ({ id: "", title: title! }),
   readRange: async (_id, range) => ({ range, values: [] }),
   updateRange: async () => ({ updated: false }),
+  shareSheet: async () => ({ id: "", fileId: "", shared: false }),
 };
 
 async function runWithStableApiError<T>(service: string, call: () => Promise<T>): Promise<T> {
@@ -177,5 +194,68 @@ export function registerSheetsCommands(sheetsCommand: Command, deps: SheetsComma
         ? `Exported ${result.id} to ${result.path}\n`
         : `Export failed for ${result.id}\n`
       );
+    });
+
+  sheetsCommand
+    .command("share")
+    .description("Share a spreadsheet with anyone, domain, or specific users")
+    .argument("<file-id>", "Spreadsheet ID")
+    .requiredOption("--role <role>", "Role: reader, writer, commenter, owner")
+    .option("--type <type>", "Share type: anyone, anyoneWithLink, domain, user, group", "user")
+    .option("--email <email>", "Email address (required for user/group type)")
+    .option("--domain <domain>", "Domain name (required for domain type)")
+    .option("--notify", "Send notification email")
+    .option("--message <message>", "Custom message for notification email")
+    .action(async function actionShareSheet(this: Command, fileId: string) {
+      const rootOptions = this.optsWithGlobals() as RootOptions;
+      const ctx = buildExecutionContext(rootOptions);
+      const opts = this.opts<{
+        role: string;
+        type: string;
+        email?: string;
+        domain?: string;
+        notify?: boolean;
+        message?: string;
+      }>();
+
+      // Validate type-specific requirements
+      if ((opts.type === "user" || opts.type === "group") && !opts.email) {
+        process.stderr.write(`--email is required for type="${opts.type}"\n`);
+        process.exit(1);
+      }
+      if (opts.type === "domain" && !opts.domain) {
+        process.stderr.write(`--domain is required for type="domain"\n`);
+        process.exit(1);
+      }
+
+      // Build options conditionally to satisfy exactOptionalPropertyTypes
+      const shareOptions: SheetsShareOptions = {
+        role: opts.role,
+        type: opts.type,
+      };
+      if (opts.email !== undefined) shareOptions.email = opts.email;
+      if (opts.domain !== undefined) shareOptions.domain = opts.domain;
+      if (opts.notify !== undefined) shareOptions.notify = opts.notify;
+      if (opts.message !== undefined) shareOptions.message = opts.message;
+
+      const result = await runWithStableApiError("sheets", () =>
+        resolvedDeps.shareSheet(fileId, shareOptions)
+      );
+
+      if (ctx.output.mode === "json") {
+        process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+        return;
+      }
+
+      if (result.shared) {
+        const typeDesc = opts.type === "anyone" || opts.type === "anyoneWithLink"
+          ? `publicly (${opts.type})`
+          : opts.type === "domain"
+            ? `with domain (${opts.domain})`
+            : `with ${opts.email || opts.type}`;
+        process.stdout.write(`Sheet shared ${typeDesc} as ${opts.role}\n`);
+      } else {
+        process.stderr.write(`Failed to share sheet\n`);
+      }
     });
 }

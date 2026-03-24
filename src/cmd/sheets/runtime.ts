@@ -5,7 +5,7 @@ import * as path from "path";
 
 import { ServiceRuntime } from "../../googleapi/auth-factory.js";
 import { scopes } from "../../googleauth/service.js";
-import type { SheetsCommandDeps, SheetsCreateResult, SheetsExportResult, SheetsReadResult, SheetsSummary } from "./commands.js";
+import type { SheetsCommandDeps, SheetsCreateResult, SheetsExportResult, SheetsReadResult, SheetsSummary, SheetsShareOptions, SheetsShareResult } from "./commands.js";
 import type { PaginatedResult, PaginationOptions } from "../../types/pagination.js";
 
 export function buildSheetsCommandDeps(runtime: ServiceRuntime): Required<SheetsCommandDeps> {
@@ -112,5 +112,73 @@ export function buildSheetsCommandDeps(runtime: ServiceRuntime): Required<Sheets
     };
   };
 
-  return { listSheets, exportSheet, createSheet, readRange, updateRange };
+  const shareSheet = async (fileId: string, options: SheetsShareOptions): Promise<SheetsShareResult> => {
+    const auth = await runtime.getClient(scopes("drive"));
+    const drive = google.drive({ version: "v3", auth });
+
+    // Build permission request based on type
+    const permissionRequest: {
+      role: string;
+      type: string;
+      emailAddress?: string;
+      domain?: string;
+      allowFileDiscovery?: boolean;
+    } = {
+      role: options.role,
+      type: options.type === "anyoneWithLink" ? "anyone" : options.type,
+    };
+
+    // Set type-specific fields
+    if (options.type === "user" || options.type === "group") {
+      if (!options.email) {
+        throw new Error(`--email is required for type="${options.type}"`);
+      }
+      permissionRequest.emailAddress = options.email;
+    } else if (options.type === "domain") {
+      if (!options.domain) {
+        throw new Error(`--domain is required for type="domain"`);
+      }
+      permissionRequest.domain = options.domain;
+      permissionRequest.allowFileDiscovery = true; // Allow domain users to find via search
+    } else if (options.type === "anyoneWithLink") {
+      permissionRequest.allowFileDiscovery = false; // Only accessible with link
+    }
+
+    // Build the API call parameters
+    const apiParams: {
+      fileId: string;
+      requestBody: typeof permissionRequest;
+      sendNotificationEmail?: boolean;
+      emailMessage?: string;
+    } = {
+      fileId,
+      requestBody: permissionRequest,
+    };
+
+    if (options.notify !== undefined) {
+      apiParams.sendNotificationEmail = options.notify;
+    }
+
+    if (options.message) {
+      apiParams.emailMessage = options.message;
+    }
+
+    try {
+      const response = await drive.permissions.create(apiParams);
+      return {
+        id: response.data.id ?? "",
+        fileId,
+        shared: true,
+      };
+    } catch (error) {
+      // Return failure result instead of throwing
+      return {
+        id: "",
+        fileId,
+        shared: false,
+      };
+    }
+  };
+
+  return { listSheets, exportSheet, createSheet, readRange, updateRange, shareSheet };
 }
