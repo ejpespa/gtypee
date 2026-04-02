@@ -1,3 +1,10 @@
+# [1.10.0](https://github.com/ejpespa/gtypee/compare/v1.9.0...v1.10.0) (2026-04-02)
+
+
+### Features
+
+* **workspace:** add domain migration helper commands ([e55d9ce](https://github.com/ejpespa/gtypee/commit/e55d9ce40a52886e7c8740d89d40d63df80f6c00))
+
 # [1.9.0](https://github.com/ejpespa/gtypee/compare/v1.8.0...v1.9.0) (2026-03-24)
 
 
