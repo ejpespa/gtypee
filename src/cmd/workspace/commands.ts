@@ -20,6 +20,24 @@ export type WorkspaceUserCommandDeps = {
   deletePhoto?: (email: string) => Promise<PhotoResult>;
   getPhoto?: (email: string) => Promise<string>;
   generateBackupCodes?: (email: string) => Promise<BackupCodesResult>;
+  exportUsers?: (domain?: string) => Promise<WorkspaceUser[]>;
+  addAliasBatch?: (mappings: Array<{ email: string; alias: string }>) => Promise<{ added: number; failed: number; results: Array<{ email: string; alias: string; success: boolean }> }>;
+};
+
+// Migration types
+export type DomainMigrationResult = {
+  sourceDomain: string;
+  destDomain: string;
+  userCount: number;
+  generatedAt: string;
+  users: Array<{
+    primaryEmail: string;
+    newEmail: string;
+    givenName: string;
+    familyName: string;
+    suspended: boolean;
+    orgUnitPath: string;
+  }>;
 };
 
 export type WorkspaceUser = {
@@ -273,6 +291,8 @@ const defaultUserDeps: Required<WorkspaceUserCommandDeps> = {
   deletePhoto: async () => ({ email: "", applied: false }),
   getPhoto: async () => "",
   generateBackupCodes: async () => ({ email: "", codes: [], applied: false }),
+  exportUsers: async () => [],
+  addAliasBatch: async () => ({ added: 0, failed: 0, results: [] }),
 };
 
 const defaultGroupDeps: Required<WorkspaceGroupCommandDeps> = {
@@ -699,6 +719,114 @@ export function registerWorkspaceCommands(
         process.stdout.write("\nSave these codes - they will not be shown again!\n");
       } else {
         process.stdout.write("Failed to generate backup codes\n");
+      }
+    });
+
+  // ========================
+  // Migration Commands
+  // ========================
+  const migrationCmd = workspaceCommand.command("migration").description("Domain migration helpers");
+
+  migrationCmd
+    .command("prepare")
+    .description("Prepare a migration plan from source domain to destination domain")
+    .requiredOption("--source-domain <domain>", "Source domain (e.g., asscat.edu.ph)")
+    .requiredOption("--dest-domain <domain>", "Destination domain (e.g., adssu.edu.ph)")
+    .option("--org-unit <path>", "Filter by org unit path")
+    .option("--output <path>", "Output CSV file path")
+    .action(async function actionPrepareMigration(this: Command) {
+      const rootOptions = this.optsWithGlobals() as RootOptions;
+      const opts = this.opts<{
+        sourceDomain: string;
+        destDomain: string;
+        orgUnit?: string;
+        output?: string;
+      }>();
+
+      const users = await userDeps.exportUsers(opts.sourceDomain);
+
+      // Filter users by domain if possible
+      const filteredUsers = users.filter((u) => u.primaryEmail.endsWith(`@${opts.sourceDomain}`));
+
+      // Generate migration plan
+      const plan: DomainMigrationResult = {
+        sourceDomain: opts.sourceDomain,
+        destDomain: opts.destDomain,
+        userCount: filteredUsers.length,
+        generatedAt: new Date().toISOString(),
+        users: filteredUsers.map((u) => {
+          const username = u.primaryEmail.split("@")[0];
+          return {
+            primaryEmail: u.primaryEmail,
+            newEmail: `${username}@${opts.destDomain}`,
+            givenName: u.name.givenName,
+            familyName: u.name.familyName,
+            suspended: u.suspended,
+            orgUnitPath: u.orgUnitPath,
+          };
+        }),
+      };
+
+      if (opts.output) {
+        // Write CSV file
+        const fs = await import("fs");
+        const header = "currentEmail,newEmail,givenName,familyName,suspended,orgUnitPath\n";
+        const rows = plan.users.map((u) =>
+          `${u.primaryEmail},${u.newEmail},${u.givenName},${u.familyName},${u.suspended},${u.orgUnitPath}`
+        );
+        await fs.promises.writeFile(opts.output, header + rows.join("\n"));
+        process.stdout.write(`Migration plan saved to: ${opts.output}\n`);
+      } else if (rootOptions.json) {
+        process.stdout.write(`${JSON.stringify(plan, null, 2)}\n`);
+      } else {
+        process.stdout.write(`\n=== Domain Migration Plan ===\n`);
+        process.stdout.write(`Source: ${opts.sourceDomain}\n`);
+        process.stdout.write(`Destination: ${opts.destDomain}\n`);
+        process.stdout.write(`Users to migrate: ${plan.userCount}\n`);
+        process.stdout.write(`Generated: ${plan.generatedAt}\n\n`);
+
+        for (const user of plan.users) {
+          const status = user.suspended ? " [SUSPENDED]" : "";
+          process.stdout.write(`  ${user.primaryEmail} → ${user.newEmail}${status}\n`);
+        }
+        process.stdout.write(`\nNote: Domain change must be done in Google Admin Console:\n`);
+        process.stdout.write(`  Admin Console > Directory > Users > Select users > Change domain\n`);
+      }
+    });
+
+  migrationCmd
+    .command("add-aliases")
+    .description("Add email aliases from old domain to new domain users (post-migration)")
+    .argument("<csv-file>", "CSV file with old and new email mappings")
+    .option("--dry-run", "Show what would be done without making changes")
+    .action(async function actionAddAliases(this: Command, csvFile: string) {
+      const fs = await import("fs");
+      const csvContent = await fs.promises.readFile(csvFile, "utf-8");
+
+      // Parse CSV
+      const lines = csvContent.trim().split("\n");
+      const mappings: Array<{ email: string; alias: string }> = [];
+
+      for (const line of lines.slice(1)) { // Skip header
+        const [currentEmail, newEmail] = line.split(",");
+        if (currentEmail && newEmail) {
+          mappings.push({ email: newEmail.trim(), alias: currentEmail.trim() });
+        }
+      }
+
+      if (this.opts<{ dryRun?: boolean }>().dryRun) {
+        process.stdout.write(`[DRY RUN] Would add ${mappings.length} aliases:\n`);
+        for (const m of mappings) {
+          process.stdout.write(`  ${m.email} ← ${m.alias}\n`);
+        }
+        return;
+      }
+
+      const result = await userDeps.addAliasBatch(mappings);
+
+      process.stdout.write(`Added: ${result.added} aliases\n`);
+      if (result.failed > 0) {
+        process.stderr.write(`Failed: ${result.failed} aliases\n`);
       }
     });
 

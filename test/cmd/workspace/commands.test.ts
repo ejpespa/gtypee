@@ -669,3 +669,156 @@ describe("workspace report commands", () => {
     expect(stdout).toContain("CREATE_USER");
   });
 });
+
+describe("workspace migration commands", () => {
+  it("registers migration subcommands", () => {
+    const workspace = new Command("workspace");
+    registerWorkspaceCommands(workspace);
+
+    const migrationCmd = workspace.commands.find((cmd) => cmd.name() === "migration");
+    expect(migrationCmd).toBeDefined();
+    const subcmds = migrationCmd!.commands.map((cmd) => cmd.name());
+    expect(subcmds).toContain("prepare");
+    expect(subcmds).toContain("add-aliases");
+  });
+
+  it("migration prepare generates migration plan", async () => {
+    const root = new Command();
+    root.option("--json");
+    const workspace = root.command("workspace");
+    registerWorkspaceCommands(workspace, {
+      exportUsers: async () => [
+        {
+          id: "123",
+          primaryEmail: "user1@asscat.edu.ph",
+          name: { givenName: "John", familyName: "Doe" },
+          suspended: false,
+          orgUnitPath: "/Users",
+          isAdmin: false,
+        },
+        {
+          id: "124",
+          primaryEmail: "user2@asscat.edu.ph",
+          name: { givenName: "Jane", familyName: "Smith" },
+          suspended: true,
+          orgUnitPath: "/Users",
+          isAdmin: false,
+        },
+      ],
+    });
+
+    const stdout = await captureStdout(() =>
+      root.parseAsync([
+        "node", "typee", "workspace", "migration", "prepare",
+        "--source-domain", "asscat.edu.ph",
+        "--dest-domain", "adssu.edu.ph"
+      ])
+    );
+
+    expect(stdout).toContain("user1@asscat.edu.ph");
+    expect(stdout).toContain("user1@adssu.edu.ph");
+    expect(stdout).toContain("Users to migrate: 2");
+  });
+
+  it("migration prepare outputs CSV file when --output specified", async () => {
+    const root = new Command();
+    const workspace = root.command("workspace");
+    registerWorkspaceCommands(workspace, {
+      exportUsers: async () => [
+        {
+          id: "123",
+          primaryEmail: "user1@asscat.edu.ph",
+          name: { givenName: "John", familyName: "Doe" },
+          suspended: false,
+          orgUnitPath: "/Users",
+          isAdmin: false,
+        },
+      ],
+    });
+
+    const fs = await import("fs");
+    const rm = (file: string) => {
+      try { fs.unlinkSync(file); } catch {}
+    };
+    const testFile = "test-migration.csv";
+
+    try {
+      await captureStdout(() =>
+        root.parseAsync([
+          "node", "typee", "workspace", "migration", "prepare",
+          "--source-domain", "asscat.edu.ph",
+          "--dest-domain", "adssu.edu.ph",
+          "--output", testFile
+        ])
+      );
+
+      expect(fs.existsSync(testFile)).toBe(true);
+      const content = fs.readFileSync(testFile, "utf-8");
+      expect(content).toContain("user1@asscat.edu.ph");
+      expect(content).toContain("user1@adssu.edu.ph");
+    } finally {
+      rm(testFile);
+    }
+  });
+
+  it("migration add-aliases processes CSV file", async () => {
+    const root = new Command();
+    const workspace = root.command("workspace");
+    const addAliasBatch = vi.fn().mockResolvedValue({
+      added: 2,
+      failed: 0,
+      results: [
+        { email: "user1@adssu.edu.ph", alias: "user1@asscat.edu.ph", success: true },
+        { email: "user2@adssu.edu.ph", alias: "user2@asscat.edu.ph", success: true },
+      ],
+    });
+    registerWorkspaceCommands(workspace, {
+      addAliasBatch,
+    });
+
+    const fs = await import("fs");
+    const testFile = "test-migration.csv";
+    fs.writeFileSync(testFile, "currentEmail,newEmail\nuser1@asscat.edu.ph,user1@adssu.edu.ph\nuser2@asscat.edu.ph,user2@adssu.edu.ph\n");
+
+    try {
+      const stdout = await captureStdout(() =>
+        root.parseAsync([
+          "node", "typee", "workspace", "migration", "add-aliases", testFile
+        ])
+      );
+
+      expect(addAliasBatch).toHaveBeenCalledWith([
+        { email: "user1@adssu.edu.ph", alias: "user1@asscat.edu.ph" },
+        { email: "user2@adssu.edu.ph", alias: "user2@asscat.edu.ph" },
+      ]);
+      expect(stdout).toContain("Added: 2 aliases");
+    } finally {
+      fs.unlinkSync(testFile);
+    }
+  });
+
+  it("migration add-aliases supports dry-run mode", async () => {
+    const root = new Command();
+    const workspace = root.command("workspace");
+    registerWorkspaceCommands(workspace, {
+      addAliasBatch: vi.fn(),
+    });
+
+    const fs = await import("fs");
+    const testFile = "test-migration.csv";
+    fs.writeFileSync(testFile, "currentEmail,newEmail\nuser1@asscat.edu.ph,user1@adssu.edu.ph\n");
+
+    try {
+      const stdout = await captureStdout(() =>
+        root.parseAsync([
+          "node", "typee", "workspace", "migration", "add-aliases", testFile, "--dry-run"
+        ])
+      );
+
+      expect(stdout).toContain("[DRY RUN]");
+      expect(stdout).toContain("user1@adssu.edu.ph ← user1@asscat.edu.ph");
+    } finally {
+      fs.unlinkSync(testFile);
+    }
+  });
+});

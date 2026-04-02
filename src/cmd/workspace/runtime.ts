@@ -366,6 +366,78 @@ export function buildWorkspaceUserCommandDeps(options: ServiceRuntimeOptions): R
         return { email, codes: [], applied: false };
       }
     },
+
+    exportUsers: async (domain?: string): Promise<WorkspaceUser[]> => {
+      const auth = await runtime.getClient(scopes("workspace"));
+      const admin = google.admin({ version: "directory_v1", auth });
+      const users: WorkspaceUser[] = [];
+
+      let pageToken: string | undefined = undefined;
+
+      do {
+        const listParams: {
+          projection: string;
+          pageToken?: string;
+          maxResults: number;
+          domain?: string;
+        } = {
+          projection: "basic",
+          maxResults: 500,
+        };
+
+        if (domain !== undefined) {
+          listParams.domain = domain;
+        }
+
+        const response = await admin.users.list(listParams);
+
+        const userList = response.data.users ?? [];
+        for (const u of userList) {
+          users.push({
+            id: u.id ?? "",
+            primaryEmail: u.primaryEmail ?? "",
+            name: {
+              givenName: u.name?.givenName ?? "",
+              familyName: u.name?.familyName ?? "",
+            },
+            suspended: u.suspended ?? false,
+            orgUnitPath: u.orgUnitPath ?? "/",
+            isAdmin: u.isAdmin ?? false,
+          });
+        }
+
+        pageToken = response.data.nextPageToken ?? undefined;
+      } while (pageToken);
+
+      return users;
+    },
+
+    addAliasBatch: async (mappings: Array<{ email: string; alias: string }>) => {
+      const auth = await runtime.getClient(scopes("workspace"));
+      const admin = google.admin({ version: "directory_v1", auth });
+
+      let added = 0;
+      let failed = 0;
+      const results: Array<{ email: string; alias: string; success: boolean }> = [];
+
+      for (const mapping of mappings) {
+        try {
+          await admin.users.aliases.insert({
+            userKey: mapping.email,
+            requestBody: {
+              alias: mapping.alias,
+            },
+          });
+          results.push({ email: mapping.email, alias: mapping.alias, success: true });
+          added++;
+        } catch {
+          results.push({ email: mapping.email, alias: mapping.alias, success: false });
+          failed++;
+        }
+      }
+
+      return { added, failed, results };
+    },
   };
 }
 
