@@ -1,3 +1,10 @@
+## [1.10.1](https://github.com/ejpespa/gtypee/compare/v1.10.0...v1.10.1) (2026-04-13)
+
+
+### Bug Fixes
+
+* **gmail:** correctly join output directory with filename when downloading attachments ([a3cb899](https://github.com/ejpespa/gtypee/commit/a3cb899d25b715752fedabae10e9774b04797c63))
+
 # [1.10.0](https://github.com/ejpespa/gtypee/compare/v1.9.0...v1.10.0) (2026-04-02)
 
 
