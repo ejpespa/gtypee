@@ -1002,8 +1002,8 @@ export function buildGmailAttachmentDeps(options: ServiceRuntimeOptions): Requir
     const buffer = Buffer.from(data, "base64url");
     const size = buffer.length;
 
-    // Determine output path
-    const savePath = outputPath ?? path.join(process.cwd(), filename);
+    // Determine output path (outputPath is always a directory for batch operations)
+    const savePath = outputPath ? path.join(outputPath, filename) : path.join(process.cwd(), filename);
 
     // Write file
     await fs.promises.writeFile(savePath, buffer);
