@@ -311,29 +311,84 @@ export function buildGmailCommandDeps(options: ServiceRuntimeOptions): Required<
 /**
  * Helper function to extract message details from Gmail API response
  */
-function extractMessageDetail(message: { id?: string | null; threadId?: string | null; payload?: { headers?: Array<{ name?: string | null; value?: string | null }>; body?: { data?: string | null }; parts?: Array<{ mimeType?: string | null; body?: { data?: string | null } }> } }): GmailMessageDetail {
+function extractMessageDetail(message: { id?: string | null; threadId?: string | null; payload?: any }): GmailMessageDetail {
+  type MessagePart = {
+    mimeType?: string | null;
+    filename?: string | null;
+    body?: { data?: string | null; size?: number; attachmentId?: string } | null;
+    parts?: MessagePart[];
+    headers?: Array<{ name?: string | null; value?: string | null }>;
+  };
+
   const headers = message.payload?.headers ?? [];
   const getHeader = (name: string): string => {
-    const header = headers.find((h) => h.name?.toLowerCase() === name.toLowerCase());
+    const header = headers.find((h: { name?: string | null; value?: string | null }) => h.name?.toLowerCase() === name.toLowerCase());
     return header?.value ?? "";
   };
 
-  // Extract text body from the message
-  let body = "";
-  const payload = message.payload;
-
-  if (payload?.body?.data) {
-    body = Buffer.from(payload.body.data, "base64url").toString("utf-8");
-  } else if (payload?.parts) {
-    const textPart = payload.parts.find(
-      (part) => part.mimeType === "text/plain" || part.mimeType?.startsWith("text/plain"),
-    );
-    if (textPart?.body?.data) {
-      body = Buffer.from(textPart.body.data, "base64url").toString("utf-8");
-    } else if (payload.parts[0]?.body?.data) {
-      body = Buffer.from(payload.parts[0].body.data, "base64url").toString("utf-8");
+  // Recursively extract text body from the message
+  const extractTextBody = (part: MessagePart): string => {
+    // Direct body data
+    if (part?.body?.data) {
+      const mimeType = part.mimeType ?? "";
+      // Prefer text/plain, but also accept text/html as fallback
+      if (mimeType.startsWith("text/")) {
+        return Buffer.from(part.body.data, "base64url").toString("utf-8");
+      }
     }
-  }
+
+    // Recursively search parts
+    if (part?.parts) {
+      // First, try to find text/plain
+      for (const subPart of part.parts) {
+        if (subPart.mimeType === "text/plain" && subPart.body?.data) {
+          return Buffer.from(subPart.body.data, "base64url").toString("utf-8");
+        }
+      }
+      // Then recursively search nested parts
+      for (const subPart of part.parts) {
+        const result = extractTextBody(subPart);
+        if (result) return result;
+      }
+      // Fallback: first part with data
+      for (const subPart of part.parts) {
+        if (subPart.body?.data) {
+          return Buffer.from(subPart.body.data, "base64url").toString("utf-8");
+        }
+      }
+    }
+
+    return "";
+  };
+
+  // Recursively extract attachments from the message
+  const extractAttachments = (part: MessagePart): GmailAttachment[] => {
+    const attachments: GmailAttachment[] = [];
+
+    if (!part) return attachments;
+
+    // Check if this part is an attachment
+    if (part.body?.attachmentId && part.filename) {
+      attachments.push({
+        filename: part.filename,
+        mimeType: part.mimeType ?? "application/octet-stream",
+        size: part.body.size ?? 0,
+        attachmentId: part.body.attachmentId,
+      });
+    }
+
+    // Recursively check nested parts
+    if (part.parts) {
+      for (const subPart of part.parts) {
+        attachments.push(...extractAttachments(subPart));
+      }
+    }
+
+    return attachments;
+  };
+
+  const body = extractTextBody(message.payload);
+  const attachments = extractAttachments(message.payload);
 
   return {
     id: message.id ?? "",
@@ -343,7 +398,7 @@ function extractMessageDetail(message: { id?: string | null; threadId?: string |
     subject: getHeader("subject") || "(no subject)",
     date: getHeader("date"),
     body,
-    attachments: [],
+    attachments,
   };
 }
 
