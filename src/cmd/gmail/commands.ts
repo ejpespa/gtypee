@@ -187,6 +187,7 @@ export type GmailCommandDeps = {
   trashMessage?: (messageId: string) => Promise<GmailTrashResult>;
   untrashMessage?: (messageId: string) => Promise<GmailUntrashResult>;
   modifyMessage?: (messageId: string, addLabels?: string[], removeLabels?: string[]) => Promise<GmailModifyResult>;
+  replyToMessage?: (input: { messageId: string; to: string; body: string; subject?: string }) => Promise<GmailSendResult>;
 };
 
 export type GmailDraftDeps = {
@@ -273,6 +274,11 @@ const defaultDeps: Required<GmailCommandDeps> = {
     addedLabels: [],
     removedLabels: [],
     applied: false,
+  }),
+  replyToMessage: async () => ({
+    id: "",
+    threadId: "",
+    accepted: false,
   }),
 };
 
@@ -878,6 +884,36 @@ export function registerGmailCommands(
       } else {
         process.stdout.write("Failed to modify message labels\n");
       }
+    });
+
+  // gmail reply <message-id>
+  gmailCommand
+    .command("reply")
+    .description("Reply to a message in its thread")
+    .argument("<message-id>", "Message ID to reply to")
+    .requiredOption("--to <email>", "Recipient email")
+    .requiredOption("--body <body>", "Reply body text")
+    .option("--subject <subject>", "Override reply subject (default: Re: <original>)")
+    .action(async function actionReply(this: Command, messageId: string) {
+      const rootOptions = this.optsWithGlobals() as RootOptions;
+      const ctx = buildExecutionContext(rootOptions);
+      const opts = this.opts<{ to: string; body: string; subject?: string }>();
+      const replyInput: { messageId: string; to: string; body: string; subject?: string } = {
+        messageId,
+        to: opts.to,
+        body: opts.body,
+      };
+      if (opts.subject !== undefined) replyInput.subject = opts.subject;
+      const result = await runWithStableApiError("gmail", () =>
+        resolvedDeps.replyToMessage(replyInput),
+      );
+
+      if (ctx.output.mode === "json") {
+        process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+        return;
+      }
+
+      process.stdout.write(result.accepted ? `Reply sent (id=${result.id || "unknown"})\n` : "Reply was not accepted by Gmail\n");
     });
 
   // ========================

@@ -54,6 +54,13 @@ export type DriveMkdirResult = {
   created: boolean;
 };
 
+export type DriveExportResult = {
+  id: string;
+  name: string;
+  path: string;
+  exported: boolean;
+};
+
 // Permissions
 export type DrivePermission = {
   id: string;
@@ -101,6 +108,7 @@ export type DriveCommandDeps = {
   renameFile?: (id: string, name: string) => Promise<DriveRenameResult>;
   createFolder?: (name: string, parentId?: string) => Promise<DriveMkdirResult>;
   getFileInfo?: (id: string) => Promise<DriveFileInfo>;
+  exportFile?: (id: string, format: string, out?: string) => Promise<DriveExportResult>;
   // Permission operations
   listPermissions?: (fileId: string) => Promise<DrivePermission[]>;
   createPermission?: (fileId: string, email: string, role: string, type: string) => Promise<DrivePermissionResult>;
@@ -126,6 +134,7 @@ const defaultDeps: Required<DriveCommandDeps> = {
   renameFile: async (id, name) => ({ id, name, renamed: false }),
   createFolder: async (name, parentId) => ({ id: "", name, created: false }),
   getFileInfo: async (id) => ({ id, name: "", mimeType: "" }),
+  exportFile: async (id, _format, out) => ({ id, name: "", path: out ?? "", exported: false }),
   // Permission defaults
   listPermissions: async () => [],
   createPermission: async (fileId) => ({ id: "", fileId, applied: false }),
@@ -249,6 +258,40 @@ export function formatDriveRevision(revision: DriveRevision, mode: OutputMode): 
     lines.push(`Size:         ${revision.size}`);
   }
   return lines.join("\n");
+}
+
+const FORMAT_TO_MIME: Record<string, string> = {
+  pdf: "application/pdf",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  csv: "text/csv",
+  txt: "text/plain",
+  html: "text/html",
+  odt: "application/vnd.oasis.opendocument.text",
+  ods: "application/vnd.oasis.opendocument.spreadsheet",
+  odp: "application/vnd.oasis.opendocument.presentation",
+  rtf: "application/rtf",
+  epub: "application/epub+zip",
+};
+
+export function resolveDriveExportMime(format: string): string {
+  const mime = FORMAT_TO_MIME[format.toLowerCase()];
+  if (!mime) {
+    throw new Error(
+      `Unsupported export format: '${format}'. Supported: ${Object.keys(FORMAT_TO_MIME).join(", ")}`,
+    );
+  }
+  return mime;
+}
+
+export function formatDriveExportResult(result: DriveExportResult, mode: OutputMode): string {
+  if (mode === "json") {
+    return JSON.stringify(result, null, 2);
+  }
+  return result.exported
+    ? `Exported ${result.name} (id=${result.id}) to ${result.path}`
+    : `Export failed for ${result.id}`;
 }
 
 export function registerDriveCommands(driveCommand: Command, deps: DriveCommandDeps = {}): void {
@@ -437,6 +480,22 @@ export function registerDriveCommands(driveCommand: Command, deps: DriveCommandD
       const ctx = buildExecutionContext(rootOptions);
       const result = await runWithStableApiError("drive", () => resolvedDeps.getFileInfo(fileId));
       process.stdout.write(`${formatDriveFileInfo(result, ctx.output.mode)}\n`);
+    });
+
+  driveCommand
+    .command("export")
+    .description("Export a Google Workspace file to a local format (Docs, Sheets, Slides)")
+    .argument("<file-id>", "Drive file id (must be a Google Workspace file)")
+    .requiredOption("--format <fmt>", "Export format: pdf, docx, xlsx, pptx, csv, txt, html, odt, ods, odp, rtf, epub")
+    .option("--out <path>", "Output file path (default: derived from filename + format)")
+    .action(async function actionExport(this: Command, fileId: string) {
+      const rootOptions = this.optsWithGlobals() as RootOptions;
+      const ctx = buildExecutionContext(rootOptions);
+      const opts = this.opts<{ format: string; out?: string }>();
+      const result = await runWithStableApiError("drive", () =>
+        resolvedDeps.exportFile(fileId, opts.format, opts.out),
+      );
+      process.stdout.write(`${formatDriveExportResult(result, ctx.output.mode)}\n`);
     });
 
   // Permission commands

@@ -16,12 +16,14 @@ import type {
   DriveRenameResult,
   DriveMkdirResult,
   DriveFileInfo,
+  DriveExportResult,
   DrivePermission,
   DrivePermissionResult,
   DriveComment,
   DriveCommentResult,
   DriveRevision,
 } from "./commands.js";
+import { resolveDriveExportMime } from "./commands.js";
 
 export function buildDriveCommandDeps(runtime: ServiceRuntime): Required<DriveCommandDeps> {
   return {
@@ -249,6 +251,25 @@ export function buildDriveCommandDeps(runtime: ServiceRuntime): Required<DriveCo
       }
 
       return result;
+    },
+
+    exportFile: async (id: string, format: string, out?: string): Promise<DriveExportResult> => {
+      const mimeType = resolveDriveExportMime(format);
+      const auth = await runtime.getClient(scopes("drive"));
+      const drive = google.drive({ version: "v3", auth });
+
+      const meta = await drive.files.get({ fileId: id, fields: "name" });
+      const fileName = meta.data.name ?? id;
+      const outputPath = out ?? `${fileName}.${format.toLowerCase()}`;
+
+      const res = await drive.files.export(
+        { fileId: id, mimeType },
+        { responseType: "arraybuffer" },
+      );
+
+      await writeFile(outputPath, Buffer.from(res.data as ArrayBuffer));
+
+      return { id, name: fileName, path: outputPath, exported: true };
     },
 
     // Permission operations
