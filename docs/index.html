@@ -8,7 +8,7 @@
     <meta name="description"
         content="gtypee is a powerful TypeScript CLI for managing Gmail, Drive, Calendar, and 15+ Google Workspace services. OAuth 2.0 & Service Account support, JSON output for scripting.">
     <meta name="keywords"
-        content="gtypee, Google Workspace CLI, Gmail CLI, Google Drive CLI, Google Calendar CLI, TypeScript CLI, workspace admin, Google API, automation, service account, OAuth">
+        content="gtypee, Google Workspace CLI, Gmail CLI, Google Drive CLI, Google Calendar CLI, TypeScript CLI, workspace admin, Google API, automation, service account, OAuth, gmail-cli, google-docs, google-sheets, google-slides, google-tasks, google-forms, google-chat, google-classroom, google-keep, google-contacts, google-apps-script, admin-sdk, domain-wide-delegation, email-automation, drive-export, bulk-operations, json-output, devops, sysadmin, user-management, command-line, terminal">
     <meta name="author" content="ejpespa">
     <meta name="robots" content="index, follow">
     <link rel="canonical" href="https://github.com/ejpespa/gtypee">
@@ -848,6 +848,8 @@ gtypee gmail search --query "from:boss@co.com"
 gtypee gmail get &lt;message-id&gt;
 gtypee gmail send --to me@ex.com \
   --subject "Hello" --body "Hi"
+gtypee gmail reply &lt;message-id&gt; \
+  --to me@ex.com --body "Thanks!"
 gtypee gmail trash &lt;message-id&gt;
 gtypee gmail modify &lt;id&gt; \
   --add-label STARRED \
@@ -904,7 +906,10 @@ gtypee drive upload --path ./report.pdf
 gtypee drive copy &lt;id&gt; --name "Copy"
 gtypee drive move &lt;id&gt; --parent &lt;folder-id&gt;
 gtypee drive mkdir --name "New Folder"
-gtypee drive info &lt;id&gt;</code></pre>
+gtypee drive info &lt;id&gt;
+gtypee drive export &lt;id&gt; --format pdf
+gtypee drive export &lt;id&gt; --format docx \
+  --out ./report.docx</code></pre>
                                 </div>
                             </div>
                             <div>
@@ -1070,6 +1075,10 @@ gtypee appscript run --id &lt;id&gt; \
                             class="text-slate-600">→</span><span class="text-slate-400">drive search</span></div>
                     <div class="flex items-center gap-2"><span class="text-ggreen">upload</span><span
                             class="text-slate-600">→</span><span class="text-slate-400">drive upload</span></div>
+                    <div class="flex items-center gap-2"><span class="text-ggreen">download</span><span
+                            class="text-slate-600">→</span><span class="text-slate-400">drive download</span></div>
+                    <div class="flex items-center gap-2"><span class="text-ggreen">open</span><span
+                            class="text-slate-600">→</span><span class="text-slate-400">drive open</span></div>
                     <div class="flex items-center gap-2"><span class="text-ggreen">login</span><span
                             class="text-slate-600">→</span><span class="text-slate-400">auth add</span></div>
                     <div class="flex items-center gap-2"><span class="text-ggreen">whoami</span><span

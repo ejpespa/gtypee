@@ -304,6 +304,8 @@ gtypee gmail trash <message-id>                      # Move to trash
 gtypee gmail untrash <message-id>                    # Restore from trash
 gtypee gmail modify <message-id> --add-label STARRED --remove-label UNREAD
 gtypee gmail send --to person@example.com --subject "Hello" --body "Hi there"
+gtypee gmail reply <message-id> --to person@example.com --body "Thanks!"
+gtypee gmail reply <message-id> --to person@example.com --body "Got it" --subject "Custom subject"
 ```
 
 **Attachments** (Download email attachments)
@@ -403,7 +405,11 @@ gtypee drive move <file-id> --parent <folder-id>
 gtypee drive rename <file-id> --name "New Name"
 gtypee drive mkdir --name "New Folder"
 gtypee drive info <file-id>
+gtypee drive export <file-id> --format pdf             # Export Google Doc/Sheet/Slide
+gtypee drive export <file-id> --format docx --out ./report.docx
 ```
+
+Supported export formats: `pdf`, `docx`, `xlsx`, `pptx`, `csv`, `txt`, `html`, `odt`, `ods`, `odp`, `rtf`, `epub`
 
 **Permissions**
 
@@ -674,6 +680,7 @@ Top-level shortcuts for common commands:
 | `gtypee search` | `gtypee drive search` |
 | `gtypee download` | `gtypee drive download` |
 | `gtypee upload` | `gtypee drive upload` |
+| `gtypee open` | `gtypee drive open` |
 | `gtypee login` | `gtypee auth add` |
 | `gtypee logout` | `gtypee auth remove` |
 | `gtypee status` | `gtypee auth status` |
