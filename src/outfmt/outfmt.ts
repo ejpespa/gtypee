@@ -80,3 +80,8 @@ export function applyJsonTransform(value: unknown, transform: JsonTransform): un
 
   return projected;
 }
+
+export function writeJson(value: unknown, transform: JsonTransform): void {
+  const transformed = applyJsonTransform(value, transform);
+  process.stdout.write(`${JSON.stringify(transformed, null, 2)}\n`);
+}

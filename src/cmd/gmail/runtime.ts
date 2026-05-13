@@ -235,75 +235,96 @@ export function buildGmailCommandDeps(options: ServiceRuntimeOptions): Required<
     deleteMessage: async (messageId: string) => {
       const auth = await runtime.getClient(scopes("gmail"));
       const gmail = google.gmail({ version: "v1", auth });
-
-      try {
-        await gmail.users.messages.delete({
-          userId: "me",
-          id: messageId,
-        });
-        return { id: messageId, applied: true };
-      } catch {
-        return { id: messageId, applied: false };
-      }
+      await gmail.users.messages.delete({ userId: "me", id: messageId });
+      return { id: messageId, applied: true };
     },
 
     trashMessage: async (messageId: string) => {
       const auth = await runtime.getClient(scopes("gmail"));
       const gmail = google.gmail({ version: "v1", auth });
-
-      try {
-        await gmail.users.messages.trash({
-          userId: "me",
-          id: messageId,
-        });
-        return { id: messageId, applied: true };
-      } catch {
-        return { id: messageId, applied: false };
-      }
+      await gmail.users.messages.trash({ userId: "me", id: messageId });
+      return { id: messageId, applied: true };
     },
 
     untrashMessage: async (messageId: string) => {
       const auth = await runtime.getClient(scopes("gmail"));
       const gmail = google.gmail({ version: "v1", auth });
-
-      try {
-        await gmail.users.messages.untrash({
-          userId: "me",
-          id: messageId,
-        });
-        return { id: messageId, applied: true };
-      } catch {
-        return { id: messageId, applied: false };
-      }
+      await gmail.users.messages.untrash({ userId: "me", id: messageId });
+      return { id: messageId, applied: true };
     },
 
     modifyMessage: async (messageId: string, addLabels?: string[], removeLabels?: string[]) => {
       const auth = await runtime.getClient(scopes("gmail"));
       const gmail = google.gmail({ version: "v1", auth });
+      await gmail.users.messages.modify({
+        userId: "me",
+        id: messageId,
+        requestBody: {
+          addLabelIds: addLabels ?? [],
+          removeLabelIds: removeLabels ?? [],
+        },
+      });
+      return {
+        id: messageId,
+        addedLabels: addLabels ?? [],
+        removedLabels: removeLabels ?? [],
+        applied: true,
+      };
+    },
 
-      try {
-        await gmail.users.messages.modify({
-          userId: "me",
-          id: messageId,
-          requestBody: {
-            addLabelIds: addLabels ?? null,
-            removeLabelIds: removeLabels ?? null,
-          },
-        });
-        return {
-          id: messageId,
-          addedLabels: addLabels ?? [],
-          removedLabels: removeLabels ?? [],
-          applied: true,
-        };
-      } catch {
-        return {
-          id: messageId,
-          addedLabels: addLabels ?? [],
-          removedLabels: removeLabels ?? [],
-          applied: false,
-        };
-      }
+    replyToMessage: async (input: { messageId: string; to: string; body: string; subject?: string }) => {
+      const auth = await runtime.getClient(scopes("gmail"));
+      const gmail = google.gmail({ version: "v1", auth });
+
+      const original = await gmail.users.messages.get({
+        userId: "me",
+        id: input.messageId,
+        format: "metadata",
+        metadataHeaders: ["Subject", "Message-ID", "References"],
+      });
+
+      const headers = original.data.payload?.headers ?? [];
+      const getHeader = (name: string) =>
+        headers.find((h) => h.name?.toLowerCase() === name.toLowerCase())?.value ?? "";
+
+      const originalMessageId = getHeader("message-id");
+      const originalReferences = getHeader("references");
+      const originalSubject = getHeader("subject");
+      const threadId = original.data.threadId ?? "";
+
+      const replySubject = input.subject ?? (
+        originalSubject.startsWith("Re:") ? originalSubject : `Re: ${originalSubject}`
+      );
+
+      const references = originalReferences
+        ? `${originalReferences} ${originalMessageId}`
+        : originalMessageId;
+
+      const rawMessage = [
+        `To: ${input.to}`,
+        `Subject: ${replySubject}`,
+        `In-Reply-To: ${originalMessageId}`,
+        `References: ${references}`,
+        "Content-Type: text/plain; charset=utf-8",
+        "",
+        input.body,
+      ].join("\r\n");
+
+      const encodedMessage = Buffer.from(rawMessage).toString("base64url");
+
+      const response = await gmail.users.messages.send({
+        userId: "me",
+        requestBody: {
+          raw: encodedMessage,
+          threadId,
+        },
+      });
+
+      return {
+        id: response.data.id ?? "",
+        threadId: response.data.threadId ?? "",
+        accepted: response.status === 200,
+      };
     },
   };
 }
@@ -420,77 +441,65 @@ export function buildGmailDraftDeps(options: ServiceRuntimeOptions): Required<Gm
 
       const encodedMessage = Buffer.from(rawMessage).toString("base64url");
 
-      try {
-        const response = await gmail.users.drafts.create({
-          userId: "me",
-          requestBody: {
-            message: { raw: encodedMessage },
-          },
-        });
+      const response = await gmail.users.drafts.create({
+        userId: "me",
+        requestBody: {
+          message: { raw: encodedMessage },
+        },
+      });
 
-        return {
-          id: response.data.id ?? "",
-          message: {
-            id: response.data.message?.id ?? "",
-            threadId: response.data.message?.threadId ?? "",
-            subject: input.subject,
-          },
-          applied: true,
-        };
-      } catch {
-        return {
-          id: "",
-          message: { id: "", threadId: "", subject: "" },
-          applied: false,
-        };
-      }
+      return {
+        id: response.data.id ?? "",
+        message: {
+          id: response.data.message?.id ?? "",
+          threadId: response.data.message?.threadId ?? "",
+          subject: input.subject,
+        },
+        applied: true,
+      };
     },
 
     listDrafts: async (options?: PaginationOptions) => {
       const auth = await runtime.getClient(scopes("gmail"));
       const gmail = google.gmail({ version: "v1", auth });
 
-      try {
-        const params: { userId: string; maxResults: number; pageToken?: string } = {
-          userId: "me",
-          maxResults: options?.pageSize ?? 100,
-        };
-        if (options?.pageToken !== undefined) {
-          params.pageToken = options.pageToken;
-        }
-        const response = await gmail.users.drafts.list(params);
-
-        const drafts = response.data.drafts ?? [];
-
-        const items = await Promise.all(
-          drafts.map(async (draft) => {
-            const detail = await gmail.users.drafts.get({
-              userId: "me",
-              id: draft.id!,
-              format: "metadata",
-            });
-            const subjectHeader = detail.data.message?.payload?.headers?.find(
-              (h) => h.name?.toLowerCase() === "subject",
-            );
-            return {
-              id: draft.id ?? "",
-              message: {
-                id: detail.data.message?.id ?? "",
-                threadId: detail.data.message?.threadId ?? "",
-                subject: subjectHeader?.value ?? "(no subject)",
-              },
-            };
-          }),
-        );
-
-        const result: { items: typeof items; nextPageToken?: string } = { items };
-        if (response.data.nextPageToken) {
-          result.nextPageToken = response.data.nextPageToken;
-        }
-        return result;
-      } catch {
-        return { items: [] };
+      const params: { userId: string; maxResults: number; pageToken?: string } = {
+        userId: "me",
+        maxResults: options?.pageSize ?? 100,
+      };
+      if (options?.pageToken !== undefined) {
+        params.pageToken = options.pageToken;
       }
+      const response = await gmail.users.drafts.list(params);
+
+      const drafts = response.data.drafts ?? [];
+
+      const items = await Promise.all(
+        drafts.map(async (draft) => {
+          const detail = await gmail.users.drafts.get({
+            userId: "me",
+            id: draft.id!,
+            format: "metadata",
+          });
+          const subjectHeader = detail.data.message?.payload?.headers?.find(
+            (h) => h.name?.toLowerCase() === "subject",
+          );
+          return {
+            id: draft.id ?? "",
+            message: {
+              id: detail.data.message?.id ?? "",
+              threadId: detail.data.message?.threadId ?? "",
+              subject: subjectHeader?.value ?? "(no subject)",
+            },
+          };
+        }),
+      );
+
+      const result: { items: typeof items; nextPageToken?: string } = { items };
+      if (response.data.nextPageToken) {
+        result.nextPageToken = response.data.nextPageToken;
+      }
+      return result;
     },
 
     getDraft: async (draftId: string) => {
@@ -512,40 +521,22 @@ export function buildGmailDraftDeps(options: ServiceRuntimeOptions): Required<Gm
     deleteDraft: async (draftId: string) => {
       const auth = await runtime.getClient(scopes("gmail"));
       const gmail = google.gmail({ version: "v1", auth });
-
-      try {
-        await gmail.users.drafts.delete({
-          userId: "me",
-          id: draftId,
-        });
-        return { id: draftId, applied: true };
-      } catch {
-        return { id: draftId, applied: false };
-      }
+      await gmail.users.drafts.delete({ userId: "me", id: draftId });
+      return { id: draftId, applied: true };
     },
 
     sendDraft: async (draftId: string) => {
       const auth = await runtime.getClient(scopes("gmail"));
       const gmail = google.gmail({ version: "v1", auth });
-
-      try {
-        const response = await gmail.users.drafts.send({
-          userId: "me",
-          requestBody: { id: draftId },
-        });
-
-        return {
-          id: response.data.id ?? "",
-          threadId: response.data.threadId ?? "",
-          sent: response.status === 200,
-        };
-      } catch {
-        return {
-          id: "",
-          threadId: "",
-          sent: false,
-        };
-      }
+      const response = await gmail.users.drafts.send({
+        userId: "me",
+        requestBody: { id: draftId },
+      });
+      return {
+        id: response.data.id ?? "",
+        threadId: response.data.threadId ?? "",
+        sent: response.status === 200,
+      };
     },
   };
 }
@@ -626,34 +617,26 @@ export function buildGmailLabelDeps(options: ServiceRuntimeOptions): Required<Gm
       const auth = await runtime.getClient(scopes("gmail"));
       const gmail = google.gmail({ version: "v1", auth });
 
-      try {
-        const requestBody: Record<string, unknown> = {
-          name: input.name,
-        };
-        if (input.textColor && input.backgroundColor) {
-          requestBody.color = {
-            textColor: input.textColor,
-            backgroundColor: input.backgroundColor,
-          };
-        }
-
-        const response = await gmail.users.labels.create({
-          userId: "me",
-          requestBody,
-        });
-
-        return {
-          id: response.data.id ?? "",
-          name: response.data.name ?? "",
-          applied: true,
-        };
-      } catch {
-        return {
-          id: "",
-          name: input.name,
-          applied: false,
+      const requestBody: Record<string, unknown> = {
+        name: input.name,
+      };
+      if (input.textColor && input.backgroundColor) {
+        requestBody.color = {
+          textColor: input.textColor,
+          backgroundColor: input.backgroundColor,
         };
       }
+
+      const response = await gmail.users.labels.create({
+        userId: "me",
+        requestBody,
+      });
+
+      return {
+        id: response.data.id ?? "",
+        name: response.data.name ?? "",
+        applied: true,
+      };
     },
 
     getLabel: async (labelId: string) => {
@@ -704,50 +687,34 @@ export function buildGmailLabelDeps(options: ServiceRuntimeOptions): Required<Gm
       const auth = await runtime.getClient(scopes("gmail"));
       const gmail = google.gmail({ version: "v1", auth });
 
-      try {
-        const requestBody: Record<string, unknown> = {
-          name,
-        };
-        if (textColor && backgroundColor) {
-          requestBody.color = {
-            textColor,
-            backgroundColor,
-          };
-        }
-
-        const response = await gmail.users.labels.update({
-          userId: "me",
-          id: labelId,
-          requestBody,
-        });
-
-        return {
-          id: response.data.id ?? "",
-          name: response.data.name ?? "",
-          applied: true,
-        };
-      } catch {
-        return {
-          id: labelId,
-          name,
-          applied: false,
+      const requestBody: Record<string, unknown> = {
+        name,
+      };
+      if (textColor && backgroundColor) {
+        requestBody.color = {
+          textColor,
+          backgroundColor,
         };
       }
+
+      const response = await gmail.users.labels.update({
+        userId: "me",
+        id: labelId,
+        requestBody,
+      });
+
+      return {
+        id: response.data.id ?? "",
+        name: response.data.name ?? "",
+        applied: true,
+      };
     },
 
     deleteLabel: async (labelId: string) => {
       const auth = await runtime.getClient(scopes("gmail"));
       const gmail = google.gmail({ version: "v1", auth });
-
-      try {
-        await gmail.users.labels.delete({
-          userId: "me",
-          id: labelId,
-        });
-        return { id: labelId, applied: true };
-      } catch {
-        return { id: labelId, applied: false };
-      }
+      await gmail.users.labels.delete({ userId: "me", id: labelId });
+      return { id: labelId, applied: true };
     },
   };
 }
@@ -760,65 +727,44 @@ export function buildGmailFilterDeps(options: ServiceRuntimeOptions): Required<G
       const auth = await runtime.getClient(scopes("gmail"));
       const gmail = google.gmail({ version: "v1", auth });
 
-      try {
-        const response = await gmail.users.settings.filters.list({
-          userId: "me",
-        });
+      const response = await gmail.users.settings.filters.list({
+        userId: "me",
+      });
 
-        const filters = response.data.filter ?? [];
+      const filters = response.data.filter ?? [];
 
-        return filters.map((filter) => ({
-          id: filter.id ?? "",
-          query: filter.criteria?.query ?? "",
-          addLabelIds: filter.action?.addLabelIds ?? [],
-        }));
-      } catch {
-        return [];
-      }
+      return filters.map((filter) => ({
+        id: filter.id ?? "",
+        query: filter.criteria?.query ?? "",
+        addLabelIds: filter.action?.addLabelIds ?? [],
+      }));
     },
 
     createFilter: async (query: string, addLabelIds: string[]) => {
       const auth = await runtime.getClient(scopes("gmail"));
       const gmail = google.gmail({ version: "v1", auth });
 
-      try {
-        const response = await gmail.users.settings.filters.create({
-          userId: "me",
-          requestBody: {
-            criteria: { query },
-            action: { addLabelIds },
-          },
-        });
+      const response = await gmail.users.settings.filters.create({
+        userId: "me",
+        requestBody: {
+          criteria: { query },
+          action: { addLabelIds },
+        },
+      });
 
-        return {
-          id: response.data.id ?? "",
-          query,
-          addLabelIds,
-          applied: true,
-        };
-      } catch {
-        return {
-          id: "",
-          query,
-          addLabelIds,
-          applied: false,
-        };
-      }
+      return {
+        id: response.data.id ?? "",
+        query,
+        addLabelIds,
+        applied: true,
+      };
     },
 
     deleteFilter: async (filterId: string) => {
       const auth = await runtime.getClient(scopes("gmail"));
       const gmail = google.gmail({ version: "v1", auth });
-
-      try {
-        await gmail.users.settings.filters.delete({
-          userId: "me",
-          id: filterId,
-        });
-        return { id: filterId, applied: true };
-      } catch {
-        return { id: filterId, applied: false };
-      }
+      await gmail.users.settings.filters.delete({ userId: "me", id: filterId });
+      return { id: filterId, applied: true };
     },
   };
 }
@@ -831,46 +777,42 @@ export function buildGmailSignatureDeps(options: ServiceRuntimeOptions): Require
       const auth = await runtime.getClient(scopes("gmail"));
       const gmail = google.gmail({ version: "v1", auth });
 
-      try {
-        const response = await gmail.users.settings.sendAs.list({
-          userId: "me",
-        });
+      const response = await gmail.users.settings.sendAs.list({
+        userId: "me",
+      });
 
-        const aliases = response.data.sendAs ?? [];
+      const aliases = response.data.sendAs ?? [];
 
-        return aliases.map((alias) => {
-          const result: {
-            sendAsEmail: string;
-            isPrimary: boolean;
-            displayName?: string;
-            signature?: string;
-            isDefault?: boolean;
-            treatAsAlias?: boolean;
-            verificationStatus?: string;
-          } = {
-            sendAsEmail: alias.sendAsEmail ?? "",
-            isPrimary: alias.isPrimary ?? false,
-          };
-          if (alias.displayName != null) {
-            result.displayName = alias.displayName;
-          }
-          if (alias.signature != null) {
-            result.signature = alias.signature;
-          }
-          if (alias.isDefault != null) {
-            result.isDefault = alias.isDefault;
-          }
-          if (alias.treatAsAlias != null) {
-            result.treatAsAlias = alias.treatAsAlias;
-          }
-          if (alias.verificationStatus != null) {
-            result.verificationStatus = alias.verificationStatus;
-          }
-          return result;
-        });
-      } catch {
-        return [];
-      }
+      return aliases.map((alias) => {
+        const result: {
+          sendAsEmail: string;
+          isPrimary: boolean;
+          displayName?: string;
+          signature?: string;
+          isDefault?: boolean;
+          treatAsAlias?: boolean;
+          verificationStatus?: string;
+        } = {
+          sendAsEmail: alias.sendAsEmail ?? "",
+          isPrimary: alias.isPrimary ?? false,
+        };
+        if (alias.displayName != null) {
+          result.displayName = alias.displayName;
+        }
+        if (alias.signature != null) {
+          result.signature = alias.signature;
+        }
+        if (alias.isDefault != null) {
+          result.isDefault = alias.isDefault;
+        }
+        if (alias.treatAsAlias != null) {
+          result.treatAsAlias = alias.treatAsAlias;
+        }
+        if (alias.verificationStatus != null) {
+          result.verificationStatus = alias.verificationStatus;
+        }
+        return result;
+      });
     },
 
     getSendAs: async (email: string) => {
@@ -915,17 +857,12 @@ export function buildGmailSignatureDeps(options: ServiceRuntimeOptions): Require
     setSignature: async (email: string, signature: string) => {
       const auth = await runtime.getClient(scopes("gmail"));
       const gmail = google.gmail({ version: "v1", auth });
-
-      try {
-        await gmail.users.settings.sendAs.update({
-          userId: "me",
-          sendAsEmail: email,
-          requestBody: { signature },
-        });
-        return { email, applied: true };
-      } catch {
-        return { email, applied: false };
-      }
+      await gmail.users.settings.sendAs.update({
+        userId: "me",
+        sendAsEmail: email,
+        requestBody: { signature },
+      });
+      return { email, applied: true };
     },
   };
 }

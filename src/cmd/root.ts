@@ -19,6 +19,8 @@ import { registerConfigCommands } from "./config/commands.js";
 import { registerContactsCommands } from "./contacts/commands.js";
 import { registerDocsCommands } from "./docs/commands.js";
 import { formatDriveFiles, registerDriveCommands } from "./drive/commands.js";
+import { normalizeDriveSearchQuery, resolveDriveDownloadPath } from "../googleapi/drive.js";
+import { writeJson } from "../outfmt/outfmt.js";
 import { registerFormsCommands } from "./forms/commands.js";
 import { registerGmailCommands } from "./gmail/commands.js";
 import { registerGroupsCommands } from "./groups/commands.js";
@@ -170,7 +172,7 @@ export function buildProgram(options: BuildProgramOptions = {}): Command {
   const appscriptDeps = buildAppScriptCommandDeps(runtime);
 
   program
-    .name("typee")
+    .name("gtypee")
     .description(
       "Google CLI for Gmail/Calendar/Chat/Classroom/Drive/Contacts/Tasks/Sheets/Docs/Slides/People/Forms/App Script",
     )
@@ -240,7 +242,7 @@ export function buildProgram(options: BuildProgramOptions = {}): Command {
           });
 
           if (ctx.output.mode === "json") {
-            process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+            writeJson(result, ctx.output.transform);
             return;
           }
 
@@ -282,11 +284,87 @@ export function buildProgram(options: BuildProgramOptions = {}): Command {
         const ctx = buildExecutionContext(rootOptions);
         const profile = await peopleDeps.me();
         if (ctx.output.mode === "json") {
-          process.stdout.write(`${JSON.stringify(profile, null, 2)}\n`);
+          writeJson(profile, ctx.output.transform);
           return;
         }
         process.stdout.write(`${profile.displayName}\n`);
       });
+      continue;
+    }
+
+    if (def.name === "search") {
+      cmd
+        .requiredOption("--query <query>", "Drive search query")
+        .option("--page-size <number>", "Number of files per page", parseInt)
+        .option("--page-token <token>", "Token for the next page")
+        .action(async function actionSearch(this: Command) {
+          const rootOptions = this.optsWithGlobals() as RootOptions;
+          const ctx = buildExecutionContext(rootOptions);
+          const opts = this.opts<{ query: string; pageSize?: number; pageToken?: string }>();
+          const paginationOpts: import("../types/pagination.js").PaginationOptions = {};
+          if (opts.pageSize !== undefined) paginationOpts.pageSize = opts.pageSize;
+          if (opts.pageToken !== undefined) paginationOpts.pageToken = opts.pageToken;
+          const result = await driveDeps.searchFiles(normalizeDriveSearchQuery(opts.query), paginationOpts);
+          if (ctx.output.mode === "json") {
+            writeJson(result, ctx.output.transform);
+            return;
+          }
+          process.stdout.write(`${formatDriveFiles(result, ctx.output.mode)}\n`);
+        });
+      continue;
+    }
+
+    if (def.name === "download") {
+      cmd
+        .requiredOption("--id <id>", "Drive file id")
+        .option("--out <path>", "Output path")
+        .action(async function actionDownload(this: Command) {
+          const rootOptions = this.optsWithGlobals() as RootOptions;
+          const ctx = buildExecutionContext(rootOptions);
+          const opts = this.opts<{ id: string; out?: string }>();
+          const outputPath = resolveDriveDownloadPath(opts.id, opts.out);
+          const result = await driveDeps.downloadFile(opts.id, outputPath);
+          if (ctx.output.mode === "json") {
+            writeJson(result, ctx.output.transform);
+            return;
+          }
+          process.stdout.write(result.downloaded ? `Downloaded ${result.id} to ${result.path}\n` : `Download failed for ${result.id}\n`);
+        });
+      continue;
+    }
+
+    if (def.name === "upload") {
+      cmd
+        .requiredOption("--path <path>", "Local file path")
+        .action(async function actionUpload(this: Command) {
+          const rootOptions = this.optsWithGlobals() as RootOptions;
+          const ctx = buildExecutionContext(rootOptions);
+          const opts = this.opts<{ path: string }>();
+          const result = await driveDeps.uploadFile(opts.path);
+          if (ctx.output.mode === "json") {
+            writeJson(result, ctx.output.transform);
+            return;
+          }
+          process.stdout.write(result.uploaded ? `Uploaded ${opts.path} (id=${result.id || "unknown"})\n` : `Upload failed for ${opts.path}\n`);
+        });
+      continue;
+    }
+
+    if (def.name === "open") {
+      cmd
+        .argument("<id>", "Drive file ID or Google URL")
+        .action(async function actionOpen(this: Command, id: string) {
+          const rootOptions = this.optsWithGlobals() as RootOptions;
+          const ctx = buildExecutionContext(rootOptions);
+          const url = id.startsWith("http")
+            ? id
+            : `https://drive.google.com/file/d/${id}/view`;
+          if (ctx.output.mode === "json") {
+            writeJson({ id, url }, ctx.output.transform);
+            return;
+          }
+          process.stdout.write(`${url}\n`);
+        });
       continue;
     }
 
