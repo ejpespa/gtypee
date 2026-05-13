@@ -1,3 +1,15 @@
+# [1.11.0](https://github.com/ejpespa/gtypee/compare/v1.10.2...v1.11.0) (2026-05-13)
+
+
+### Bug Fixes
+
+* correct program name, VERSION, desire-path wiring, JSON transforms, and error handling ([dbb490b](https://github.com/ejpespa/gtypee/commit/dbb490b1e52c6bb4f3fcb27a1fcb178dcbab20a4))
+
+
+### Features
+
+* add gmail reply and drive export commands ([2fe65c7](https://github.com/ejpespa/gtypee/commit/2fe65c729144d5e7d0528689e75892c31d287035))
+
 ## [1.10.2](https://github.com/ejpespa/gtypee/compare/v1.10.1...v1.10.2) (2026-04-21)
 
 
