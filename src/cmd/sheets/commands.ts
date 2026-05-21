@@ -2,7 +2,7 @@ import type { Command } from "commander";
 
 import type { OutputMode } from "../../outfmt/outfmt.js";
 import { toCliApiErrorMessage } from "../../googleapi/errors.js";
-import { buildExecutionContext, type RootOptions } from "../execution-context.js";
+import { buildExecutionContext, stderr, type RootOptions } from "../execution-context.js";
 import type { PaginatedResult, PaginationOptions } from "../../types/pagination.js";
 
 export type SheetsSummary = {
@@ -220,11 +220,11 @@ export function registerSheetsCommands(sheetsCommand: Command, deps: SheetsComma
 
       // Validate type-specific requirements
       if ((opts.type === "user" || opts.type === "group") && !opts.email) {
-        process.stderr.write(`--email is required for type="${opts.type}"\n`);
+        stderr(`--email is required for type="${opts.type}"\n`, ctx.quiet);
         process.exit(1);
       }
       if (opts.type === "domain" && !opts.domain) {
-        process.stderr.write(`--domain is required for type="domain"\n`);
+        stderr(`--domain is required for type="domain"\n`, ctx.quiet);
         process.exit(1);
       }
 
@@ -255,7 +255,7 @@ export function registerSheetsCommands(sheetsCommand: Command, deps: SheetsComma
             : `with ${opts.email || opts.type}`;
         process.stdout.write(`Sheet shared ${typeDesc} as ${opts.role}\n`);
       } else {
-        process.stderr.write(`Failed to share sheet\n`);
+        stderr(`Failed to share sheet\n`, ctx.quiet);
       }
     });
 }

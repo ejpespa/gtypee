@@ -15,6 +15,9 @@ async function main(): Promise<void> {
 
 main().catch((error: unknown) => {
   const message = error instanceof Error ? error.message : String(error);
-  process.stderr.write(`${message}\n`);
+  const isQuiet = process.argv.includes("--quiet") || process.argv.includes("-q");
+  if (!isQuiet) {
+    process.stderr.write(`${message}\n`);
+  }
   process.exit(exitCode(error));
 });

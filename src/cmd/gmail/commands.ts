@@ -2,7 +2,7 @@ import type { Command } from "commander";
 
 import type { OutputMode } from "../../outfmt/outfmt.js";
 import { toCliApiErrorMessage } from "../../googleapi/errors.js";
-import { buildExecutionContext, type RootOptions } from "../execution-context.js";
+import { buildExecutionContext, stderr, type RootOptions } from "../execution-context.js";
 import type { PaginatedResult, PaginationOptions } from "../../types/pagination.js";
 
 export type GmailMessageSummary = {
@@ -1510,7 +1510,7 @@ export function registerGmailCommands(
         const message = await runWithStableApiError("gmail", () => resolvedDeps.getMessage!(messageId));
         const attachment = message.attachments.find((a) => a.attachmentId === attachmentId);
         if (!attachment) {
-          process.stderr.write(`Attachment not found: ${attachmentId}\n`);
+          stderr(`Attachment not found: ${attachmentId}\n`, ctx.quiet);
           process.exit(1);
         }
         actualFilename = attachment.filename;
@@ -1531,7 +1531,7 @@ export function registerGmailCommands(
               : `${result.size}B`;
           process.stdout.write(`Downloaded: ${result.filename} (${sizeStr})\n`);
         } else {
-          process.stderr.write(`Failed to download attachment\n`);
+          stderr(`Failed to download attachment\n`, ctx.quiet);
           process.exit(1);
         }
       }
@@ -1558,7 +1558,7 @@ export function registerGmailCommands(
       } else {
         process.stdout.write(`Downloaded: ${result.downloaded} file(s)\n`);
         if (result.failed > 0) {
-          process.stderr.write(`Failed: ${result.failed} file(s)\n`);
+          stderr(`Failed: ${result.failed} file(s)\n`, ctx.quiet);
         }
       }
     });
@@ -1588,7 +1588,7 @@ export function registerGmailCommands(
       } else {
         process.stdout.write(`Downloaded: ${result.downloaded} file(s)\n`);
         if (result.failed > 0) {
-          process.stderr.write(`Failed: ${result.failed} file(s)\n`);
+          stderr(`Failed: ${result.failed} file(s)\n`, ctx.quiet);
         }
         if (result.skipped > 0) {
           process.stdout.write(`Skipped: ${result.skipped} message(s)\n`);

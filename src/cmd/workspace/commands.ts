@@ -1,6 +1,6 @@
 import { Command } from "commander";
 
-import { buildExecutionContext, type RootOptions } from "../execution-context.js";
+import { buildExecutionContext, stderr, type RootOptions } from "../execution-context.js";
 import type { PaginatedResult, PaginationOptions } from "../../types/pagination.js";
 
 export type WorkspaceUserCommandDeps = {
@@ -841,6 +841,8 @@ export function registerWorkspaceCommands(
     .argument("<csv-file>", "CSV file with old and new email mappings")
     .option("--dry-run", "Show what would be done without making changes")
     .action(async function actionAddAliases(this: Command, csvFile: string) {
+      const rootOptions = this.optsWithGlobals() as RootOptions;
+      const ctx = buildExecutionContext(rootOptions);
       const fs = await import("fs");
       const csvContent = await fs.promises.readFile(csvFile, "utf-8");
 
@@ -867,7 +869,7 @@ export function registerWorkspaceCommands(
 
       process.stdout.write(`Added: ${result.added} aliases\n`);
       if (result.failed > 0) {
-        process.stderr.write(`Failed: ${result.failed} aliases\n`);
+        stderr(`Failed: ${result.failed} aliases\n`, ctx.quiet);
       }
     });
 
