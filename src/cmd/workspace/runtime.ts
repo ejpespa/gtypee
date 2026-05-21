@@ -438,6 +438,62 @@ export function buildWorkspaceUserCommandDeps(options: ServiceRuntimeOptions): R
 
       return { added, failed, results };
     },
+
+    listInactiveUsers: async (days: number): Promise<WorkspaceUser[]> => {
+      const auth = await runtime.getClient(scopes("workspace"));
+      const admin = google.admin({ version: "directory_v1", auth });
+
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - days);
+      const cutoffISO = cutoff.toISOString();
+
+      const users: WorkspaceUser[] = [];
+      let pageToken: string | undefined = undefined;
+
+      do {
+        const params: Record<string, unknown> = {
+          customer: "my_customer",
+          maxResults: 500,
+          orderBy: "email",
+          query: "isSuspended=false",
+          projection: "basic",
+        };
+
+        if (pageToken !== undefined) {
+          params.pageToken = pageToken;
+        }
+
+        const response = await admin.users.list(params);
+        const userList = response.data.users ?? [];
+
+        for (const u of userList) {
+          const lastLogin = u.lastLoginTime ?? undefined;
+          const isInactive = !lastLogin || lastLogin < cutoffISO;
+
+          if (isInactive) {
+            const user: WorkspaceUser = {
+              id: u.id ?? "",
+              primaryEmail: u.primaryEmail ?? "",
+              name: {
+                givenName: u.name?.givenName ?? "",
+                familyName: u.name?.familyName ?? "",
+              },
+              suspended: u.suspended ?? false,
+              orgUnitPath: u.orgUnitPath ?? "/",
+              isAdmin: u.isAdmin ?? false,
+            };
+            if (lastLogin) {
+              user.lastLoginTime = lastLogin;
+            }
+            users.push(user);
+          }
+        }
+
+        pageToken = response.data.nextPageToken ?? undefined;
+      } while (pageToken);
+
+      return users;
+    },
   };
 }
 

@@ -22,6 +22,7 @@ export type WorkspaceUserCommandDeps = {
   generateBackupCodes?: (email: string) => Promise<BackupCodesResult>;
   exportUsers?: (domain?: string) => Promise<WorkspaceUser[]>;
   addAliasBatch?: (mappings: Array<{ email: string; alias: string }>) => Promise<{ added: number; failed: number; results: Array<{ email: string; alias: string; success: boolean }> }>;
+  listInactiveUsers?: (days: number) => Promise<WorkspaceUser[]>;
 };
 
 // Migration types
@@ -47,6 +48,7 @@ export type WorkspaceUser = {
   suspended: boolean;
   orgUnitPath: string;
   isAdmin: boolean;
+  lastLoginTime?: string;
 };
 
 export type CreateUserInput = {
@@ -293,6 +295,7 @@ const defaultUserDeps: Required<WorkspaceUserCommandDeps> = {
   generateBackupCodes: async () => ({ email: "", codes: [], applied: false }),
   exportUsers: async () => [],
   addAliasBatch: async () => ({ added: 0, failed: 0, results: [] }),
+  listInactiveUsers: async () => [],
 };
 
 const defaultGroupDeps: Required<WorkspaceGroupCommandDeps> = {
@@ -390,6 +393,37 @@ export function registerWorkspaceCommands(
       if (result.nextPageToken) {
         process.stdout.write("---\n");
         process.stdout.write(`Next page token: ${result.nextPageToken}\n`);
+      }
+    });
+
+  // gtypee workspace user inactive [--days <number>]
+  userCmd
+    .command("inactive")
+    .description("List users who have not logged in within a given period")
+    .option("--days <number>", "Inactivity threshold in days (default: 365)", parseInt)
+    .action(async function actionInactiveUsers(this: Command) {
+      const rootOptions = this.optsWithGlobals() as RootOptions;
+      const ctx = buildExecutionContext(rootOptions);
+      const opts = this.opts<{ days?: number }>();
+
+      const days = opts.days ?? 365;
+      const users = await userDeps.listInactiveUsers(days);
+
+      if (ctx.output.mode === "json") {
+        process.stdout.write(`${JSON.stringify({ users, days, count: users.length }, null, 2)}\n`);
+        return;
+      }
+
+      if (users.length === 0) {
+        process.stdout.write(`No inactive users found (threshold: ${days} days)\n`);
+        return;
+      }
+
+      process.stdout.write(`Users with no login in the last ${days} days (${users.length} found):\n\n`);
+      process.stdout.write("EMAIL\tLAST LOGIN\tORG UNIT\n");
+      for (const user of users) {
+        const lastLogin = user.lastLoginTime ?? "never";
+        process.stdout.write(`${user.primaryEmail}\t${lastLogin}\t${user.orgUnitPath}\n`);
       }
     });
 
