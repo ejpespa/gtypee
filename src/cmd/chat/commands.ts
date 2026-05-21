@@ -2,7 +2,7 @@ import type { Command } from "commander";
 
 import type { OutputMode } from "../../outfmt/outfmt.js";
 import { toCliApiErrorMessage } from "../../googleapi/errors.js";
-import { buildExecutionContext, type RootOptions } from "../execution-context.js";
+import { buildExecutionContext, checkFailOnEmpty, type RootOptions } from "../execution-context.js";
 
 export type ChatMessage = {
   id: string;
@@ -68,6 +68,7 @@ export function registerChatCommands(chatCommand: Command, deps: ChatCommandDeps
       const ctx = buildExecutionContext(rootOptions);
       await resolvedDeps.ensureWorkspace();
       const spaces = await runWithStableApiError("chat", () => resolvedDeps.listSpaces());
+      checkFailOnEmpty(ctx, spaces);
       if (ctx.output.mode === "json") {
         process.stdout.write(`${JSON.stringify({ spaces }, null, 2)}\n`);
         return;
@@ -123,6 +124,7 @@ export function registerChatCommands(chatCommand: Command, deps: ChatCommandDeps
       const opts = this.opts<{ space: string }>();
       await resolvedDeps.ensureWorkspace();
       const messages = await runWithStableApiError("chat", () => resolvedDeps.listMessages(opts.space));
+      checkFailOnEmpty(ctx, messages);
       process.stdout.write(`${formatChatMessages(messages, ctx.output.mode)}\n`);
     });
 

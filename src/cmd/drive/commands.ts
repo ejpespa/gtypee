@@ -3,7 +3,7 @@ import type { Command } from "commander";
 import type { OutputMode } from "../../outfmt/outfmt.js";
 import { resolveDriveDownloadPath, normalizeDriveSearchQuery } from "../../googleapi/drive.js";
 import { toCliApiErrorMessage } from "../../googleapi/errors.js";
-import { buildExecutionContext, type RootOptions } from "../execution-context.js";
+import { buildExecutionContext, checkFailOnEmpty, type RootOptions } from "../execution-context.js";
 import type { PaginatedResult, PaginationOptions } from "../../types/pagination.js";
 
 export type DriveFileSummary = {
@@ -425,6 +425,7 @@ export function registerDriveCommands(driveCommand: Command, deps: DriveCommandD
       const result = await runWithStableApiError("drive", () =>
         resolvedDeps.searchFiles(normalizeDriveSearchQuery(opts.query), paginationOpts)
       );
+      checkFailOnEmpty(ctx, result.items);
       process.stdout.write(`${formatDriveFiles(result, ctx.output.mode)}\n`);
     });
 
@@ -764,6 +765,7 @@ export function registerDriveCommands(driveCommand: Command, deps: DriveCommandD
       if (opts.pageSize !== undefined) paginationOpts.pageSize = parseInt(opts.pageSize, 10);
       if (opts.pageToken !== undefined) paginationOpts.pageToken = opts.pageToken;
       const result = await runWithStableApiError("drive", () => trashDeps.listTrash(paginationOpts));
+      checkFailOnEmpty(ctx, result.items);
       process.stdout.write(`${formatDriveFiles(result, ctx.output.mode)}\n`);
     });
 
@@ -813,6 +815,7 @@ export function registerDriveCommands(driveCommand: Command, deps: DriveCommandD
       if (opts.pageSize !== undefined) paginationOpts.pageSize = parseInt(opts.pageSize, 10);
       if (opts.pageToken !== undefined) paginationOpts.pageToken = opts.pageToken;
       const result = await runWithStableApiError("drive", () => sharedDrivesDeps.listSharedDrives(paginationOpts));
+      checkFailOnEmpty(ctx, result.items);
       process.stdout.write(`${formatSharedDrives(result.items, ctx.output.mode)}\n`);
     });
 

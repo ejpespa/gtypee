@@ -213,6 +213,7 @@ export function buildProgram(options: BuildProgramOptions = {}): Command {
     .option("-v, --verbose", "Enable verbose logging", false)
     .option("-q, --quiet", "Suppress non-data output (useful for CI)", false)
     .option("--timeout <seconds>", "Command timeout in seconds (exit code 5 on expiry)")
+    .option("--fail-on-empty", "Exit with code 7 when a list command returns no results", false)
     .option("--sa <email>", "Use service account instead of user OAuth")
     .option("--impersonate <email>", "Impersonate user via domain-wide delegation");
 

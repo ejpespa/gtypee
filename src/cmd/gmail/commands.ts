@@ -2,7 +2,7 @@ import type { Command } from "commander";
 
 import type { OutputMode } from "../../outfmt/outfmt.js";
 import { toCliApiErrorMessage } from "../../googleapi/errors.js";
-import { buildExecutionContext, stderr, type RootOptions } from "../execution-context.js";
+import { buildExecutionContext, stderr, checkFailOnEmpty, type RootOptions } from "../execution-context.js";
 import type { PaginatedResult, PaginationOptions } from "../../types/pagination.js";
 
 export type GmailMessageSummary = {
@@ -896,6 +896,7 @@ export function registerGmailCommands(
       if (opts.pageToken !== undefined) paginationOpts.pageToken = opts.pageToken;
 
       const result = await runWithStableApiError("gmail", () => resolvedDeps.listMessages!(opts.query, paginationOpts));
+      checkFailOnEmpty(ctx, result.items);
       process.stdout.write(`${formatGmailMessages(result, ctx.output.mode)}\n`);
     });
 
@@ -908,6 +909,7 @@ export function registerGmailCommands(
       const ctx = buildExecutionContext(rootOptions);
       const opts = this.opts<{ query: string }>();
       const messages = await runWithStableApiError("gmail", () => resolvedDeps.searchEmails(opts.query));
+      checkFailOnEmpty(ctx, messages);
       process.stdout.write(`${formatGmailSearchResult(messages, ctx.output.mode)}\n`);
     });
 
@@ -918,6 +920,7 @@ export function registerGmailCommands(
       const rootOptions = this.optsWithGlobals() as RootOptions;
       const ctx = buildExecutionContext(rootOptions);
       const labels = await runWithStableApiError("gmail", () => resolvedDeps.listLabels());
+      checkFailOnEmpty(ctx, labels);
       process.stdout.write(`${formatGmailLabels(labels, ctx.output.mode)}\n`);
     });
 

@@ -3,7 +3,7 @@ import type { Command } from "commander";
 import type { OutputMode } from "../../outfmt/outfmt.js";
 import { normalizeCalendarResponse, type CalendarResponse } from "../../googleapi/calendar.js";
 import { toCliApiErrorMessage } from "../../googleapi/errors.js";
-import { buildExecutionContext, type RootOptions } from "../execution-context.js";
+import { buildExecutionContext, checkFailOnEmpty, type RootOptions } from "../execution-context.js";
 import type { PaginatedResult, PaginationOptions } from "../../types/pagination.js";
 
 export type CalendarEventSummary = {
@@ -235,6 +235,7 @@ export function registerCalendarCommands(calendarCommand: Command, deps: Calenda
       if (opts.pageToken !== undefined) paginationOpts.pageToken = opts.pageToken;
 
       const result = await runWithStableApiError("calendar", () => resolvedDeps.listEvents(query, paginationOpts));
+      checkFailOnEmpty(ctx, result.items);
       process.stdout.write(`${formatCalendarEvents(result, ctx.output.mode)}\n`);
     });
 
@@ -373,6 +374,7 @@ export function registerCalendarCommands(calendarCommand: Command, deps: Calenda
       const rootOptions = this.optsWithGlobals() as RootOptions;
       const ctx = buildExecutionContext(rootOptions);
       const result = await runWithStableApiError("calendar", () => calendarListDeps.listCalendars());
+      checkFailOnEmpty(ctx, result);
       process.stdout.write(`${formatCalendarList(result, ctx.output.mode)}\n`);
     });
 
@@ -404,6 +406,7 @@ export function registerCalendarCommands(calendarCommand: Command, deps: Calenda
       const ctx = buildExecutionContext(rootOptions);
       const opts = this.opts<{ calendar: string }>();
       const result = await runWithStableApiError("calendar", () => aclDeps.listAcl(opts.calendar));
+      checkFailOnEmpty(ctx, result);
       process.stdout.write(`${formatCalendarAcl(result, ctx.output.mode)}\n`);
     });
 

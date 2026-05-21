@@ -1,4 +1,6 @@
 import { fromFlags, type JsonTransform, type OutputMode } from "../outfmt/outfmt.js";
+import { ExitError } from "./exit.js";
+import { EXIT_CODE_EMPTY } from "./exit-codes.js";
 
 export type RootOptions = {
   account?: string;
@@ -17,6 +19,7 @@ export type RootOptions = {
   verbose?: boolean;
   quiet?: boolean;
   timeout?: string;
+  failOnEmpty?: boolean;
   enableCommands?: string;
 };
 
@@ -27,6 +30,7 @@ export type ExecutionContext = {
   verbose: boolean;
   quiet: boolean;
   timeout?: number;
+  failOnEmpty: boolean;
   dryRun: boolean;
   force: boolean;
   noInput: boolean;
@@ -54,6 +58,12 @@ export function stderr(msg: string, quiet: boolean): void {
   }
 }
 
+export function checkFailOnEmpty(ctx: ExecutionContext, items: unknown[]): void {
+  if (ctx.failOnEmpty && items.length === 0) {
+    throw new ExitError(EXIT_CODE_EMPTY, "no results (--fail-on-empty)");
+  }
+}
+
 export function buildExecutionContext(options: RootOptions): ExecutionContext {
   const quiet = options.quiet ?? false;
   const verbose = options.verbose ?? false;
@@ -75,6 +85,7 @@ export function buildExecutionContext(options: RootOptions): ExecutionContext {
     color: (options.color ?? "auto").trim(),
     verbose,
     quiet,
+    failOnEmpty: options.failOnEmpty ?? false,
     dryRun: options.dryRun ?? false,
     force: options.force ?? false,
     noInput: options.noInput ?? false,
