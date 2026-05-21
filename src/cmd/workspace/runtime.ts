@@ -439,7 +439,7 @@ export function buildWorkspaceUserCommandDeps(options: ServiceRuntimeOptions): R
       return { added, failed, results };
     },
 
-    listInactiveUsers: async (days: number): Promise<WorkspaceUser[]> => {
+    listInactiveUsers: async (days: number, neverOnly?: boolean): Promise<WorkspaceUser[]> => {
       const auth = await runtime.getClient(scopes("workspace"));
       const admin = google.admin({ version: "directory_v1", auth });
 
@@ -468,9 +468,12 @@ export function buildWorkspaceUserCommandDeps(options: ServiceRuntimeOptions): R
 
         for (const u of userList) {
           const lastLogin = u.lastLoginTime ?? undefined;
-          const isInactive = !lastLogin || lastLogin < cutoffISO;
+          const neverSignedIn = !lastLogin;
+          const isInactive = neverSignedIn || lastLogin < cutoffISO;
 
-          if (isInactive) {
+          const shouldInclude = neverOnly ? neverSignedIn : isInactive;
+
+          if (shouldInclude) {
             const user: WorkspaceUser = {
               id: u.id ?? "",
               primaryEmail: u.primaryEmail ?? "",

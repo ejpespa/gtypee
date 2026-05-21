@@ -22,7 +22,7 @@ export type WorkspaceUserCommandDeps = {
   generateBackupCodes?: (email: string) => Promise<BackupCodesResult>;
   exportUsers?: (domain?: string) => Promise<WorkspaceUser[]>;
   addAliasBatch?: (mappings: Array<{ email: string; alias: string }>) => Promise<{ added: number; failed: number; results: Array<{ email: string; alias: string; success: boolean }> }>;
-  listInactiveUsers?: (days: number) => Promise<WorkspaceUser[]>;
+  listInactiveUsers?: (days: number, neverOnly?: boolean) => Promise<WorkspaceUser[]>;
 };
 
 // Migration types
@@ -396,30 +396,36 @@ export function registerWorkspaceCommands(
       }
     });
 
-  // gtypee workspace user inactive [--days <number>]
+  // gtypee workspace user inactive [--days <number>] [--never]
   userCmd
     .command("inactive")
     .description("List users who have not logged in within a given period")
     .option("--days <number>", "Inactivity threshold in days (default: 365)", parseInt)
+    .option("--never", "Only show users who have never signed in", false)
     .action(async function actionInactiveUsers(this: Command) {
       const rootOptions = this.optsWithGlobals() as RootOptions;
       const ctx = buildExecutionContext(rootOptions);
-      const opts = this.opts<{ days?: number }>();
+      const opts = this.opts<{ days?: number; never?: boolean }>();
 
       const days = opts.days ?? 365;
-      const users = await userDeps.listInactiveUsers(days);
+      const neverOnly = opts.never ?? false;
+      const users = await userDeps.listInactiveUsers(days, neverOnly);
 
       if (ctx.output.mode === "json") {
-        process.stdout.write(`${JSON.stringify({ users, days, count: users.length }, null, 2)}\n`);
+        process.stdout.write(`${JSON.stringify({ users, days, neverOnly, count: users.length }, null, 2)}\n`);
         return;
       }
 
       if (users.length === 0) {
-        process.stdout.write(`No inactive users found (threshold: ${days} days)\n`);
+        const label = neverOnly ? "No users found who have never signed in" : `No inactive users found (threshold: ${days} days)`;
+        process.stdout.write(`${label}\n`);
         return;
       }
 
-      process.stdout.write(`Users with no login in the last ${days} days (${users.length} found):\n\n`);
+      const header = neverOnly
+        ? `Users who have never signed in (${users.length} found):`
+        : `Users with no login in the last ${days} days (${users.length} found):`;
+      process.stdout.write(`${header}\n\n`);
       process.stdout.write("EMAIL\tLAST LOGIN\tORG UNIT\n");
       for (const user of users) {
         const lastLogin = user.lastLoginTime ?? "never";
