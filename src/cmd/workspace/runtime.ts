@@ -223,11 +223,11 @@ export function buildWorkspaceUserCommandDeps(options: ServiceRuntimeOptions): R
       }
     },
 
-    resetPassword: async (email: string): Promise<ResetPasswordResult> => {
+    resetPassword: async (email: string, password?: string): Promise<ResetPasswordResult> => {
       const auth = await runtime.getClient(scopes("workspace"));
       const admin = google.admin({ version: "directory_v1", auth });
 
-      const newPassword = generatePassword(8);
+      const newPassword = password ?? generatePassword(8);
 
       try {
         await admin.users.update({

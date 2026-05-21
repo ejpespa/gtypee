@@ -10,7 +10,7 @@ export type WorkspaceUserCommandDeps = {
   suspendUser?: (email: string) => Promise<SuspendUserResult>;
   unsuspendUser?: (email: string) => Promise<UnsuspendUserResult>;
   setAdmin?: (email: string, makeAdmin: boolean) => Promise<SetAdminResult>;
-  resetPassword?: (email: string) => Promise<ResetPasswordResult>;
+  resetPassword?: (email: string, password?: string) => Promise<ResetPasswordResult>;
   setOrgUnit?: (email: string, orgUnitPath: string) => Promise<SetOrgUnitResult>;
   listOrgUnits?: () => Promise<OrgUnit[]>;
   addAlias?: (email: string, alias: string) => Promise<AliasResult>;
@@ -553,14 +553,15 @@ export function registerWorkspaceCommands(
   // typee workspace user reset-password --email <email>
   userCmd
     .command("reset-password")
-    .description("Reset user password (generates new password)")
+    .description("Reset user password (generates a random password unless --password is given)")
     .requiredOption("--email <email>", "User email address")
+    .option("--password <password>", "Specific password to set (auto-generated if omitted)")
     .action(async function actionResetPassword(this: Command) {
       const rootOptions = this.optsWithGlobals() as RootOptions;
       const ctx = buildExecutionContext(rootOptions);
-      const opts = this.opts<{ email: string }>();
+      const opts = this.opts<{ email: string; password?: string }>();
 
-      const result = await userDeps.resetPassword(opts.email);
+      const result = await userDeps.resetPassword(opts.email, opts.password);
 
       if (ctx.output.mode === "json") {
         process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
