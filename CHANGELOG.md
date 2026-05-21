@@ -1,3 +1,11 @@
+# [1.12.0](https://github.com/ejpespa/gtypee/compare/v1.11.0...v1.12.0) (2026-05-21)
+
+
+### Features
+
+* **workspace:** add --never flag to user inactive command ([fa68960](https://github.com/ejpespa/gtypee/commit/fa689606b50c28ab5d8eb7464af6eac4c207aa2b))
+* **workspace:** add user inactive command to list users with no recent login ([236b165](https://github.com/ejpespa/gtypee/commit/236b165ccf20a826e119ca9acbdd584f3a29cb3a))
+
 # [1.11.0](https://github.com/ejpespa/gtypee/compare/v1.10.2...v1.11.0) (2026-05-13)
 
 
