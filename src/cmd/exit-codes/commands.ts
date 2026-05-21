@@ -8,6 +8,11 @@ export function formatExitCodes(mode: OutputMode): string {
     ok: 0,
     error: 1,
     usage: 2,
+    auth: 3,
+    rate_limit: 4,
+    timeout: 5,
+    not_found: 6,
+    empty: 7,
   };
 
   if (mode === "json") {
