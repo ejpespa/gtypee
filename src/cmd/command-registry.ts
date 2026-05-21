@@ -40,6 +40,7 @@ export const serviceCommands: CommandDef[] = [
   { name: "appscript", aliases: ["script", "apps-script"], description: "Google Apps Script" },
   { name: "config", description: "Manage configuration" },
   { name: "exit-codes", aliases: ["exitcodes"], description: "Print stable exit codes" },
+  { name: "health-check", description: "Check auth and API connectivity" },
   { name: "agent", description: "Agent-friendly helpers" },
   { name: "schema", aliases: ["help-json", "helpjson"], description: "Machine-readable command schema" },
   { name: "version", description: "Print version" },

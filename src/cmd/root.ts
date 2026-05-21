@@ -34,6 +34,8 @@ import { registerTasksCommands } from "./tasks/commands.js";
 import { registerAppScriptCommands } from "./appscript/commands.js";
 import { registerTimeCommands } from "./time/commands.js";
 import { registerExitCodesCommands } from "./exit-codes/commands.js";
+import { registerHealthCheckCommands } from "./health-check/commands.js";
+import { buildHealthCheckDeps } from "./health-check/runtime.js";
 import { registerVersionCommands } from "./version/commands.js";
 import { desirePathCommands, serviceCommands } from "./command-registry.js";
 import { buildExecutionContext, type RootOptions } from "./execution-context.js";
@@ -168,6 +170,7 @@ export function buildProgram(options: BuildProgramOptions = {}): Command {
   const groupsDeps = buildGroupsCommandDeps(runtimeOptions);
   const keepDeps = buildKeepCommandDeps(runtimeOptions);
   const meetDeps = buildMeetCommandDeps(runtimeOptions);
+  const healthCheckDeps = buildHealthCheckDeps(runtimeOptions);
   const workspaceUserDeps = buildWorkspaceUserCommandDeps(runtimeOptions);
   const workspaceGroupDeps = buildWorkspaceGroupCommandDeps(runtimeOptions);
   const workspaceDeviceDeps = buildWorkspaceDeviceCommandDeps(runtimeOptions);
@@ -502,6 +505,15 @@ export function buildProgram(options: BuildProgramOptions = {}): Command {
 
     if (def.name === "exit-codes") {
       registerExitCodesCommands(cmd);
+      continue;
+    }
+
+    if (def.name === "health-check") {
+      registerHealthCheckCommands(cmd, healthCheckDeps);
+      cmd.addHelpText(
+        "after",
+        `\nExamples:\n  gtypee health-check run\n  gtypee health-check run --services gmail,drive\n  gtypee --json health-check run\n`,
+      );
       continue;
     }
 
