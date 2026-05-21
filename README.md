@@ -491,6 +491,15 @@ gtypee workspace user set-photo --email user@company.com --path ./photo.jpg
 gtypee workspace user delete-photo --email user@company.com
 ```
 
+**Inactive Users**
+
+```bash
+gtypee workspace user inactive                         # Users inactive for 365+ days
+gtypee workspace user inactive --days 90               # Users inactive for 90+ days
+gtypee workspace user inactive --never                 # Users who have never signed in
+gtypee workspace user inactive --days 180 --json       # JSON output for scripting
+```
+
 **Backup Codes**
 
 ```bash
@@ -765,6 +774,15 @@ gtypee workspace user list --json | jq '.[] | select(.isAdmin == true) | .primar
 
 # Count users by org unit
 gtypee workspace user list --json | jq -r '.[].orgUnitPath' | sort | uniq -c
+
+# Find inactive users (no login in 180 days)
+gtypee workspace user inactive --days 180
+
+# Find users who have never signed in
+gtypee workspace user inactive --never
+
+# Export inactive users to CSV
+gtypee workspace user inactive --days 90 --json | jq -r '.users[] | [.primaryEmail, .lastLoginTime // "never", .orgUnitPath] | @csv' > inactive.csv
 
 # Find users who haven't changed password in 90 days (via login audit)
 gtypee workspace report logins --days 90 --json | jq -r '.[] | select(.success == true) | .userEmail' | sort | uniq
