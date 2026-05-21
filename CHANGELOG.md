@@ -1,3 +1,15 @@
+# [1.13.0](https://github.com/ejpespa/gtypee/compare/v1.12.0...v1.13.0) (2026-05-21)
+
+
+### Features
+
+* add --fail-on-empty flag — exit 7 when list commands return no results ([b1e9bc9](https://github.com/ejpespa/gtypee/commit/b1e9bc9a9d84fd8fa80010951ad95e7259e3108d))
+* add --quiet flag and stderr helper for CI/CD pipelines ([2fa61be](https://github.com/ejpespa/gtypee/commit/2fa61be4df7779d21e97c1247720ce871f1eb010))
+* add --timeout flag — whole-command deadline with exit code 5 ([8746cc5](https://github.com/ejpespa/gtypee/commit/8746cc5b723d6c77b4a4fed549b78641545ea78d))
+* add health-check command — verify auth and API connectivity ([f4bfac6](https://github.com/ejpespa/gtypee/commit/f4bfac682112fa97ff77a7d193448aa718c01ba8))
+* deepen Gmail/Drive/Calendar services, add Meet, CSV output, chat DM, whoami enrichment, help examples ([e3cdd3e](https://github.com/ejpespa/gtypee/commit/e3cdd3e7365b1c975cdcf2fa3a2eef20c073b4ce))
+* expand exit codes — auth (3), rate-limit (4), timeout (5), not-found (6), empty (7) ([0714dc9](https://github.com/ejpespa/gtypee/commit/0714dc949fff5c1df55643fc88218c7495d9c3f0))
+
 # [1.12.0](https://github.com/ejpespa/gtypee/compare/v1.11.0...v1.12.0) (2026-05-21)
 
 
