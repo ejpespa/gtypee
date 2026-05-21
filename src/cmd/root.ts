@@ -40,9 +40,11 @@ import { buildExecutionContext, type RootOptions } from "./execution-context.js"
 import { ServiceRuntime, type ServiceRuntimeOptions } from "../googleapi/auth-factory.js";
 import { KeyringStore, EncryptedFileBackend } from "../secrets/store.js";
 import { credentialsEncPath } from "../config/paths.js";
-import { buildGmailCommandDeps, buildGmailDraftDeps, buildGmailThreadDeps, buildGmailLabelDeps, buildGmailFilterDeps, buildGmailSignatureDeps, buildGmailSendersDeps, buildGmailAttachmentDeps } from "./gmail/runtime.js";
+import { buildGmailCommandDeps, buildGmailDraftDeps, buildGmailThreadDeps, buildGmailLabelDeps, buildGmailFilterDeps, buildGmailSignatureDeps, buildGmailSendersDeps, buildGmailAttachmentDeps, buildGmailSettingsDeps } from "./gmail/runtime.js";
 import { buildCalendarCommandDeps } from "./calendar/runtime.js";
+import { buildCalendarFreeBusyDeps, buildCalendarListDeps, buildCalendarAclDeps } from "./calendar/runtime.js";
 import { buildDriveCommandDeps } from "./drive/runtime.js";
+import { buildDriveQuotaDeps, buildDriveTrashDeps, buildDriveSharedDrivesDeps } from "./drive/runtime.js";
 import { buildDocsCommandDeps } from "./docs/runtime.js";
 import { buildSheetsCommandDeps } from "./sheets/runtime.js";
 import { buildSlidesCommandDeps } from "./slides/runtime.js";
@@ -55,6 +57,8 @@ import { buildContactsCommandDeps } from "./contacts/runtime.js";
 import { buildGroupsCommandDeps } from "./groups/runtime.js";
 import { buildKeepCommandDeps } from "./keep/runtime.js";
 import { buildAppScriptCommandDeps } from "./appscript/runtime.js";
+import { registerMeetCommands } from "./meet/commands.js";
+import { buildMeetCommandDeps } from "./meet/runtime.js";
 import { registerWorkspaceCommands } from "./workspace/commands.js";
 import { buildWorkspaceUserCommandDeps, buildWorkspaceGroupCommandDeps, buildWorkspaceDeviceCommandDeps, buildWorkspaceReportCommandDeps } from "./workspace/runtime.js";
 
@@ -150,19 +154,31 @@ export function buildProgram(options: BuildProgramOptions = {}): Command {
     ...buildGmailSignatureDeps(runtimeOptions),
     ...buildGmailSendersDeps(runtimeOptions),
     ...buildGmailAttachmentDeps(runtimeOptions),
+    ...buildGmailSettingsDeps(runtimeOptions),
   };
-  const calendarDeps = buildCalendarCommandDeps(runtimeOptions);
+  const calendarDeps = {
+    ...buildCalendarCommandDeps(runtimeOptions),
+    ...buildCalendarFreeBusyDeps(runtimeOptions),
+    ...buildCalendarListDeps(runtimeOptions),
+    ...buildCalendarAclDeps(runtimeOptions),
+  };
   const chatDeps = buildChatCommandDeps(runtimeOptions);
   const classroomDeps = buildClassroomCommandDeps(runtimeOptions);
   const contactsDeps = buildContactsCommandDeps(runtimeOptions);
   const groupsDeps = buildGroupsCommandDeps(runtimeOptions);
   const keepDeps = buildKeepCommandDeps(runtimeOptions);
+  const meetDeps = buildMeetCommandDeps(runtimeOptions);
   const workspaceUserDeps = buildWorkspaceUserCommandDeps(runtimeOptions);
   const workspaceGroupDeps = buildWorkspaceGroupCommandDeps(runtimeOptions);
   const workspaceDeviceDeps = buildWorkspaceDeviceCommandDeps(runtimeOptions);
   const workspaceReportDeps = buildWorkspaceReportCommandDeps(runtimeOptions);
   const workspaceDeps = { ...workspaceUserDeps, ...workspaceGroupDeps, ...workspaceDeviceDeps, ...workspaceReportDeps };
-  const driveDeps = buildDriveCommandDeps(runtime);
+  const driveDeps = {
+    ...buildDriveCommandDeps(runtime),
+    ...buildDriveQuotaDeps(runtime),
+    ...buildDriveTrashDeps(runtime),
+    ...buildDriveSharedDrivesDeps(runtime),
+  };
   const docsDeps = buildDocsCommandDeps(runtime);
   const sheetsDeps = buildSheetsCommandDeps(runtime);
   const slidesDeps = buildSlidesCommandDeps(runtime);
@@ -185,6 +201,7 @@ export function buildProgram(options: BuildProgramOptions = {}): Command {
     .option("--enable-commands <list>", "Comma-separated list of enabled top-level commands")
     .option("-j, --json", "Output JSON to stdout (best for scripting)", false)
     .option("-p, --plain", "Output stable, parseable text to stdout (TSV; no colors)", false)
+    .option("-c, --csv", "Output CSV to stdout", false)
     .option("--results-only", "In JSON mode, emit only the primary result", false)
     .option("--select <fields>", "In JSON mode, select comma-separated fields")
     .option("-n, --dry-run", "Do not make changes; print intended actions and exit successfully", false)
@@ -223,7 +240,8 @@ export function buildProgram(options: BuildProgramOptions = {}): Command {
           const rootOptions = this.optsWithGlobals() as RootOptions;
           const opts = this.opts<AuthAddCommandOptions>();
           await executeAuthAdd(rootOptions, opts, authDeps);
-        });
+        })
+        .addHelpText("after", "\nExamples:\n  gtypee login --email user@example.com\n  gtypee login --email user@example.com --manual\n  gtypee login --email user@example.com --remote --step 1");
       continue;
     }
 
@@ -247,7 +265,8 @@ export function buildProgram(options: BuildProgramOptions = {}): Command {
           }
 
           process.stdout.write(result.accepted ? `Message sent (id=${result.id || "unknown"})\n` : "Message was not accepted by Gmail\n");
-        });
+        })
+        .addHelpText("after", "\nExamples:\n  gtypee send --to bob@example.com --subject \"Hello\" --body \"Hi there\"\n  gtypee send --to bob@example.com --subject \"Report\" --body \"See attached\" --json");
       continue;
     }
 
@@ -257,7 +276,8 @@ export function buildProgram(options: BuildProgramOptions = {}): Command {
         const ctx = buildExecutionContext(rootOptions);
         const files = await driveDeps.listFiles();
         process.stdout.write(`${formatDriveFiles(files, ctx.output.mode)}\n`);
-      });
+      })
+        .addHelpText("after", "\nExamples:\n  gtypee ls\n  gtypee ls --json");
       continue;
     }
 
@@ -266,7 +286,8 @@ export function buildProgram(options: BuildProgramOptions = {}): Command {
         const rootOptions = this.optsWithGlobals() as RootOptions;
         const opts = this.opts<{ email: string }>();
         await executeAuthRemove(rootOptions, opts.email, authDeps);
-      });
+      })
+        .addHelpText("after", "\nExamples:\n  gtypee logout --email user@example.com");
       continue;
     }
 
@@ -274,7 +295,8 @@ export function buildProgram(options: BuildProgramOptions = {}): Command {
       cmd.action(async function actionStatus(this: Command) {
         const rootOptions = this.optsWithGlobals() as RootOptions;
         await executeAuthStatus(rootOptions, authDeps);
-      });
+      })
+        .addHelpText("after", "\nExamples:\n  gtypee status\n  gtypee status --json");
       continue;
     }
 
@@ -288,7 +310,8 @@ export function buildProgram(options: BuildProgramOptions = {}): Command {
           return;
         }
         process.stdout.write(`${profile.displayName}\n`);
-      });
+      })
+        .addHelpText("after", "\nExamples:\n  gtypee whoami\n  gtypee me --json");
       continue;
     }
 
@@ -310,7 +333,8 @@ export function buildProgram(options: BuildProgramOptions = {}): Command {
             return;
           }
           process.stdout.write(`${formatDriveFiles(result, ctx.output.mode)}\n`);
-        });
+        })
+        .addHelpText("after", "\nExamples:\n  gtypee search --query \"quarterly report\"\n  gtypee search --query \"*.pdf\" --page-size 50 --json");
       continue;
     }
 
@@ -329,7 +353,8 @@ export function buildProgram(options: BuildProgramOptions = {}): Command {
             return;
           }
           process.stdout.write(result.downloaded ? `Downloaded ${result.id} to ${result.path}\n` : `Download failed for ${result.id}\n`);
-        });
+        })
+        .addHelpText("after", "\nExamples:\n  gtypee download --id abc123\n  gtypee download --id abc123 --out ./report.pdf");
       continue;
     }
 
@@ -346,7 +371,8 @@ export function buildProgram(options: BuildProgramOptions = {}): Command {
             return;
           }
           process.stdout.write(result.uploaded ? `Uploaded ${opts.path} (id=${result.id || "unknown"})\n` : `Upload failed for ${opts.path}\n`);
-        });
+        })
+        .addHelpText("after", "\nExamples:\n  gtypee upload --path ./report.pdf\n  gtypee upload --path ./data.csv --json");
       continue;
     }
 
@@ -364,7 +390,8 @@ export function buildProgram(options: BuildProgramOptions = {}): Command {
             return;
           }
           process.stdout.write(`${url}\n`);
-        });
+        })
+        .addHelpText("after", "\nExamples:\n  gtypee open abc123\n  gtypee open https://docs.google.com/document/d/abc123");
       continue;
     }
 
@@ -440,6 +467,15 @@ export function buildProgram(options: BuildProgramOptions = {}): Command {
 
     if (def.name === "keep") {
       registerKeepCommands(cmd, keepDeps);
+      continue;
+    }
+
+    if (def.name === "meet") {
+      registerMeetCommands(cmd, meetDeps);
+      cmd.addHelpText(
+        "after",
+        `\nExamples:\n  gtypee meet create\n  gtypee meet get --space spaces/abc123\n  gtypee meet end --space spaces/abc123\n`,
+      );
       continue;
     }
 

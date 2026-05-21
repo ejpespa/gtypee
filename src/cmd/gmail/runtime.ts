@@ -12,6 +12,7 @@ import type {
   GmailSignatureDeps,
   GmailSendersDeps,
   GmailAttachmentDeps,
+  GmailSettingsDeps,
   GmailMessageDetail,
   GmailAttachment,
   GmailBulkDownloadResult,
@@ -1183,6 +1184,191 @@ export function buildGmailAttachmentDeps(options: ServiceRuntimeOptions): Requir
       }
 
       return { downloaded, failed, skipped, files };
+    },
+  };
+}
+
+export function buildGmailSettingsDeps(options: ServiceRuntimeOptions): Required<GmailSettingsDeps> {
+  const runtime = new ServiceRuntime(options);
+
+  return {
+    getVacation: async () => {
+      const auth = await runtime.getClient(scopes("gmail"));
+      const gmail = google.gmail({ version: "v1", auth });
+      const res = await gmail.users.settings.getVacation({ userId: "me" });
+      const result: import("./commands.js").GmailVacationSettings = {
+        enabled: res.data.enableAutoReply ?? false,
+        subject: res.data.responseSubject ?? "",
+        body: res.data.responseBodyPlainText ?? "",
+        contactsOnly: res.data.restrictToContacts ?? false,
+      };
+      if (res.data.startTime) result.startTime = new Date(Number(res.data.startTime)).toISOString();
+      if (res.data.endTime) result.endTime = new Date(Number(res.data.endTime)).toISOString();
+      return result;
+    },
+
+    setVacation: async (settings) => {
+      const auth = await runtime.getClient(scopes("gmail"));
+      const gmail = google.gmail({ version: "v1", auth });
+      const requestBody: Record<string, unknown> = {
+        enableAutoReply: settings.enabled ?? true,
+        restrictToContacts: settings.contactsOnly ?? false,
+      };
+      if (settings.subject !== undefined) requestBody.responseSubject = settings.subject;
+      if (settings.body !== undefined) requestBody.responseBodyPlainText = settings.body;
+      if (settings.startTime !== undefined) requestBody.startTime = String(new Date(settings.startTime).getTime());
+      if (settings.endTime !== undefined) requestBody.endTime = String(new Date(settings.endTime).getTime());
+      const res = await gmail.users.settings.updateVacation({
+        userId: "me",
+        requestBody,
+      });
+      return { enabled: (res.data as Record<string, unknown>).enableAutoReply === true, applied: res.status === 200 };
+    },
+
+    disableVacation: async () => {
+      const auth = await runtime.getClient(scopes("gmail"));
+      const gmail = google.gmail({ version: "v1", auth });
+      const res = await gmail.users.settings.updateVacation({
+        userId: "me",
+        requestBody: { enableAutoReply: false },
+      });
+      return { applied: res.status === 200 };
+    },
+
+    listForwardingAddresses: async () => {
+      const auth = await runtime.getClient(scopes("gmail"));
+      const gmail = google.gmail({ version: "v1", auth });
+      const res = await gmail.users.settings.forwardingAddresses.list({ userId: "me" });
+      return (res.data.forwardingAddresses ?? []).map((a) => ({
+        email: a.forwardingEmail ?? "",
+        verificationStatus: a.verificationStatus ?? "",
+      }));
+    },
+
+    addForwardingAddress: async (email) => {
+      const auth = await runtime.getClient(scopes("gmail"));
+      const gmail = google.gmail({ version: "v1", auth });
+      const res = await gmail.users.settings.forwardingAddresses.create({
+        userId: "me",
+        requestBody: { forwardingEmail: email },
+      });
+      return { email: res.data.forwardingEmail ?? "", added: res.status === 200 };
+    },
+
+    removeForwardingAddress: async (email) => {
+      const auth = await runtime.getClient(scopes("gmail"));
+      const gmail = google.gmail({ version: "v1", auth });
+      const res = await gmail.users.settings.forwardingAddresses.delete({
+        userId: "me",
+        forwardingEmail: email,
+      });
+      return { email, removed: res.status === 204 };
+    },
+
+    getAutoForwarding: async () => {
+      const auth = await runtime.getClient(scopes("gmail"));
+      const gmail = google.gmail({ version: "v1", auth });
+      const res = await gmail.users.settings.getAutoForwarding({ userId: "me" });
+      return {
+        enabled: res.data.enabled ?? false,
+        email: res.data.emailAddress ?? "",
+        disposition: res.data.disposition ?? "",
+      };
+    },
+
+    setAutoForwarding: async (email, disposition) => {
+      const auth = await runtime.getClient(scopes("gmail"));
+      const gmail = google.gmail({ version: "v1", auth });
+      const res = await gmail.users.settings.updateAutoForwarding({
+        userId: "me",
+        requestBody: { enabled: true, emailAddress: email, disposition },
+      });
+      return { applied: res.status === 200 };
+    },
+
+    disableAutoForwarding: async () => {
+      const auth = await runtime.getClient(scopes("gmail"));
+      const gmail = google.gmail({ version: "v1", auth });
+      const res = await gmail.users.settings.updateAutoForwarding({
+        userId: "me",
+        requestBody: { enabled: false },
+      });
+      return { applied: res.status === 200 };
+    },
+
+    listDelegates: async () => {
+      const auth = await runtime.getClient(scopes("gmail"));
+      const gmail = google.gmail({ version: "v1", auth });
+      const res = await gmail.users.settings.delegates.list({ userId: "me" });
+      return (res.data.delegates ?? []).map((d) => ({
+        email: d.delegateEmail ?? "",
+        verificationStatus: d.verificationStatus ?? "",
+      }));
+    },
+
+    addDelegate: async (email) => {
+      const auth = await runtime.getClient(scopes("gmail"));
+      const gmail = google.gmail({ version: "v1", auth });
+      const res = await gmail.users.settings.delegates.create({
+        userId: "me",
+        requestBody: { delegateEmail: email },
+      });
+      return { email: res.data.delegateEmail ?? "", added: res.status === 200 };
+    },
+
+    removeDelegate: async (email) => {
+      const auth = await runtime.getClient(scopes("gmail"));
+      const gmail = google.gmail({ version: "v1", auth });
+      const res = await gmail.users.settings.delegates.delete({
+        userId: "me",
+        delegateEmail: email,
+      });
+      return { email, removed: res.status === 204 };
+    },
+
+    getImap: async () => {
+      const auth = await runtime.getClient(scopes("gmail"));
+      const gmail = google.gmail({ version: "v1", auth });
+      const res = await gmail.users.settings.getImap({ userId: "me" });
+      return {
+        enabled: res.data.enabled ?? false,
+        autoExpunge: res.data.autoExpunge ?? false,
+        maxFolderSize: res.data.maxFolderSize ?? 0,
+      };
+    },
+
+    setImap: async (enabled) => {
+      const auth = await runtime.getClient(scopes("gmail"));
+      const gmail = google.gmail({ version: "v1", auth });
+      const res = await gmail.users.settings.updateImap({
+        userId: "me",
+        requestBody: { enabled },
+      });
+      return { applied: res.status === 200 };
+    },
+
+    getPop: async () => {
+      const auth = await runtime.getClient(scopes("gmail"));
+      const gmail = google.gmail({ version: "v1", auth });
+      const res = await gmail.users.settings.getPop({ userId: "me" });
+      return {
+        enabled: res.data.accessWindow !== "disabled",
+        accessWindow: res.data.accessWindow ?? "",
+        disposition: res.data.disposition ?? "",
+      };
+    },
+
+    setPop: async (enabled, disposition) => {
+      const auth = await runtime.getClient(scopes("gmail"));
+      const gmail = google.gmail({ version: "v1", auth });
+      const res = await gmail.users.settings.updatePop({
+        userId: "me",
+        requestBody: {
+          accessWindow: enabled ? "allMail" : "disabled",
+          disposition: disposition ?? "leaveInInbox",
+        },
+      });
+      return { applied: res.status === 200 };
     },
   };
 }

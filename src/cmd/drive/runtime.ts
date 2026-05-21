@@ -22,6 +22,10 @@ import type {
   DriveComment,
   DriveCommentResult,
   DriveRevision,
+  DriveQuotaDeps,
+  DriveTrashDeps,
+  DriveSharedDrivesDeps,
+  SharedDriveSummary,
 } from "./commands.js";
 import { resolveDriveExportMime } from "./commands.js";
 
@@ -451,6 +455,113 @@ export function buildDriveCommandDeps(runtime: ServiceRuntime): Required<DriveCo
         fileId,
         applied: true,
       };
+    },
+  };
+}
+
+export function buildDriveQuotaDeps(runtime: ServiceRuntime): Required<DriveQuotaDeps> {
+  return {
+    getQuota: async () => {
+      const auth = await runtime.getClient(scopes("drive"));
+      const drive = google.drive({ version: "v3", auth });
+      const res = await drive.about.get({ fields: "storageQuota" });
+      const q = res.data.storageQuota ?? {};
+      return {
+        limit: q.limit ?? "0",
+        usage: q.usage ?? "0",
+        usageInDrive: q.usageInDrive ?? "0",
+        usageInTrash: q.usageInDriveTrash ?? "0",
+      };
+    },
+  };
+}
+
+export function buildDriveTrashDeps(runtime: ServiceRuntime): Required<DriveTrashDeps> {
+  return {
+    listTrash: async (options) => {
+      const auth = await runtime.getClient(scopes("drive"));
+      const drive = google.drive({ version: "v3", auth });
+      const params: { q: string; pageSize: number; pageToken?: string; fields: string } = {
+        q: "trashed=true",
+        pageSize: options?.pageSize ?? 100,
+        fields: "nextPageToken,files(id,name,mimeType)",
+      };
+      if (options?.pageToken) params.pageToken = options.pageToken;
+      const res = await drive.files.list(params);
+      const files = res.data.files ?? [];
+      const result: { items: DriveFileSummary[]; nextPageToken?: string } = {
+        items: files.map((f) => ({
+          id: f.id ?? "",
+          name: f.name ?? "",
+          mimeType: f.mimeType ?? "",
+        })),
+      };
+      if (res.data.nextPageToken) result.nextPageToken = res.data.nextPageToken;
+      return result;
+    },
+
+    emptyTrash: async () => {
+      const auth = await runtime.getClient(scopes("drive"));
+      const drive = google.drive({ version: "v3", auth });
+      const res = await drive.files.emptyTrash();
+      return { emptied: res.status === 204 };
+    },
+
+    restoreFromTrash: async (fileId) => {
+      const auth = await runtime.getClient(scopes("drive"));
+      const drive = google.drive({ version: "v3", auth });
+      const res = await drive.files.update({
+        fileId,
+        requestBody: { trashed: false },
+      });
+      return { id: res.data.id ?? "", restored: res.status === 200 };
+    },
+  };
+}
+
+export function buildDriveSharedDrivesDeps(runtime: ServiceRuntime): Required<DriveSharedDrivesDeps> {
+  return {
+    listSharedDrives: async (options) => {
+      const auth = await runtime.getClient(scopes("drive"));
+      const drive = google.drive({ version: "v3", auth });
+      const params: { pageSize: number; pageToken?: string } = {
+        pageSize: options?.pageSize ?? 100,
+      };
+      if (options?.pageToken) params.pageToken = options.pageToken;
+      const res = await drive.drives.list(params);
+      const drives = res.data.drives ?? [];
+      const result: { items: SharedDriveSummary[]; nextPageToken?: string } = {
+        items: drives.map((d) => ({
+          id: d.id ?? "",
+          name: d.name ?? "",
+        })),
+      };
+      if (res.data.nextPageToken) result.nextPageToken = res.data.nextPageToken;
+      return result;
+    },
+
+    getSharedDrive: async (driveId) => {
+      const auth = await runtime.getClient(scopes("drive"));
+      const drive = google.drive({ version: "v3", auth });
+      const res = await drive.drives.get({ driveId });
+      return { id: res.data.id ?? "", name: res.data.name ?? "" };
+    },
+
+    createSharedDrive: async (name) => {
+      const auth = await runtime.getClient(scopes("drive"));
+      const drive = google.drive({ version: "v3", auth });
+      const res = await drive.drives.create({
+        requestId: crypto.randomUUID(),
+        requestBody: { name },
+      });
+      return { id: res.data.id ?? "", created: res.status === 200 };
+    },
+
+    deleteSharedDrive: async (driveId) => {
+      const auth = await runtime.getClient(scopes("drive"));
+      const drive = google.drive({ version: "v3", auth });
+      const res = await drive.drives.delete({ driveId });
+      return { id: driveId, deleted: res.status === 204 };
     },
   };
 }

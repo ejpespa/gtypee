@@ -4,13 +4,25 @@ import type { ServiceRuntime } from "../../googleapi/auth-factory.js";
 import { scopes } from "../../googleauth/service.js";
 import type { PeopleCommandDeps, PersonProfile } from "./commands.js";
 
-function toPersonProfile(person: { resourceName?: string | null; names?: Array<{ displayName?: string | null }> | null; emailAddresses?: Array<{ value?: string | null }> | null }): PersonProfile {
+function toPersonProfile(person: { resourceName?: string | null; names?: Array<{ displayName?: string | null }> | null; emailAddresses?: Array<{ value?: string | null }> | null; photos?: Array<{ url?: string | null }> | null; organizations?: Array<{ name?: string | null; title?: string | null }> | null }): PersonProfile {
   const profile: PersonProfile = {
     displayName: person.names?.[0]?.displayName ?? "",
     email: person.emailAddresses?.[0]?.value ?? "",
   };
   if (person.resourceName != null) {
     profile.resourceName = person.resourceName;
+  }
+  const photoUrl = person.photos?.[0]?.url;
+  if (photoUrl) {
+    profile.photoUrl = photoUrl;
+  }
+  const orgName = person.organizations?.[0]?.name;
+  if (orgName) {
+    profile.organizationName = orgName;
+  }
+  const orgTitle = person.organizations?.[0]?.title;
+  if (orgTitle) {
+    profile.organizationTitle = orgTitle;
   }
   return profile;
 }
@@ -22,7 +34,7 @@ export function buildPeopleCommandDeps(runtime: ServiceRuntime): Required<People
       const people = google.people({ version: "v1", auth });
       const res = await people.people.get({
         resourceName: "people/me",
-        personFields: "names,emailAddresses",
+        personFields: "names,emailAddresses,photos,organizations",
       });
       return toPersonProfile(res.data);
     },

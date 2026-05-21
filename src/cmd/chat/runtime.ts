@@ -81,5 +81,53 @@ export function buildChatCommandDeps(options: ServiceRuntimeOptions): Required<C
         sent: response.status === 200,
       };
     },
+
+    findDirectMessage: async (email: string): Promise<ChatSpace | null> => {
+      const auth = await runtime.getClient(scopes("chat"));
+      const chat = google.chat({ version: "v1", auth });
+
+      try {
+        const response = await chat.spaces.findDirectMessage({
+          name: `users/${email}`,
+        });
+
+        if (response.data.name) {
+          return {
+            id: response.data.name,
+            displayName: response.data.displayName ?? "",
+          };
+        }
+      } catch {
+        // DM doesn't exist yet — return null so caller can set one up
+      }
+
+      return null;
+    },
+
+    setupDirectMessage: async (email: string): Promise<ChatSpace> => {
+      const auth = await runtime.getClient(scopes("chat"));
+      const chat = google.chat({ version: "v1", auth });
+
+      const response = await chat.spaces.setup({
+        requestBody: {
+          space: {
+            spaceType: "DIRECT_MESSAGE",
+          },
+          memberships: [
+            {
+              member: {
+                name: `users/${email}`,
+                type: "HUMAN",
+              },
+            },
+          ],
+        },
+      });
+
+      return {
+        id: response.data.name ?? "",
+        displayName: response.data.displayName ?? "",
+      };
+    },
   };
 }

@@ -8,6 +8,9 @@ import type {
   CalendarCommandDeps,
   CalendarConflict,
   CalendarEventSummary,
+  CalendarFreeBusyDeps,
+  CalendarListDeps,
+  CalendarAclDeps,
 } from "./commands.js";
 
 function toResponseStatus(response: CalendarResponse): string {
@@ -224,6 +227,102 @@ export function buildCalendarCommandDeps(options: ServiceRuntimeOptions): Requir
       }
 
       return conflicts;
+    },
+  };
+}
+
+export function buildCalendarFreeBusyDeps(options: ServiceRuntimeOptions): Required<CalendarFreeBusyDeps> {
+  const runtime = new ServiceRuntime(options);
+
+  return {
+    queryFreeBusy: async (emails, timeMin, timeMax) => {
+      const auth = await runtime.getClient(scopes("calendar"));
+      const cal = google.calendar({ version: "v3", auth });
+      const res = await cal.freebusy.query({
+        requestBody: {
+          timeMin,
+          timeMax,
+          items: emails.map((id) => ({ id })),
+        },
+      });
+      const calendars = res.data.calendars ?? {};
+      return emails.map((email) => ({
+        email,
+        busy: (calendars[email]?.busy ?? []).map((b) => ({
+          start: b.start ?? "",
+          end: b.end ?? "",
+        })),
+      }));
+    },
+  };
+}
+
+export function buildCalendarListDeps(options: ServiceRuntimeOptions): Required<CalendarListDeps> {
+  const runtime = new ServiceRuntime(options);
+
+  return {
+    listCalendars: async () => {
+      const auth = await runtime.getClient(scopes("calendar"));
+      const cal = google.calendar({ version: "v3", auth });
+      const res = await cal.calendarList.list();
+      return (res.data.items ?? []).map((c) => ({
+        id: c.id ?? "",
+        summary: c.summary ?? "",
+        primary: c.primary ?? false,
+        accessRole: c.accessRole ?? "",
+      }));
+    },
+
+    getCalendar: async (calendarId) => {
+      const auth = await runtime.getClient(scopes("calendar"));
+      const cal = google.calendar({ version: "v3", auth });
+      const res = await cal.calendarList.get({ calendarId });
+      return {
+        id: res.data.id ?? "",
+        summary: res.data.summary ?? "",
+        primary: res.data.primary ?? false,
+        accessRole: res.data.accessRole ?? "",
+      };
+    },
+  };
+}
+
+export function buildCalendarAclDeps(options: ServiceRuntimeOptions): Required<CalendarAclDeps> {
+  const runtime = new ServiceRuntime(options);
+
+  return {
+    listAcl: async (calendarId) => {
+      const auth = await runtime.getClient(scopes("calendar"));
+      const cal = google.calendar({ version: "v3", auth });
+      const res = await cal.acl.list({ calendarId });
+      return (res.data.items ?? []).map((r) => ({
+        id: r.id ?? "",
+        role: r.role ?? "",
+        scope: {
+          type: r.scope?.type ?? "",
+          value: r.scope?.value ?? "",
+        },
+      }));
+    },
+
+    addAcl: async (calendarId, email, role) => {
+      const auth = await runtime.getClient(scopes("calendar"));
+      const cal = google.calendar({ version: "v3", auth });
+      const res = await cal.acl.insert({
+        calendarId,
+        requestBody: {
+          role,
+          scope: { type: "user", value: email },
+        },
+      });
+      return { id: res.data.id ?? "", added: res.status === 200 };
+    },
+
+    removeAcl: async (calendarId, ruleId) => {
+      const auth = await runtime.getClient(scopes("calendar"));
+      const cal = google.calendar({ version: "v3", auth });
+      const res = await cal.acl.delete({ calendarId, ruleId });
+      return { removed: res.status === 204 };
     },
   };
 }

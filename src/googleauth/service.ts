@@ -14,7 +14,8 @@ export type Service =
   | "appscript"
   | "groups"
   | "workspace"
-  | "keep";
+  | "keep"
+  | "meet";
 
 const SCOPE_OPENID = "openid";
 const SCOPE_EMAIL = "email";
@@ -186,6 +187,11 @@ const serviceInfoByService: Record<Service, ServiceInfoInternal> = {
     user: false,
     apis: ["Keep API"],
     note: "Workspace only; service account (domain-wide delegation)",
+  },
+  meet: {
+    scopes: ["https://www.googleapis.com/auth/meetings.space.created"],
+    user: true,
+    apis: ["Google Meet API"],
   },
 };
 

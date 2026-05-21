@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { Command } from "commander";
 
 import { AuthRequiredError } from "../../../src/googleapi/errors.js";
-import { formatDriveFiles, formatDriveFileInfo, registerDriveCommands } from "../../../src/cmd/drive/commands.js";
+import { formatDriveFiles, formatDriveFileInfo, formatDriveQuota, formatSharedDrives, registerDriveCommands } from "../../../src/cmd/drive/commands.js";
 
 describe("drive command formatters", () => {
   it("formats drive files as json", () => {
@@ -582,5 +582,75 @@ describe("drive ls with pagination", () => {
     await runCommand(program, ["node", "test", "drive", "search", "--query", "test", "--page-token", "abc123"]);
 
     expect(searchFiles.fn).toHaveBeenCalledWith("test", { pageSize: undefined, pageToken: "abc123" });
+  });
+});
+
+describe("drive quota formatter", () => {
+  it("formats quota as json", () => {
+    const out = formatDriveQuota(
+      { limit: "16106127360", usage: "5368709120", usageInDrive: "4294967296", usageInTrash: "1073741824" },
+      "json",
+    );
+    const parsed = JSON.parse(out);
+    expect(parsed.limit).toBe("16106127360");
+  });
+
+  it("formats quota as human text", () => {
+    const out = formatDriveQuota(
+      { limit: "16106127360", usage: "5368709120", usageInDrive: "4294967296", usageInTrash: "1073741824" },
+      "human",
+    );
+    expect(out).toContain("Limit:");
+    expect(out).toContain("Usage:");
+    expect(out).toContain("In Drive:");
+    expect(out).toContain("In Trash:");
+  });
+});
+
+describe("shared drives formatter", () => {
+  it("formats shared drives as json", () => {
+    const out = formatSharedDrives(
+      [{ id: "d1", name: "Team Drive" }],
+      "json",
+    );
+    const parsed = JSON.parse(out);
+    expect(parsed.drives).toHaveLength(1);
+  });
+
+  it("formats empty shared drives", () => {
+    const out = formatSharedDrives([], "human");
+    expect(out).toContain("No shared drives");
+  });
+});
+
+describe("drive deeper commands registration", () => {
+  it("registers quota subcommand", () => {
+    const drive = new Command("drive");
+    registerDriveCommands(drive);
+    const names = drive.commands.map((cmd) => cmd.name());
+    expect(names).toContain("quota");
+  });
+
+  it("registers trash-manage subcommand with list/empty/restore", () => {
+    const drive = new Command("drive");
+    registerDriveCommands(drive);
+    const trash = drive.commands.find((c) => c.name() === "trash-manage");
+    expect(trash).toBeDefined();
+    const subNames = trash!.commands.map((c) => c.name());
+    expect(subNames).toContain("list");
+    expect(subNames).toContain("empty");
+    expect(subNames).toContain("restore");
+  });
+
+  it("registers shared-drives subcommand with list/get/create/delete", () => {
+    const drive = new Command("drive");
+    registerDriveCommands(drive);
+    const sd = drive.commands.find((c) => c.name() === "shared-drives");
+    expect(sd).toBeDefined();
+    const subNames = sd!.commands.map((c) => c.name());
+    expect(subNames).toContain("list");
+    expect(subNames).toContain("get");
+    expect(subNames).toContain("create");
+    expect(subNames).toContain("delete");
   });
 });

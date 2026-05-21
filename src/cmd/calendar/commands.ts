@@ -107,11 +107,108 @@ export function formatCalendarEvents(result: PaginatedResult<CalendarEventSummar
   return lines.join("\n");
 }
 
-export function registerCalendarCommands(calendarCommand: Command, deps: CalendarCommandDeps = {}): void {
+// FreeBusy types
+export type FreeBusyResult = {
+  email: string;
+  busy: Array<{ start: string; end: string }>;
+};
+
+export type CalendarFreeBusyDeps = {
+  queryFreeBusy?: (emails: string[], timeMin: string, timeMax: string) => Promise<FreeBusyResult[]>;
+};
+
+const defaultFreeBusyDeps: Required<CalendarFreeBusyDeps> = {
+  queryFreeBusy: async () => [],
+};
+
+export function formatFreeBusy(results: FreeBusyResult[], mode: OutputMode): string {
+  if (mode === "json") {
+    return JSON.stringify({ calendars: results }, null, 2);
+  }
+  if (results.length === 0) return "No calendars queried";
+  const lines: string[] = [];
+  for (const r of results) {
+    lines.push(`${r.email}:`);
+    if (r.busy.length === 0) {
+      lines.push("  Free");
+    } else {
+      for (const slot of r.busy) {
+        lines.push(`  ${slot.start} — ${slot.end}`);
+      }
+    }
+  }
+  return lines.join("\n");
+}
+
+// Calendar list types
+export type CalendarSummary = {
+  id: string;
+  summary: string;
+  primary: boolean;
+  accessRole: string;
+};
+
+export type CalendarListDeps = {
+  listCalendars?: () => Promise<CalendarSummary[]>;
+  getCalendar?: (calendarId: string) => Promise<CalendarSummary>;
+};
+
+const defaultCalendarListDeps: Required<CalendarListDeps> = {
+  listCalendars: async () => [],
+  getCalendar: async () => ({ id: "", summary: "", primary: false, accessRole: "" }),
+};
+
+export function formatCalendarList(calendars: CalendarSummary[], mode: OutputMode): string {
+  if (mode === "json") {
+    return JSON.stringify({ calendars }, null, 2);
+  }
+  if (calendars.length === 0) return "No calendars";
+  const lines = ["ID\tNAME\tROLE\tPRIMARY"];
+  for (const c of calendars) {
+    lines.push(`${c.id}\t${c.summary}\t${c.accessRole}\t${c.primary ? "yes" : "no"}`);
+  }
+  return lines.join("\n");
+}
+
+// ACL types
+export type CalendarAclRule = {
+  id: string;
+  role: string;
+  scope: { type: string; value: string };
+};
+
+export type CalendarAclDeps = {
+  listAcl?: (calendarId: string) => Promise<CalendarAclRule[]>;
+  addAcl?: (calendarId: string, email: string, role: string) => Promise<{ id: string; added: boolean }>;
+  removeAcl?: (calendarId: string, ruleId: string) => Promise<{ removed: boolean }>;
+};
+
+const defaultAclDeps: Required<CalendarAclDeps> = {
+  listAcl: async () => [],
+  addAcl: async () => ({ id: "", added: false }),
+  removeAcl: async () => ({ removed: false }),
+};
+
+export function formatCalendarAcl(rules: CalendarAclRule[], mode: OutputMode): string {
+  if (mode === "json") {
+    return JSON.stringify({ rules }, null, 2);
+  }
+  if (rules.length === 0) return "No access rules";
+  const lines = ["ID\tROLE\tSCOPE"];
+  for (const r of rules) {
+    lines.push(`${r.id}\t${r.role}\t${r.scope.type}:${r.scope.value}`);
+  }
+  return lines.join("\n");
+}
+
+export function registerCalendarCommands(calendarCommand: Command, deps: CalendarCommandDeps & CalendarFreeBusyDeps & CalendarListDeps & CalendarAclDeps = {}): void {
   const resolvedDeps: Required<CalendarCommandDeps> = {
     ...defaultDeps,
     ...deps,
   };
+  const freeBusyDeps: Required<CalendarFreeBusyDeps> = { ...defaultFreeBusyDeps, ...deps };
+  const calendarListDeps: Required<CalendarListDeps> = { ...defaultCalendarListDeps, ...deps };
+  const aclDeps: Required<CalendarAclDeps> = { ...defaultAclDeps, ...deps };
 
   calendarCommand
     .command("events")
@@ -246,5 +343,106 @@ export function registerCalendarCommands(calendarCommand: Command, deps: Calenda
 
       const conflicts = await runWithStableApiError("calendar", () => resolvedDeps.listConflicts(query));
       process.stdout.write(`${formatCalendarConflicts(conflicts, ctx.output.mode)}\n`);
+    });
+
+  // FreeBusy command
+  calendarCommand
+    .command("freebusy")
+    .description("Check availability for one or more users")
+    .requiredOption("--emails <emails>", "Comma-separated email addresses")
+    .requiredOption("--from <iso>", "Start time (ISO format)")
+    .requiredOption("--to <iso>", "End time (ISO format)")
+    .action(async function actionFreeBusy(this: Command) {
+      const rootOptions = this.optsWithGlobals() as RootOptions;
+      const ctx = buildExecutionContext(rootOptions);
+      const opts = this.opts<{ emails: string; from: string; to: string }>();
+      const emailList = opts.emails.split(",").map((e) => e.trim());
+      const result = await runWithStableApiError("calendar", () =>
+        freeBusyDeps.queryFreeBusy(emailList, opts.from, opts.to),
+      );
+      process.stdout.write(`${formatFreeBusy(result, ctx.output.mode)}\n`);
+    });
+
+  // Calendars commands
+  const calendarsCmd = calendarCommand.command("calendars").description("Calendar list management");
+
+  calendarsCmd
+    .command("list")
+    .description("List calendars on the account")
+    .action(async function actionCalendarsList(this: Command) {
+      const rootOptions = this.optsWithGlobals() as RootOptions;
+      const ctx = buildExecutionContext(rootOptions);
+      const result = await runWithStableApiError("calendar", () => calendarListDeps.listCalendars());
+      process.stdout.write(`${formatCalendarList(result, ctx.output.mode)}\n`);
+    });
+
+  calendarsCmd
+    .command("get")
+    .description("Get calendar details")
+    .requiredOption("--id <calendarId>", "Calendar ID")
+    .action(async function actionCalendarsGet(this: Command) {
+      const rootOptions = this.optsWithGlobals() as RootOptions;
+      const ctx = buildExecutionContext(rootOptions);
+      const opts = this.opts<{ id: string }>();
+      const result = await runWithStableApiError("calendar", () => calendarListDeps.getCalendar(opts.id));
+      if (ctx.output.mode === "json") {
+        process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+      } else {
+        process.stdout.write(`${result.id}\t${result.summary}\t${result.accessRole}\t${result.primary ? "primary" : ""}\n`);
+      }
+    });
+
+  // ACL commands
+  const aclCmd = calendarCommand.command("acl").description("Calendar access control");
+
+  aclCmd
+    .command("list")
+    .description("List access control rules")
+    .option("--calendar <id>", "Calendar ID", "primary")
+    .action(async function actionAclList(this: Command) {
+      const rootOptions = this.optsWithGlobals() as RootOptions;
+      const ctx = buildExecutionContext(rootOptions);
+      const opts = this.opts<{ calendar: string }>();
+      const result = await runWithStableApiError("calendar", () => aclDeps.listAcl(opts.calendar));
+      process.stdout.write(`${formatCalendarAcl(result, ctx.output.mode)}\n`);
+    });
+
+  aclCmd
+    .command("add")
+    .description("Share a calendar with a user")
+    .option("--calendar <id>", "Calendar ID", "primary")
+    .requiredOption("--email <email>", "User or group email")
+    .requiredOption("--role <role>", "Access role (reader|writer|owner|freeBusyReader)")
+    .action(async function actionAclAdd(this: Command) {
+      const rootOptions = this.optsWithGlobals() as RootOptions;
+      const ctx = buildExecutionContext(rootOptions);
+      const opts = this.opts<{ calendar: string; email: string; role: string }>();
+      const result = await runWithStableApiError("calendar", () =>
+        aclDeps.addAcl(opts.calendar, opts.email, opts.role),
+      );
+      if (ctx.output.mode === "json") {
+        process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+      } else {
+        process.stdout.write(result.added ? `Access granted: ${opts.email} (${opts.role})\n` : "Failed to add access\n");
+      }
+    });
+
+  aclCmd
+    .command("remove")
+    .description("Remove calendar access")
+    .option("--calendar <id>", "Calendar ID", "primary")
+    .requiredOption("--rule <ruleId>", "ACL rule ID to remove")
+    .action(async function actionAclRemove(this: Command) {
+      const rootOptions = this.optsWithGlobals() as RootOptions;
+      const ctx = buildExecutionContext(rootOptions);
+      const opts = this.opts<{ calendar: string; rule: string }>();
+      const result = await runWithStableApiError("calendar", () =>
+        aclDeps.removeAcl(opts.calendar, opts.rule),
+      );
+      if (ctx.output.mode === "json") {
+        process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+      } else {
+        process.stdout.write(result.removed ? "Access removed\n" : "Failed to remove access\n");
+      }
     });
 }

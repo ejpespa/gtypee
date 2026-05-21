@@ -28,4 +28,11 @@ describe("buildExecutionContext", () => {
     expect(ctx.force).toBe(true);
     expect(ctx.enableCommands).toEqual(["gmail", "drive"]);
   });
+
+  it("builds csv mode from csv flag", () => {
+    const ctx = buildExecutionContext({
+      csv: true,
+    });
+    expect(ctx.output.mode).toBe("csv");
+  });
 });

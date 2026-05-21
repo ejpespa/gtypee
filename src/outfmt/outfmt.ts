@@ -1,19 +1,23 @@
-export type OutputMode = "human" | "json" | "plain";
+export type OutputMode = "human" | "json" | "plain" | "csv";
 
 export type JsonTransform = {
   resultsOnly: boolean;
   select: string[];
 };
 
-export function fromFlags(json: boolean, plain: boolean): OutputMode {
-  if (json && plain) {
-    throw new Error("cannot combine --json and --plain");
+export function fromFlags(json: boolean, plain: boolean, csv = false): OutputMode {
+  const count = [json, plain, csv].filter(Boolean).length;
+  if (count > 1) {
+    throw new Error("cannot combine --json, --plain, and --csv");
   }
   if (json) {
     return "json";
   }
   if (plain) {
     return "plain";
+  }
+  if (csv) {
+    return "csv";
   }
   return "human";
 }
@@ -84,4 +88,36 @@ export function applyJsonTransform(value: unknown, transform: JsonTransform): un
 export function writeJson(value: unknown, transform: JsonTransform): void {
   const transformed = applyJsonTransform(value, transform);
   process.stdout.write(`${JSON.stringify(transformed, null, 2)}\n`);
+}
+
+function escapeCsvField(value: unknown): string {
+  const str = value === null || value === undefined ? "" : String(value);
+  if (str.includes(",") || str.includes('"') || str.includes("\n") || str.includes("\r")) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
+export function writeCsv(value: unknown): void {
+  if (value === null || value === undefined || typeof value !== "object") {
+    return;
+  }
+
+  const rows = Array.isArray(value) ? value : [value];
+  if (rows.length === 0) {
+    return;
+  }
+
+  const first = rows[0] as Record<string, unknown>;
+  if (typeof first !== "object" || first === null) {
+    return;
+  }
+
+  const headers = Object.keys(first);
+  process.stdout.write(headers.map(escapeCsvField).join(",") + "\n");
+
+  for (const row of rows) {
+    const record = row as Record<string, unknown>;
+    process.stdout.write(headers.map((h) => escapeCsvField(record[h])).join(",") + "\n");
+  }
 }

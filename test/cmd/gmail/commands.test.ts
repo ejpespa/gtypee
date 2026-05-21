@@ -8,6 +8,12 @@ import {
   formatGmailMessageDetail,
   formatGmailSearchResult,
   formatGmailSenders,
+  formatGmailVacation,
+  formatGmailForwardingAddresses,
+  formatGmailAutoForwarding,
+  formatGmailDelegates,
+  formatGmailImap,
+  formatGmailPop,
   registerGmailCommands,
 } from "../../../src/cmd/gmail/commands.js";
 
@@ -1098,5 +1104,149 @@ describe("gmail attachment download command", () => {
     );
 
     expect(downloadAttachmentsBatch).toHaveBeenCalledWith("has:attachment", "./downloads", 50);
+  });
+});
+
+describe("gmail vacation formatter", () => {
+  it("formats vacation settings as json", () => {
+    const out = formatGmailVacation(
+      { enabled: true, subject: "OOO", body: "I'm away", startTime: "2026-06-01T00:00:00Z", endTime: "2026-06-15T00:00:00Z", contactsOnly: false },
+      "json",
+    );
+    const parsed = JSON.parse(out);
+    expect(parsed.enabled).toBe(true);
+    expect(parsed.subject).toBe("OOO");
+  });
+
+  it("formats vacation settings as human text", () => {
+    const out = formatGmailVacation(
+      { enabled: true, subject: "OOO", body: "I'm away", contactsOnly: true },
+      "human",
+    );
+    expect(out).toContain("Enabled: yes");
+    expect(out).toContain("Subject: OOO");
+    expect(out).toContain("Contacts only: yes");
+  });
+
+  it("formats disabled vacation", () => {
+    const out = formatGmailVacation(
+      { enabled: false, subject: "", body: "", contactsOnly: false },
+      "human",
+    );
+    expect(out).toContain("Enabled: no");
+  });
+});
+
+describe("gmail forwarding formatter", () => {
+  it("formats forwarding addresses as json", () => {
+    const out = formatGmailForwardingAddresses(
+      [{ email: "a@test.com", verificationStatus: "accepted" }],
+      "json",
+    );
+    const parsed = JSON.parse(out);
+    expect(parsed.addresses).toHaveLength(1);
+  });
+
+  it("formats auto-forwarding as human text", () => {
+    const out = formatGmailAutoForwarding(
+      { enabled: true, email: "fwd@test.com", disposition: "leaveInInbox" },
+      "human",
+    );
+    expect(out).toContain("Enabled: yes");
+    expect(out).toContain("fwd@test.com");
+  });
+});
+
+describe("gmail delegate formatter", () => {
+  it("formats delegates as json", () => {
+    const out = formatGmailDelegates(
+      [{ email: "delegate@test.com", verificationStatus: "accepted" }],
+      "json",
+    );
+    const parsed = JSON.parse(out);
+    expect(parsed.delegates).toHaveLength(1);
+  });
+
+  it("formats empty delegates", () => {
+    const out = formatGmailDelegates([], "human");
+    expect(out).toContain("No delegates");
+  });
+});
+
+describe("gmail imap/pop formatter", () => {
+  it("formats imap settings as json", () => {
+    const out = formatGmailImap({ enabled: true, autoExpunge: true, maxFolderSize: 0 }, "json");
+    const parsed = JSON.parse(out);
+    expect(parsed.enabled).toBe(true);
+  });
+
+  it("formats imap as human text", () => {
+    const out = formatGmailImap({ enabled: true, autoExpunge: true, maxFolderSize: 0 }, "human");
+    expect(out).toContain("IMAP: enabled");
+  });
+
+  it("formats pop as human text", () => {
+    const out = formatGmailPop({ enabled: false, accessWindow: "", disposition: "" }, "human");
+    expect(out).toContain("POP: disabled");
+  });
+});
+
+describe("gmail settings commands registration", () => {
+  it("registers vacation subcommand with get/set/off", () => {
+    const gmail = new Command("gmail");
+    registerGmailCommands(gmail);
+    const vacation = gmail.commands.find((c) => c.name() === "vacation");
+    expect(vacation).toBeDefined();
+    const subNames = vacation!.commands.map((c) => c.name());
+    expect(subNames).toContain("get");
+    expect(subNames).toContain("set");
+    expect(subNames).toContain("off");
+  });
+
+  it("registers forwarding subcommand with list/add/remove/get/set/off", () => {
+    const gmail = new Command("gmail");
+    registerGmailCommands(gmail);
+    const fwd = gmail.commands.find((c) => c.name() === "forwarding");
+    expect(fwd).toBeDefined();
+    const subNames = fwd!.commands.map((c) => c.name());
+    expect(subNames).toContain("list");
+    expect(subNames).toContain("add");
+    expect(subNames).toContain("remove");
+    expect(subNames).toContain("get");
+    expect(subNames).toContain("set");
+    expect(subNames).toContain("off");
+  });
+
+  it("registers delegate subcommand with list/add/remove", () => {
+    const gmail = new Command("gmail");
+    registerGmailCommands(gmail);
+    const delegate = gmail.commands.find((c) => c.name() === "delegate");
+    expect(delegate).toBeDefined();
+    const subNames = delegate!.commands.map((c) => c.name());
+    expect(subNames).toContain("list");
+    expect(subNames).toContain("add");
+    expect(subNames).toContain("remove");
+  });
+
+  it("registers imap subcommand with get/enable/disable", () => {
+    const gmail = new Command("gmail");
+    registerGmailCommands(gmail);
+    const imap = gmail.commands.find((c) => c.name() === "imap");
+    expect(imap).toBeDefined();
+    const subNames = imap!.commands.map((c) => c.name());
+    expect(subNames).toContain("get");
+    expect(subNames).toContain("enable");
+    expect(subNames).toContain("disable");
+  });
+
+  it("registers pop subcommand with get/enable/disable", () => {
+    const gmail = new Command("gmail");
+    registerGmailCommands(gmail);
+    const pop = gmail.commands.find((c) => c.name() === "pop");
+    expect(pop).toBeDefined();
+    const subNames = pop!.commands.map((c) => c.name());
+    expect(subNames).toContain("get");
+    expect(subNames).toContain("enable");
+    expect(subNames).toContain("disable");
   });
 });

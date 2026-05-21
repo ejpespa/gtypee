@@ -149,6 +149,60 @@ const defaultDeps: Required<DriveCommandDeps> = {
   deleteRevision: async (fileId, revisionId) => ({ id: revisionId, fileId, applied: false }),
 };
 
+// Quota types
+export type DriveQuota = {
+  limit: string;
+  usage: string;
+  usageInDrive: string;
+  usageInTrash: string;
+};
+
+export type DriveQuotaDeps = {
+  getQuota?: () => Promise<DriveQuota>;
+};
+
+const defaultQuotaDeps: Required<DriveQuotaDeps> = {
+  getQuota: async () => ({ limit: "0", usage: "0", usageInDrive: "0", usageInTrash: "0" }),
+};
+
+// Trash types
+export type DriveTrashRestoreResult = {
+  id: string;
+  restored: boolean;
+};
+
+export type DriveTrashDeps = {
+  listTrash?: (options?: PaginationOptions) => Promise<PaginatedResult<DriveFileSummary>>;
+  emptyTrash?: () => Promise<{ emptied: boolean }>;
+  restoreFromTrash?: (fileId: string) => Promise<DriveTrashRestoreResult>;
+};
+
+const defaultTrashDeps: Required<DriveTrashDeps> = {
+  listTrash: async () => ({ items: [] }),
+  emptyTrash: async () => ({ emptied: false }),
+  restoreFromTrash: async () => ({ id: "", restored: false }),
+};
+
+// Shared drives types
+export type SharedDriveSummary = {
+  id: string;
+  name: string;
+};
+
+export type DriveSharedDrivesDeps = {
+  listSharedDrives?: (options?: PaginationOptions) => Promise<{ items: SharedDriveSummary[]; nextPageToken?: string }>;
+  getSharedDrive?: (driveId: string) => Promise<SharedDriveSummary>;
+  createSharedDrive?: (name: string) => Promise<{ id: string; created: boolean }>;
+  deleteSharedDrive?: (driveId: string) => Promise<{ id: string; deleted: boolean }>;
+};
+
+const defaultSharedDrivesDeps: Required<DriveSharedDrivesDeps> = {
+  listSharedDrives: async () => ({ items: [] }),
+  getSharedDrive: async () => ({ id: "", name: "" }),
+  createSharedDrive: async () => ({ id: "", created: false }),
+  deleteSharedDrive: async () => ({ id: "", deleted: false }),
+};
+
 async function runWithStableApiError<T>(service: string, call: () => Promise<T>): Promise<T> {
   try {
     return await call();
@@ -294,11 +348,46 @@ export function formatDriveExportResult(result: DriveExportResult, mode: OutputM
     : `Export failed for ${result.id}`;
 }
 
-export function registerDriveCommands(driveCommand: Command, deps: DriveCommandDeps = {}): void {
+function formatBytes(bytes: string): string {
+  const b = Number(bytes);
+  if (b === 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  const i = Math.floor(Math.log(b) / Math.log(1024));
+  return `${(b / Math.pow(1024, i)).toFixed(2)} ${units[i]}`;
+}
+
+export function formatDriveQuota(quota: DriveQuota, mode: OutputMode): string {
+  if (mode === "json") {
+    return JSON.stringify(quota, null, 2);
+  }
+  return [
+    `Limit: ${formatBytes(quota.limit)}`,
+    `Usage: ${formatBytes(quota.usage)}`,
+    `In Drive: ${formatBytes(quota.usageInDrive)}`,
+    `In Trash: ${formatBytes(quota.usageInTrash)}`,
+  ].join("\n");
+}
+
+export function formatSharedDrives(drives: SharedDriveSummary[], mode: OutputMode): string {
+  if (mode === "json") {
+    return JSON.stringify({ drives }, null, 2);
+  }
+  if (drives.length === 0) return "No shared drives";
+  const lines = ["ID\tNAME"];
+  for (const d of drives) {
+    lines.push(`${d.id}\t${d.name}`);
+  }
+  return lines.join("\n");
+}
+
+export function registerDriveCommands(driveCommand: Command, deps: DriveCommandDeps & DriveQuotaDeps & DriveTrashDeps & DriveSharedDrivesDeps = {}): void {
   const resolvedDeps: Required<DriveCommandDeps> = {
     ...defaultDeps,
     ...deps,
   };
+  const quotaDeps: Required<DriveQuotaDeps> = { ...defaultQuotaDeps, ...deps };
+  const trashDeps: Required<DriveTrashDeps> = { ...defaultTrashDeps, ...deps };
+  const sharedDrivesDeps: Required<DriveSharedDrivesDeps> = { ...defaultSharedDrivesDeps, ...deps };
 
   driveCommand
     .command("ls")
@@ -646,5 +735,132 @@ export function registerDriveCommands(driveCommand: Command, deps: DriveCommandD
         return;
       }
       process.stdout.write(result.applied ? `Revision deleted: ${result.id} from file ${result.fileId}\n` : `Failed to delete revision\n`);
+    });
+
+  // Quota command
+  driveCommand
+    .command("quota")
+    .description("Show storage quota usage")
+    .action(async function actionQuota(this: Command) {
+      const rootOptions = this.optsWithGlobals() as RootOptions;
+      const ctx = buildExecutionContext(rootOptions);
+      const result = await runWithStableApiError("drive", () => quotaDeps.getQuota());
+      process.stdout.write(`${formatDriveQuota(result, ctx.output.mode)}\n`);
+    });
+
+  // Trash management commands
+  const trashCmd = driveCommand.command("trash-manage").description("Trash management");
+
+  trashCmd
+    .command("list")
+    .description("List files in trash")
+    .option("--page-size <size>", "Number of results per page")
+    .option("--page-token <token>", "Token to fetch next page")
+    .action(async function actionTrashList(this: Command) {
+      const rootOptions = this.optsWithGlobals() as RootOptions;
+      const ctx = buildExecutionContext(rootOptions);
+      const opts = this.opts<{ pageSize?: string; pageToken?: string }>();
+      const paginationOpts: PaginationOptions = {};
+      if (opts.pageSize !== undefined) paginationOpts.pageSize = parseInt(opts.pageSize, 10);
+      if (opts.pageToken !== undefined) paginationOpts.pageToken = opts.pageToken;
+      const result = await runWithStableApiError("drive", () => trashDeps.listTrash(paginationOpts));
+      process.stdout.write(`${formatDriveFiles(result, ctx.output.mode)}\n`);
+    });
+
+  trashCmd
+    .command("empty")
+    .description("Empty entire trash")
+    .action(async function actionTrashEmpty(this: Command) {
+      const rootOptions = this.optsWithGlobals() as RootOptions;
+      const ctx = buildExecutionContext(rootOptions);
+      const result = await runWithStableApiError("drive", () => trashDeps.emptyTrash());
+      if (ctx.output.mode === "json") {
+        process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+      } else {
+        process.stdout.write(result.emptied ? "Trash emptied\n" : "Failed to empty trash\n");
+      }
+    });
+
+  trashCmd
+    .command("restore")
+    .description("Restore a file from trash")
+    .requiredOption("--id <fileId>", "File ID to restore")
+    .action(async function actionTrashRestore(this: Command) {
+      const rootOptions = this.optsWithGlobals() as RootOptions;
+      const ctx = buildExecutionContext(rootOptions);
+      const opts = this.opts<{ id: string }>();
+      const result = await runWithStableApiError("drive", () => trashDeps.restoreFromTrash(opts.id));
+      if (ctx.output.mode === "json") {
+        process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+      } else {
+        process.stdout.write(result.restored ? `File restored: ${result.id}\n` : "Failed to restore file\n");
+      }
+    });
+
+  // Shared drives commands
+  const sdCmd = driveCommand.command("shared-drives").description("Shared drives management");
+
+  sdCmd
+    .command("list")
+    .description("List shared drives")
+    .option("--page-size <size>", "Number of results per page")
+    .option("--page-token <token>", "Token to fetch next page")
+    .action(async function actionSharedDrivesList(this: Command) {
+      const rootOptions = this.optsWithGlobals() as RootOptions;
+      const ctx = buildExecutionContext(rootOptions);
+      const opts = this.opts<{ pageSize?: string; pageToken?: string }>();
+      const paginationOpts: PaginationOptions = {};
+      if (opts.pageSize !== undefined) paginationOpts.pageSize = parseInt(opts.pageSize, 10);
+      if (opts.pageToken !== undefined) paginationOpts.pageToken = opts.pageToken;
+      const result = await runWithStableApiError("drive", () => sharedDrivesDeps.listSharedDrives(paginationOpts));
+      process.stdout.write(`${formatSharedDrives(result.items, ctx.output.mode)}\n`);
+    });
+
+  sdCmd
+    .command("get")
+    .description("Get shared drive details")
+    .requiredOption("--id <driveId>", "Shared drive ID")
+    .action(async function actionSharedDrivesGet(this: Command) {
+      const rootOptions = this.optsWithGlobals() as RootOptions;
+      const ctx = buildExecutionContext(rootOptions);
+      const opts = this.opts<{ id: string }>();
+      const result = await runWithStableApiError("drive", () => sharedDrivesDeps.getSharedDrive(opts.id));
+      if (ctx.output.mode === "json") {
+        process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+      } else {
+        process.stdout.write(`${result.id}\t${result.name}\n`);
+      }
+    });
+
+  sdCmd
+    .command("create")
+    .description("Create a shared drive")
+    .requiredOption("--name <name>", "Shared drive name")
+    .action(async function actionSharedDrivesCreate(this: Command) {
+      const rootOptions = this.optsWithGlobals() as RootOptions;
+      const ctx = buildExecutionContext(rootOptions);
+      const opts = this.opts<{ name: string }>();
+      const result = await runWithStableApiError("drive", () => sharedDrivesDeps.createSharedDrive(opts.name));
+      if (ctx.output.mode === "json") {
+        process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+      } else {
+        process.stdout.write(result.created ? `Shared drive created: ${result.id}\n` : "Failed to create shared drive\n");
+      }
+    });
+
+  sdCmd
+    .command("delete")
+    .description("Delete a shared drive")
+    .requiredOption("--id <driveId>", "Shared drive ID")
+    .action(async function actionSharedDrivesDelete(this: Command) {
+      const rootOptions = this.optsWithGlobals() as RootOptions;
+      const ctx = buildExecutionContext(rootOptions);
+      const opts = this.opts<{ id: string }>();
+      const result = await runWithStableApiError("drive", () => sharedDrivesDeps.deleteSharedDrive(opts.id));
+      if (ctx.output.mode === "json") {
+        process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+      } else {
+        process.stdout.write(result.deleted ? `Shared drive deleted: ${result.id}\n` : "Failed to delete shared drive\n");
+      }
     });
 }

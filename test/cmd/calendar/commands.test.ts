@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { Command } from "commander";
 
-import { formatCalendarEvents, registerCalendarCommands } from "../../../src/cmd/calendar/commands.js";
+import { formatCalendarEvents, formatFreeBusy, formatCalendarList, formatCalendarAcl, registerCalendarCommands } from "../../../src/cmd/calendar/commands.js";
 
 describe("calendar command formatters", () => {
   it("formats events as json", () => {
@@ -28,7 +28,89 @@ describe("calendar command formatters", () => {
     expect(names).toContain("respond");
     expect(names).toContain("conflicts");
   });
+});
 
+describe("calendar freebusy formatter", () => {
+  it("formats freebusy as json", () => {
+    const out = formatFreeBusy(
+      [{ email: "user@test.com", busy: [{ start: "2026-06-01T10:00:00Z", end: "2026-06-01T11:00:00Z" }] }],
+      "json",
+    );
+    const parsed = JSON.parse(out);
+    expect(parsed.calendars).toHaveLength(1);
+    expect(parsed.calendars[0].busy).toHaveLength(1);
+  });
+
+  it("formats freebusy with no busy slots", () => {
+    const out = formatFreeBusy([{ email: "free@test.com", busy: [] }], "human");
+    expect(out).toContain("free@test.com");
+    expect(out).toContain("Free");
+  });
+});
+
+describe("calendar list formatter", () => {
+  it("formats calendar list as json", () => {
+    const out = formatCalendarList(
+      [{ id: "primary", summary: "My Calendar", primary: true, accessRole: "owner" }],
+      "json",
+    );
+    const parsed = JSON.parse(out);
+    expect(parsed.calendars).toHaveLength(1);
+  });
+
+  it("formats empty calendar list", () => {
+    const out = formatCalendarList([], "human");
+    expect(out).toContain("No calendars");
+  });
+});
+
+describe("calendar acl formatter", () => {
+  it("formats acl rules as json", () => {
+    const out = formatCalendarAcl(
+      [{ id: "user:a@test.com", role: "writer", scope: { type: "user", value: "a@test.com" } }],
+      "json",
+    );
+    const parsed = JSON.parse(out);
+    expect(parsed.rules).toHaveLength(1);
+  });
+
+  it("formats empty acl", () => {
+    const out = formatCalendarAcl([], "human");
+    expect(out).toContain("No access rules");
+  });
+});
+
+describe("calendar deeper commands registration", () => {
+  it("registers freebusy subcommand", () => {
+    const calendar = new Command("calendar");
+    registerCalendarCommands(calendar);
+    const names = calendar.commands.map((cmd) => cmd.name());
+    expect(names).toContain("freebusy");
+  });
+
+  it("registers calendars subcommand with list/get", () => {
+    const calendar = new Command("calendar");
+    registerCalendarCommands(calendar);
+    const calendars = calendar.commands.find((c) => c.name() === "calendars");
+    expect(calendars).toBeDefined();
+    const subNames = calendars!.commands.map((c) => c.name());
+    expect(subNames).toContain("list");
+    expect(subNames).toContain("get");
+  });
+
+  it("registers acl subcommand with list/add/remove", () => {
+    const calendar = new Command("calendar");
+    registerCalendarCommands(calendar);
+    const acl = calendar.commands.find((c) => c.name() === "acl");
+    expect(acl).toBeDefined();
+    const subNames = acl!.commands.map((c) => c.name());
+    expect(subNames).toContain("list");
+    expect(subNames).toContain("add");
+    expect(subNames).toContain("remove");
+  });
+});
+
+describe("calendar create and update commands", () => {
   it("prints stable message when create result is not created", async () => {
     const root = new Command();
     const calendar = root.command("calendar");

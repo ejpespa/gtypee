@@ -10,6 +10,43 @@ describe("people command formatters", () => {
     expect(parsed.email).toBe("a@b.com");
   });
 
+  it("formats people me as json with enriched fields", () => {
+    const out = formatPeopleMe(
+      { email: "a@b.com", displayName: "A B", photoUrl: "https://photo.url", organizationName: "Acme", organizationTitle: "Engineer" },
+      "json",
+    );
+    const parsed = JSON.parse(out) as { photoUrl: string; organizationName: string; organizationTitle: string };
+    expect(parsed.photoUrl).toBe("https://photo.url");
+    expect(parsed.organizationName).toBe("Acme");
+    expect(parsed.organizationTitle).toBe("Engineer");
+  });
+
+  it("formats people me human mode with org and photo", () => {
+    const out = formatPeopleMe(
+      { email: "a@b.com", displayName: "A B", photoUrl: "https://photo.url", organizationName: "Acme", organizationTitle: "Engineer" },
+      "human",
+    );
+    expect(out).toContain("A B <a@b.com>");
+    expect(out).toContain("Organization: Acme (Engineer)");
+    expect(out).toContain("Photo: https://photo.url");
+  });
+
+  it("formats people me human mode with org name only", () => {
+    const out = formatPeopleMe(
+      { email: "a@b.com", displayName: "A B", organizationName: "Acme" },
+      "human",
+    );
+    expect(out).toContain("Organization: Acme");
+    expect(out).not.toContain("Photo:");
+  });
+
+  it("formats people me human mode with no optional fields", () => {
+    const out = formatPeopleMe({ email: "a@b.com", displayName: "A B" }, "human");
+    expect(out).toBe("A B <a@b.com>");
+    expect(out).not.toContain("Organization:");
+    expect(out).not.toContain("Photo:");
+  });
+
   it("registers me and search subcommands", () => {
     const people = new Command("people");
     registerPeopleCommands(people);

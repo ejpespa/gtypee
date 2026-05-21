@@ -8,6 +8,9 @@ export type PersonProfile = {
   resourceName?: string;
   email: string;
   displayName: string;
+  photoUrl?: string;
+  organizationName?: string;
+  organizationTitle?: string;
 };
 
 export type PeopleCommandDeps = {
@@ -36,7 +39,16 @@ export function formatPeopleMe(profile: PersonProfile, mode: OutputMode): string
   if (mode === "json") {
     return JSON.stringify(profile, null, 2);
   }
-  return `${profile.displayName} <${profile.email}>`;
+  const lines = [`${profile.displayName} <${profile.email}>`];
+  if (profile.organizationName || profile.organizationTitle) {
+    const orgParts = [profile.organizationName, profile.organizationTitle].filter(Boolean).join(" (") +
+      (profile.organizationTitle ? ")" : "");
+    lines.push(`Organization: ${orgParts}`);
+  }
+  if (profile.photoUrl) {
+    lines.push(`Photo: ${profile.photoUrl}`);
+  }
+  return lines.join("\n");
 }
 
 export function registerPeopleCommands(peopleCommand: Command, deps: PeopleCommandDeps = {}): void {

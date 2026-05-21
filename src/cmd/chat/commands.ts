@@ -21,6 +21,8 @@ export type ChatCommandDeps = {
   createSpace?: (displayName: string) => Promise<{ id: string; created: boolean }>;
   listMessages?: (spaceId: string) => Promise<ChatMessage[]>;
   sendMessage?: (spaceId: string, text: string) => Promise<{ id: string; sent: boolean }>;
+  findDirectMessage?: (email: string) => Promise<ChatSpace | null>;
+  setupDirectMessage?: (email: string) => Promise<ChatSpace>;
 };
 
 const defaultDeps: Required<ChatCommandDeps> = {
@@ -30,6 +32,8 @@ const defaultDeps: Required<ChatCommandDeps> = {
   createSpace: async () => ({ id: "", created: false }),
   listMessages: async () => [],
   sendMessage: async () => ({ id: "", sent: false }),
+  findDirectMessage: async () => null,
+  setupDirectMessage: async () => ({ id: "", displayName: "" }),
 };
 
 async function runWithStableApiError<T>(service: string, call: () => Promise<T>): Promise<T> {
@@ -124,19 +128,43 @@ export function registerChatCommands(chatCommand: Command, deps: ChatCommandDeps
 
   chatCommand
     .command("send")
-    .description("Send chat message")
-    .requiredOption("--space <spaceId>", "Space id")
+    .description("Send chat message to a space or directly to a user by email")
+    .option("--space <spaceId>", "Space id")
+    .option("--to <email>", "Recipient email (sends as direct message)")
     .requiredOption("--text <text>", "Message text")
     .action(async function actionSend(this: Command) {
       const rootOptions = this.optsWithGlobals() as RootOptions;
       const ctx = buildExecutionContext(rootOptions);
-      const opts = this.opts<{ space: string; text: string }>();
+      const opts = this.opts<{ space?: string; to?: string; text: string }>();
+
+      if (!opts.space && !opts.to) {
+        throw new Error("Either --space or --to is required");
+      }
+      if (opts.space && opts.to) {
+        throw new Error("Cannot combine --space and --to; use one or the other");
+      }
+
       await resolvedDeps.ensureWorkspace();
-      const result = await runWithStableApiError("chat", () => resolvedDeps.sendMessage(opts.space, opts.text));
+
+      let targetSpace = opts.space ?? "";
+
+      if (opts.to) {
+        // Resolve email to a DM space: try finding existing, otherwise set one up
+        const existing = await runWithStableApiError("chat", () => resolvedDeps.findDirectMessage(opts.to!));
+        if (existing) {
+          targetSpace = existing.id;
+        } else {
+          const created = await runWithStableApiError("chat", () => resolvedDeps.setupDirectMessage(opts.to!));
+          targetSpace = created.id;
+        }
+      }
+
+      const result = await runWithStableApiError("chat", () => resolvedDeps.sendMessage(targetSpace, opts.text));
       if (ctx.output.mode === "json") {
         process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
         return;
       }
       process.stdout.write(result.sent ? `Message sent (${result.id || "unknown"})\n` : "Message send was not applied\n");
-    });
+    })
+    .addHelpText("after", "\nExamples:\n  gtypee chat send --to user@example.com --text \"Hello!\"\n  gtypee chat send --space spaces/ABC123 --text \"Hello!\"");
 }

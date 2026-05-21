@@ -8,6 +8,7 @@ export type RootOptions = {
   color?: string;
   json?: boolean;
   plain?: boolean;
+  csv?: boolean;
   resultsOnly?: boolean;
   select?: string;
   dryRun?: boolean;
@@ -44,7 +45,7 @@ function splitCommaList(value: string | undefined): string[] {
 }
 
 export function buildExecutionContext(options: RootOptions): ExecutionContext {
-  const mode = fromFlags(options.json ?? false, options.plain ?? false);
+  const mode = fromFlags(options.json ?? false, options.plain ?? false, options.csv ?? false);
   return {
     account: (options.account ?? "").trim(),
     clientOverride: (options.client ?? "").trim(),

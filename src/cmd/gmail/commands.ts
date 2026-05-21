@@ -238,6 +238,63 @@ export type GmailAttachmentDeps = {
   downloadAttachmentsBatch?: (query: string, outputPath?: string, maxResults?: number) => Promise<GmailBulkDownloadResult>;
 };
 
+// Settings types
+export type GmailVacationSettings = {
+  enabled: boolean;
+  subject: string;
+  body: string;
+  startTime?: string;
+  endTime?: string;
+  contactsOnly: boolean;
+};
+
+export type GmailForwardingAddress = {
+  email: string;
+  verificationStatus: string;
+};
+
+export type GmailAutoForwarding = {
+  enabled: boolean;
+  email: string;
+  disposition: string;
+};
+
+export type GmailDelegate = {
+  email: string;
+  verificationStatus: string;
+};
+
+export type GmailImapSettings = {
+  enabled: boolean;
+  autoExpunge: boolean;
+  maxFolderSize: number;
+};
+
+export type GmailPopSettings = {
+  enabled: boolean;
+  accessWindow: string;
+  disposition: string;
+};
+
+export type GmailSettingsDeps = {
+  getVacation?: () => Promise<GmailVacationSettings>;
+  setVacation?: (settings: Partial<GmailVacationSettings>) => Promise<{ enabled: boolean; applied: boolean }>;
+  disableVacation?: () => Promise<{ applied: boolean }>;
+  listForwardingAddresses?: () => Promise<GmailForwardingAddress[]>;
+  addForwardingAddress?: (email: string) => Promise<{ email: string; added: boolean }>;
+  removeForwardingAddress?: (email: string) => Promise<{ email: string; removed: boolean }>;
+  getAutoForwarding?: () => Promise<GmailAutoForwarding>;
+  setAutoForwarding?: (email: string, disposition: string) => Promise<{ applied: boolean }>;
+  disableAutoForwarding?: () => Promise<{ applied: boolean }>;
+  listDelegates?: () => Promise<GmailDelegate[]>;
+  addDelegate?: (email: string) => Promise<{ email: string; added: boolean }>;
+  removeDelegate?: (email: string) => Promise<{ email: string; removed: boolean }>;
+  getImap?: () => Promise<GmailImapSettings>;
+  setImap?: (enabled: boolean) => Promise<{ applied: boolean }>;
+  getPop?: () => Promise<GmailPopSettings>;
+  setPop?: (enabled: boolean, disposition?: string) => Promise<{ applied: boolean }>;
+};
+
 const defaultDeps: Required<GmailCommandDeps> = {
   sendEmail: async () => ({
     id: "",
@@ -368,6 +425,25 @@ const defaultAttachmentDeps: Required<GmailAttachmentDeps> = {
   downloadAttachment: async () => ({ filename: "", size: 0, saved: false }),
   downloadAllAttachments: async () => ({ downloaded: 0, failed: 0, skipped: 0, files: [] }),
   downloadAttachmentsBatch: async () => ({ downloaded: 0, failed: 0, skipped: 0, files: [] }),
+};
+
+const defaultSettingsDeps: Required<GmailSettingsDeps> = {
+  getVacation: async () => ({ enabled: false, subject: "", body: "", contactsOnly: false }),
+  setVacation: async () => ({ enabled: false, applied: false }),
+  disableVacation: async () => ({ applied: false }),
+  listForwardingAddresses: async () => [],
+  addForwardingAddress: async () => ({ email: "", added: false }),
+  removeForwardingAddress: async () => ({ email: "", removed: false }),
+  getAutoForwarding: async () => ({ enabled: false, email: "", disposition: "" }),
+  setAutoForwarding: async () => ({ applied: false }),
+  disableAutoForwarding: async () => ({ applied: false }),
+  listDelegates: async () => [],
+  addDelegate: async () => ({ email: "", added: false }),
+  removeDelegate: async () => ({ email: "", removed: false }),
+  getImap: async () => ({ enabled: false, autoExpunge: false, maxFolderSize: 0 }),
+  setImap: async () => ({ applied: false }),
+  getPop: async () => ({ enabled: false, accessWindow: "", disposition: "" }),
+  setPop: async () => ({ applied: false }),
 };
 
 export function formatGmailLabels(labels: GmailLabelSummary[], mode: OutputMode): string {
@@ -689,9 +765,81 @@ export function formatGmailSenders(
   return lines.join("\n");
 }
 
+export function formatGmailVacation(vacation: GmailVacationSettings, mode: OutputMode): string {
+  if (mode === "json") {
+    return JSON.stringify(vacation, null, 2);
+  }
+  const lines = [
+    `Enabled: ${vacation.enabled ? "yes" : "no"}`,
+    `Subject: ${vacation.subject || "(none)"}`,
+    `Body: ${vacation.body || "(none)"}`,
+    `Contacts only: ${vacation.contactsOnly ? "yes" : "no"}`,
+  ];
+  if (vacation.startTime) lines.push(`Start: ${vacation.startTime}`);
+  if (vacation.endTime) lines.push(`End: ${vacation.endTime}`);
+  return lines.join("\n");
+}
+
+export function formatGmailForwardingAddresses(addresses: GmailForwardingAddress[], mode: OutputMode): string {
+  if (mode === "json") {
+    return JSON.stringify({ addresses }, null, 2);
+  }
+  if (addresses.length === 0) return "No forwarding addresses";
+  const lines = ["EMAIL\tSTATUS"];
+  for (const addr of addresses) {
+    lines.push(`${addr.email}\t${addr.verificationStatus}`);
+  }
+  return lines.join("\n");
+}
+
+export function formatGmailAutoForwarding(config: GmailAutoForwarding, mode: OutputMode): string {
+  if (mode === "json") {
+    return JSON.stringify(config, null, 2);
+  }
+  return [
+    `Enabled: ${config.enabled ? "yes" : "no"}`,
+    `Email: ${config.email || "(none)"}`,
+    `Disposition: ${config.disposition || "(none)"}`,
+  ].join("\n");
+}
+
+export function formatGmailDelegates(delegates: GmailDelegate[], mode: OutputMode): string {
+  if (mode === "json") {
+    return JSON.stringify({ delegates }, null, 2);
+  }
+  if (delegates.length === 0) return "No delegates";
+  const lines = ["EMAIL\tSTATUS"];
+  for (const d of delegates) {
+    lines.push(`${d.email}\t${d.verificationStatus}`);
+  }
+  return lines.join("\n");
+}
+
+export function formatGmailImap(settings: GmailImapSettings, mode: OutputMode): string {
+  if (mode === "json") {
+    return JSON.stringify(settings, null, 2);
+  }
+  return [
+    `IMAP: ${settings.enabled ? "enabled" : "disabled"}`,
+    `Auto-expunge: ${settings.autoExpunge ? "yes" : "no"}`,
+    `Max folder size: ${settings.maxFolderSize || "unlimited"}`,
+  ].join("\n");
+}
+
+export function formatGmailPop(settings: GmailPopSettings, mode: OutputMode): string {
+  if (mode === "json") {
+    return JSON.stringify(settings, null, 2);
+  }
+  return [
+    `POP: ${settings.enabled ? "enabled" : "disabled"}`,
+    `Access window: ${settings.accessWindow || "(none)"}`,
+    `Disposition: ${settings.disposition || "(none)"}`,
+  ].join("\n");
+}
+
 export function registerGmailCommands(
   gmailCommand: Command,
-  deps: GmailCommandDeps & GmailDraftDeps & GmailThreadDeps & GmailLabelDeps & GmailFilterDeps & GmailSignatureDeps & GmailSendersDeps & GmailAttachmentDeps = {},
+  deps: GmailCommandDeps & GmailDraftDeps & GmailThreadDeps & GmailLabelDeps & GmailFilterDeps & GmailSignatureDeps & GmailSendersDeps & GmailAttachmentDeps & GmailSettingsDeps = {},
 ): void {
   const resolvedDeps: Required<GmailCommandDeps> = {
     ...defaultDeps,
@@ -704,6 +852,7 @@ export function registerGmailCommands(
   const signatureDeps: Required<GmailSignatureDeps> = { ...defaultSignatureDeps, ...deps };
   const sendersDeps: Required<GmailSendersDeps> = { ...defaultSendersDeps, ...deps };
   const attachmentDeps: Required<GmailAttachmentDeps> = { ...defaultAttachmentDeps, ...deps };
+  const settingsDeps: Required<GmailSettingsDeps> = { ...defaultSettingsDeps, ...deps };
 
   gmailCommand
     .command("send")
@@ -1444,6 +1593,278 @@ export function registerGmailCommands(
         if (result.skipped > 0) {
           process.stdout.write(`Skipped: ${result.skipped} message(s)\n`);
         }
+      }
+    });
+
+  // Vacation commands
+  const vacationCmd = gmailCommand.command("vacation").description("Vacation responder settings");
+
+  vacationCmd
+    .command("get")
+    .description("Show vacation responder settings")
+    .action(async function actionVacationGet(this: Command) {
+      const rootOptions = this.optsWithGlobals() as RootOptions;
+      const ctx = buildExecutionContext(rootOptions);
+      const result = await runWithStableApiError("gmail", () => settingsDeps.getVacation());
+      process.stdout.write(`${formatGmailVacation(result, ctx.output.mode)}\n`);
+    });
+
+  vacationCmd
+    .command("set")
+    .description("Enable vacation responder")
+    .requiredOption("--subject <text>", "Auto-reply subject")
+    .requiredOption("--body <text>", "Auto-reply body")
+    .option("--start <date>", "Start date (ISO format)")
+    .option("--end <date>", "End date (ISO format)")
+    .option("--contacts-only", "Reply only to contacts")
+    .action(async function actionVacationSet(this: Command) {
+      const rootOptions = this.optsWithGlobals() as RootOptions;
+      const ctx = buildExecutionContext(rootOptions);
+      const opts = this.opts<{ subject: string; body: string; start?: string; end?: string; contactsOnly?: boolean }>();
+      const vacationInput: Partial<GmailVacationSettings> = {
+        enabled: true,
+        subject: opts.subject,
+        body: opts.body,
+        contactsOnly: opts.contactsOnly ?? false,
+      };
+      if (opts.start !== undefined) vacationInput.startTime = opts.start;
+      if (opts.end !== undefined) vacationInput.endTime = opts.end;
+      const result = await runWithStableApiError("gmail", () =>
+        settingsDeps.setVacation(vacationInput),
+      );
+      if (ctx.output.mode === "json") {
+        process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+      } else {
+        process.stdout.write(result.applied ? "Vacation responder applied\n" : "Vacation responder was not applied\n");
+      }
+    });
+
+  vacationCmd
+    .command("off")
+    .description("Disable vacation responder")
+    .action(async function actionVacationOff(this: Command) {
+      const rootOptions = this.optsWithGlobals() as RootOptions;
+      const ctx = buildExecutionContext(rootOptions);
+      const result = await runWithStableApiError("gmail", () => settingsDeps.disableVacation());
+      if (ctx.output.mode === "json") {
+        process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+      } else {
+        process.stdout.write(result.applied ? "Vacation responder disabled\n" : "Failed to disable vacation responder\n");
+      }
+    });
+
+  // Forwarding commands
+  const forwardingCmd = gmailCommand.command("forwarding").description("Email forwarding settings");
+
+  forwardingCmd
+    .command("list")
+    .description("List forwarding addresses")
+    .action(async function actionForwardingList(this: Command) {
+      const rootOptions = this.optsWithGlobals() as RootOptions;
+      const ctx = buildExecutionContext(rootOptions);
+      const result = await runWithStableApiError("gmail", () => settingsDeps.listForwardingAddresses());
+      process.stdout.write(`${formatGmailForwardingAddresses(result, ctx.output.mode)}\n`);
+    });
+
+  forwardingCmd
+    .command("add")
+    .description("Add a forwarding address")
+    .requiredOption("--email <address>", "Forwarding email address")
+    .action(async function actionForwardingAdd(this: Command) {
+      const rootOptions = this.optsWithGlobals() as RootOptions;
+      const ctx = buildExecutionContext(rootOptions);
+      const opts = this.opts<{ email: string }>();
+      const result = await runWithStableApiError("gmail", () => settingsDeps.addForwardingAddress(opts.email));
+      if (ctx.output.mode === "json") {
+        process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+      } else {
+        process.stdout.write(result.added ? `Forwarding address added: ${result.email}\n` : "Failed to add forwarding address\n");
+      }
+    });
+
+  forwardingCmd
+    .command("remove")
+    .description("Remove a forwarding address")
+    .requiredOption("--email <address>", "Forwarding email address")
+    .action(async function actionForwardingRemove(this: Command) {
+      const rootOptions = this.optsWithGlobals() as RootOptions;
+      const ctx = buildExecutionContext(rootOptions);
+      const opts = this.opts<{ email: string }>();
+      const result = await runWithStableApiError("gmail", () => settingsDeps.removeForwardingAddress(opts.email));
+      if (ctx.output.mode === "json") {
+        process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+      } else {
+        process.stdout.write(result.removed ? `Forwarding address removed: ${result.email}\n` : "Failed to remove forwarding address\n");
+      }
+    });
+
+  forwardingCmd
+    .command("get")
+    .description("Get auto-forwarding config")
+    .action(async function actionForwardingGet(this: Command) {
+      const rootOptions = this.optsWithGlobals() as RootOptions;
+      const ctx = buildExecutionContext(rootOptions);
+      const result = await runWithStableApiError("gmail", () => settingsDeps.getAutoForwarding());
+      process.stdout.write(`${formatGmailAutoForwarding(result, ctx.output.mode)}\n`);
+    });
+
+  forwardingCmd
+    .command("set")
+    .description("Enable auto-forwarding")
+    .requiredOption("--email <address>", "Forward to this address")
+    .requiredOption("--action <action>", "What to do with forwarded messages (keep|archive|trash|markRead)")
+    .action(async function actionForwardingSet(this: Command) {
+      const rootOptions = this.optsWithGlobals() as RootOptions;
+      const ctx = buildExecutionContext(rootOptions);
+      const opts = this.opts<{ email: string; action: string }>();
+      const result = await runWithStableApiError("gmail", () => settingsDeps.setAutoForwarding(opts.email, opts.action));
+      if (ctx.output.mode === "json") {
+        process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+      } else {
+        process.stdout.write(result.applied ? "Auto-forwarding enabled\n" : "Failed to enable auto-forwarding\n");
+      }
+    });
+
+  forwardingCmd
+    .command("off")
+    .description("Disable auto-forwarding")
+    .action(async function actionForwardingOff(this: Command) {
+      const rootOptions = this.optsWithGlobals() as RootOptions;
+      const ctx = buildExecutionContext(rootOptions);
+      const result = await runWithStableApiError("gmail", () => settingsDeps.disableAutoForwarding());
+      if (ctx.output.mode === "json") {
+        process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+      } else {
+        process.stdout.write(result.applied ? "Auto-forwarding disabled\n" : "Failed to disable auto-forwarding\n");
+      }
+    });
+
+  // Delegate commands
+  const delegateCmd = gmailCommand.command("delegate").description("Delegate management");
+
+  delegateCmd
+    .command("list")
+    .description("List delegates")
+    .action(async function actionDelegateList(this: Command) {
+      const rootOptions = this.optsWithGlobals() as RootOptions;
+      const ctx = buildExecutionContext(rootOptions);
+      const result = await runWithStableApiError("gmail", () => settingsDeps.listDelegates());
+      process.stdout.write(`${formatGmailDelegates(result, ctx.output.mode)}\n`);
+    });
+
+  delegateCmd
+    .command("add")
+    .description("Add a delegate")
+    .requiredOption("--email <address>", "Delegate email address")
+    .action(async function actionDelegateAdd(this: Command) {
+      const rootOptions = this.optsWithGlobals() as RootOptions;
+      const ctx = buildExecutionContext(rootOptions);
+      const opts = this.opts<{ email: string }>();
+      const result = await runWithStableApiError("gmail", () => settingsDeps.addDelegate(opts.email));
+      if (ctx.output.mode === "json") {
+        process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+      } else {
+        process.stdout.write(result.added ? `Delegate added: ${result.email}\n` : "Failed to add delegate\n");
+      }
+    });
+
+  delegateCmd
+    .command("remove")
+    .description("Remove a delegate")
+    .requiredOption("--email <address>", "Delegate email address")
+    .action(async function actionDelegateRemove(this: Command) {
+      const rootOptions = this.optsWithGlobals() as RootOptions;
+      const ctx = buildExecutionContext(rootOptions);
+      const opts = this.opts<{ email: string }>();
+      const result = await runWithStableApiError("gmail", () => settingsDeps.removeDelegate(opts.email));
+      if (ctx.output.mode === "json") {
+        process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+      } else {
+        process.stdout.write(result.removed ? `Delegate removed: ${result.email}\n` : "Failed to remove delegate\n");
+      }
+    });
+
+  // IMAP commands
+  const imapCmd = gmailCommand.command("imap").description("IMAP access settings");
+
+  imapCmd
+    .command("get")
+    .description("Show IMAP settings")
+    .action(async function actionImapGet(this: Command) {
+      const rootOptions = this.optsWithGlobals() as RootOptions;
+      const ctx = buildExecutionContext(rootOptions);
+      const result = await runWithStableApiError("gmail", () => settingsDeps.getImap());
+      process.stdout.write(`${formatGmailImap(result, ctx.output.mode)}\n`);
+    });
+
+  imapCmd
+    .command("enable")
+    .description("Enable IMAP access")
+    .action(async function actionImapEnable(this: Command) {
+      const rootOptions = this.optsWithGlobals() as RootOptions;
+      const ctx = buildExecutionContext(rootOptions);
+      const result = await runWithStableApiError("gmail", () => settingsDeps.setImap(true));
+      if (ctx.output.mode === "json") {
+        process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+      } else {
+        process.stdout.write(result.applied ? "IMAP enabled\n" : "Failed to enable IMAP\n");
+      }
+    });
+
+  imapCmd
+    .command("disable")
+    .description("Disable IMAP access")
+    .action(async function actionImapDisable(this: Command) {
+      const rootOptions = this.optsWithGlobals() as RootOptions;
+      const ctx = buildExecutionContext(rootOptions);
+      const result = await runWithStableApiError("gmail", () => settingsDeps.setImap(false));
+      if (ctx.output.mode === "json") {
+        process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+      } else {
+        process.stdout.write(result.applied ? "IMAP disabled\n" : "Failed to disable IMAP\n");
+      }
+    });
+
+  // POP commands
+  const popCmd = gmailCommand.command("pop").description("POP access settings");
+
+  popCmd
+    .command("get")
+    .description("Show POP settings")
+    .action(async function actionPopGet(this: Command) {
+      const rootOptions = this.optsWithGlobals() as RootOptions;
+      const ctx = buildExecutionContext(rootOptions);
+      const result = await runWithStableApiError("gmail", () => settingsDeps.getPop());
+      process.stdout.write(`${formatGmailPop(result, ctx.output.mode)}\n`);
+    });
+
+  popCmd
+    .command("enable")
+    .description("Enable POP access")
+    .option("--action <action>", "Disposition (keep|archive|delete|markRead)", "leaveInInbox")
+    .action(async function actionPopEnable(this: Command) {
+      const rootOptions = this.optsWithGlobals() as RootOptions;
+      const ctx = buildExecutionContext(rootOptions);
+      const opts = this.opts<{ action: string }>();
+      const result = await runWithStableApiError("gmail", () => settingsDeps.setPop(true, opts.action));
+      if (ctx.output.mode === "json") {
+        process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+      } else {
+        process.stdout.write(result.applied ? "POP enabled\n" : "Failed to enable POP\n");
+      }
+    });
+
+  popCmd
+    .command("disable")
+    .description("Disable POP access")
+    .action(async function actionPopDisable(this: Command) {
+      const rootOptions = this.optsWithGlobals() as RootOptions;
+      const ctx = buildExecutionContext(rootOptions);
+      const result = await runWithStableApiError("gmail", () => settingsDeps.setPop(false));
+      if (ctx.output.mode === "json") {
+        process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+      } else {
+        process.stdout.write(result.applied ? "POP disabled\n" : "Failed to disable POP\n");
       }
     });
 }

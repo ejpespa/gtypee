@@ -34,6 +34,7 @@ export const serviceCommands: CommandDef[] = [
   { name: "tasks", aliases: ["task"], description: "Google Tasks" },
   { name: "people", aliases: ["person"], description: "Google People" },
   { name: "keep", description: "Google Keep (Workspace only)" },
+  { name: "meet", description: "Google Meet" },
   { name: "sheets", aliases: ["sheet"], description: "Google Sheets" },
   { name: "forms", aliases: ["form"], description: "Google Forms" },
   { name: "appscript", aliases: ["script", "apps-script"], description: "Google Apps Script" },
