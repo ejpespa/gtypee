@@ -1,3 +1,10 @@
+# [1.14.0](https://github.com/ejpespa/gtypee/compare/v1.13.0...v1.14.0) (2026-06-12)
+
+
+### Features
+
+* add recover deleted user command and report deleted-users ([2ec1a6c](https://github.com/ejpespa/gtypee/commit/2ec1a6c98977845f4457854827f03e8cac4f5759))
+
 # [1.13.0](https://github.com/ejpespa/gtypee/compare/v1.12.0...v1.13.0) (2026-05-21)
 
 
