@@ -60,6 +60,7 @@ describe("workspace user commands", () => {
     expect(subcmds).toContain("set-photo");
     expect(subcmds).toContain("delete-photo");
     expect(subcmds).toContain("generate-backup-codes");
+    expect(subcmds).toContain("recover");
   });
 
   it("user list returns users", async () => {
@@ -136,6 +137,32 @@ describe("workspace user commands", () => {
       root.parseAsync(["node", "typee", "workspace", "user", "suspend", "--email", "suspend@example.com"])
     );
     expect(stdout).toContain("User suspended: suspend@example.com");
+  });
+
+  it("user recover recovers a deleted user", async () => {
+    const root = new Command();
+    const workspace = root.command("workspace");
+    registerWorkspaceCommands(workspace, {
+      recoverUser: async () => ({ userId: "123456", applied: true }),
+    });
+
+    const stdout = await captureStdout(() =>
+      root.parseAsync(["node", "typee", "workspace", "user", "recover", "--user-id", "123456"])
+    );
+    expect(stdout).toContain("User recovered: 123456");
+  });
+
+  it("user recover handles failure", async () => {
+    const root = new Command();
+    const workspace = root.command("workspace");
+    registerWorkspaceCommands(workspace, {
+      recoverUser: async () => ({ userId: "123456", applied: false }),
+    });
+
+    const stdout = await captureStdout(() =>
+      root.parseAsync(["node", "typee", "workspace", "user", "recover", "--user-id", "123456"])
+    );
+    expect(stdout).toContain("Failed to recover user");
   });
 
   it("user reset-password resets password", async () => {
@@ -640,6 +667,7 @@ describe("workspace report commands", () => {
     const subcmds = reportCmd!.commands.map((cmd) => cmd.name());
     expect(subcmds).toContain("logins");
     expect(subcmds).toContain("admin");
+    expect(subcmds).toContain("deleted-users");
   });
 
   it("report logins returns login activities", async () => {
@@ -667,6 +695,31 @@ describe("workspace report commands", () => {
     const stdout = await captureStdout(() => root.parseAsync(["node", "typee", "workspace", "report", "admin"]));
     expect(stdout).toContain("admin@example.com");
     expect(stdout).toContain("CREATE_USER");
+  });
+
+  it("report deleted-users returns deleted users", async () => {
+    const root = new Command();
+    const workspace = root.command("workspace");
+    registerWorkspaceCommands(workspace, {
+      getDeletedUsers: async () => [
+        { userEmail: "deleted@example.com", deletionTime: "2024-06-01T10:00:00Z" },
+      ],
+    });
+
+    const stdout = await captureStdout(() => root.parseAsync(["node", "typee", "workspace", "report", "deleted-users"]));
+    expect(stdout).toContain("deleted@example.com");
+    expect(stdout).toContain("2024-06-01T10:00:00Z");
+  });
+
+  it("report deleted-users shows empty message when none found", async () => {
+    const root = new Command();
+    const workspace = root.command("workspace");
+    registerWorkspaceCommands(workspace, {
+      getDeletedUsers: async () => [],
+    });
+
+    const stdout = await captureStdout(() => root.parseAsync(["node", "typee", "workspace", "report", "deleted-users"]));
+    expect(stdout).toContain("No deleted users found");
   });
 });
 

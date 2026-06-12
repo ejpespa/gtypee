@@ -958,7 +958,9 @@ gtypee workspace user set-admin --email user@co.com
 gtypee workspace user set-org-unit \
   --email user@co.com --org-unit "/Sales"
 gtypee workspace user inactive --days 90
-gtypee workspace user inactive --never</code></pre>
+gtypee workspace user inactive --never
+gtypee workspace user recover \
+  --user-id &lt;id&gt; [--org-unit &lt;path&gt;]</code></pre>
                                 </div>
                             </div>
                             <div>
@@ -974,7 +976,8 @@ gtypee workspace org list
 gtypee workspace org create \
   --name "Engineering" --parent "/"
 gtypee workspace device list --type chromebook
-gtypee workspace report logins --days 30</code></pre>
+gtypee workspace report logins --days 30
+gtypee workspace report deleted-users --days 30</code></pre>
                                 </div>
                             </div>
                         </div>
@@ -1198,6 +1201,40 @@ gtypee workspace report admin --days 7 --json > admin-audit.json
 # Export all users to CSV
 gtypee workspace user list --json | \
   jq -r '.[] | [.primaryEmail, .name.givenName, .orgUnitPath] | @csv' > users.csv</code></pre>
+                        </div>
+                    </div>
+                </details>
+
+                <details class="glass rounded-2xl group">
+                    <summary class="cursor-pointer p-6 flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-gblue/15 flex items-center justify-center"><svg
+                                    class="w-5 h-5 text-gblue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg></div>
+                            <span class="text-lg font-semibold text-white">Recovering a Deleted User</span>
+                        </div>
+                        <svg class="w-5 h-5 text-slate-400 transition-transform group-open:rotate-180" fill="none"
+                            stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </summary>
+                    <div class="px-6 pb-6">
+                        <div class="bg-surface-950 rounded-xl p-4 font-mono text-xs overflow-x-auto">
+                            <pre><code class="language-bash"># 1. Find recently deleted users
+gtypee workspace report deleted-users --days 20
+
+# 2. Get the user ID (from JSON output)
+gtypee workspace report deleted-users --days 20 --json | \
+  jq '.[] | {userEmail, deletionTime}'
+
+# 3. Recover the user (must be within 20 days)
+gtypee workspace user recover --user-id &lt;id&gt;
+
+# 4. Optionally place into a specific org unit
+gtypee workspace user recover \
+  --user-id &lt;id&gt; --org-unit "/Engineering"</code></pre>
                         </div>
                     </div>
                 </details>

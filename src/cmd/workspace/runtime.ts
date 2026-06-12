@@ -17,6 +17,7 @@ import {
   type AliasResult,
   type PhotoResult,
   type BackupCodesResult,
+  type RecoverUserResult,
   type OrgUnit,
   type WorkspaceGroupCommandDeps,
   type CreateGroupInput,
@@ -437,6 +438,21 @@ export function buildWorkspaceUserCommandDeps(options: ServiceRuntimeOptions): R
       }
 
       return { added, failed, results };
+    },
+
+    recoverUser: async (userId: string, orgUnitPath?: string): Promise<RecoverUserResult> => {
+      const auth = await runtime.getClient(scopes("workspace"));
+      const admin = google.admin({ version: "directory_v1", auth });
+
+      try {
+        await admin.users.undelete({
+          userKey: userId,
+          requestBody: { orgUnitPath: orgUnitPath ?? "/" },
+        });
+        return { userId, applied: true };
+      } catch {
+        return { userId, applied: false };
+      }
     },
 
     listInactiveUsers: async (days: number, neverOnly?: boolean): Promise<WorkspaceUser[]> => {

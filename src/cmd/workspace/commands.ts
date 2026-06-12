@@ -23,6 +23,7 @@ export type WorkspaceUserCommandDeps = {
   exportUsers?: (domain?: string) => Promise<WorkspaceUser[]>;
   addAliasBatch?: (mappings: Array<{ email: string; alias: string }>) => Promise<{ added: number; failed: number; results: Array<{ email: string; alias: string; success: boolean }> }>;
   listInactiveUsers?: (days: number, neverOnly?: boolean) => Promise<WorkspaceUser[]>;
+  recoverUser?: (userId: string, orgUnitPath?: string) => Promise<RecoverUserResult>;
 };
 
 // Migration types
@@ -116,6 +117,11 @@ export type PhotoResult = {
 export type BackupCodesResult = {
   email: string;
   codes: string[];
+  applied: boolean;
+};
+
+export type RecoverUserResult = {
+  userId: string;
   applied: boolean;
 };
 
@@ -296,6 +302,7 @@ const defaultUserDeps: Required<WorkspaceUserCommandDeps> = {
   exportUsers: async () => [],
   addAliasBatch: async () => ({ added: 0, failed: 0, results: [] }),
   listInactiveUsers: async () => [],
+  recoverUser: async () => ({ userId: "", applied: false }),
 };
 
 const defaultGroupDeps: Required<WorkspaceGroupCommandDeps> = {
@@ -508,6 +515,27 @@ export function registerWorkspaceCommands(
       }
 
       process.stdout.write(result.applied ? `User deleted: ${result.email}\n` : "Failed to delete user\n");
+    });
+
+  // typee workspace user recover --user-id <id> [--org-unit <path>]
+  userCmd
+    .command("recover")
+    .description("Recover a recently deleted user (within 20 days)")
+    .requiredOption("--user-id <id>", "Google user ID of the deleted user")
+    .option("--org-unit <path>", "Organization unit path to place recovered user in (default: /)")
+    .action(async function actionRecoverUser(this: Command) {
+      const rootOptions = this.optsWithGlobals() as RootOptions;
+      const ctx = buildExecutionContext(rootOptions);
+      const opts = this.opts<{ userId: string; orgUnit?: string }>();
+
+      const result = await userDeps.recoverUser(opts.userId, fixOrgUnitPath(opts.orgUnit));
+
+      if (ctx.output.mode === "json") {
+        process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+        return;
+      }
+
+      process.stdout.write(result.applied ? `User recovered: ${result.userId}\n` : "Failed to recover user\n");
     });
 
   // typee workspace user suspend --email <email>
@@ -1280,6 +1308,35 @@ export function registerWorkspaceCommands(
 
       for (const activity of activities) {
         process.stdout.write(`${activity.timestamp} - ${activity.userEmail} - ${activity.action} - ${activity.resource}\n`);
+      }
+    });
+
+  // typee workspace report deleted-users [--days <number>]
+  reportCmd
+    .command("deleted-users")
+    .description("List recently deleted users")
+    .option("--days <number>", "Number of days to look back", "30")
+    .action(async function actionReportDeletedUsers(this: Command) {
+      const rootOptions = this.optsWithGlobals() as RootOptions;
+      const ctx = buildExecutionContext(rootOptions);
+      const opts = this.opts<{ days: string }>();
+      const days = parseInt(opts.days, 10);
+
+      const deletedUsers = await reportDeps.getDeletedUsers(days);
+
+      if (ctx.output.mode === "json") {
+        process.stdout.write(`${JSON.stringify(deletedUsers, null, 2)}\n`);
+        return;
+      }
+
+      if (deletedUsers.length === 0) {
+        process.stdout.write(`No deleted users found in the last ${days} days\n`);
+        return;
+      }
+
+      process.stdout.write(`Deleted users in the last ${days} days (${deletedUsers.length} found):\n\n`);
+      for (const user of deletedUsers) {
+        process.stdout.write(`${user.userEmail} - deleted ${user.deletionTime}\n`);
       }
     });
 }
