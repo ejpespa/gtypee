@@ -214,7 +214,7 @@ export type DeviceActionResult = {
 export type WorkspaceReportCommandDeps = {
   getLoginAudit?: (days: number) => Promise<LoginActivity[]>;
   getAdminAudit?: (days: number) => Promise<AdminActivity[]>;
-  getDeletedUsers?: (days: number) => Promise<DeletedUser[]>;
+  getDeletedUsers?: (days: number, options?: PaginationOptions) => Promise<PaginatedResult<DeletedUser>>;
 };
 
 export type LoginActivity = {
@@ -326,7 +326,7 @@ const defaultDeviceDeps: Required<WorkspaceDeviceCommandDeps> = {
 const defaultReportDeps: Required<WorkspaceReportCommandDeps> = {
   getLoginAudit: async () => [],
   getAdminAudit: async () => [],
-  getDeletedUsers: async () => [],
+  getDeletedUsers: async () => ({ items: [] }),
 };
 
 const defaultOrgUnitDeps: Required<WorkspaceOrgUnitCommandDeps> = {
@@ -1316,27 +1316,38 @@ export function registerWorkspaceCommands(
     .command("deleted-users")
     .description("List recently deleted users")
     .option("--days <number>", "Number of days to look back", "30")
+    .option("--page-size <number>", "Number of audit events per page", parseInt)
+    .option("--page-token <token>", "Token for the next page")
     .action(async function actionReportDeletedUsers(this: Command) {
       const rootOptions = this.optsWithGlobals() as RootOptions;
       const ctx = buildExecutionContext(rootOptions);
-      const opts = this.opts<{ days: string }>();
+      const opts = this.opts<{ days: string; pageSize?: number; pageToken?: string }>();
       const days = parseInt(opts.days, 10);
 
-      const deletedUsers = await reportDeps.getDeletedUsers(days);
+      const paginationOpts: import("../../types/pagination.js").PaginationOptions = {};
+      if (opts.pageSize !== undefined) paginationOpts.pageSize = opts.pageSize;
+      if (opts.pageToken !== undefined) paginationOpts.pageToken = opts.pageToken;
+
+      const result = await reportDeps.getDeletedUsers(days, paginationOpts);
 
       if (ctx.output.mode === "json") {
-        process.stdout.write(`${JSON.stringify(deletedUsers, null, 2)}\n`);
+        process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
         return;
       }
 
-      if (deletedUsers.length === 0) {
+      if (result.items.length === 0) {
         process.stdout.write(`No deleted users found in the last ${days} days\n`);
         return;
       }
 
-      process.stdout.write(`Deleted users in the last ${days} days (${deletedUsers.length} found):\n\n`);
-      for (const user of deletedUsers) {
+      process.stdout.write(`Deleted users in the last ${days} days (${result.items.length} found on this page):\n\n`);
+      for (const user of result.items) {
         process.stdout.write(`${user.userEmail} - deleted ${user.deletionTime}\n`);
+      }
+
+      if (result.nextPageToken) {
+        process.stdout.write("---\n");
+        process.stdout.write(`Next page token: ${result.nextPageToken}\n`);
       }
     });
 }

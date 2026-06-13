@@ -992,19 +992,25 @@ export function buildWorkspaceReportCommandDeps(options: ServiceRuntimeOptions):
       return result;
     },
 
-    getDeletedUsers: async (days: number): Promise<DeletedUser[]> => {
+    getDeletedUsers: async (days: number, options?: PaginationOptions): Promise<{ items: DeletedUser[]; nextPageToken?: string }> => {
       const auth = await runtime.getClient(scopes("workspace"));
       const admin = google.admin({ version: "reports_v1", auth });
 
-      const result: DeletedUser[] = [];
+      const items: DeletedUser[] = [];
 
       try {
-        const response = await admin.activities.list({
+        const params: Record<string, any> = {
           userKey: "all",
           applicationName: "admin",
           startTime: getStartTime(days),
-          maxResults: 1000,
-        });
+          maxResults: options?.pageSize ?? 1000,
+        };
+
+        if (options?.pageToken) {
+          params.pageToken = options.pageToken;
+        }
+
+        const response = await admin.activities.list(params);
 
         const activities = response.data.items ?? [];
 
@@ -1021,7 +1027,7 @@ export function buildWorkspaceReportCommandDeps(options: ServiceRuntimeOptions):
               const userEmail = userEmailParam?.value ?? "";
 
               if (userEmail) {
-                result.push({
+                items.push({
                   userEmail: userEmail as string,
                   deletionTime: activity.id?.time ?? "",
                 });
@@ -1029,11 +1035,16 @@ export function buildWorkspaceReportCommandDeps(options: ServiceRuntimeOptions):
             }
           }
         }
+
+        const result: { items: DeletedUser[]; nextPageToken?: string } = { items };
+        if (response.data.nextPageToken) {
+          result.nextPageToken = response.data.nextPageToken;
+        }
+        return result;
       } catch (err) {
         console.error("getDeletedUsers error:", err);
+        return { items: [] };
       }
-
-      return result;
     },
   };
 }

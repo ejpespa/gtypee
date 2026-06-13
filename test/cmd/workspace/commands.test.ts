@@ -701,9 +701,11 @@ describe("workspace report commands", () => {
     const root = new Command();
     const workspace = root.command("workspace");
     registerWorkspaceCommands(workspace, {
-      getDeletedUsers: async () => [
-        { userEmail: "deleted@example.com", deletionTime: "2024-06-01T10:00:00Z" },
-      ],
+      getDeletedUsers: async () => ({
+        items: [
+          { userEmail: "deleted@example.com", deletionTime: "2024-06-01T10:00:00Z" }
+        ]
+      }),
     });
 
     const stdout = await captureStdout(() => root.parseAsync(["node", "typee", "workspace", "report", "deleted-users"]));
@@ -715,7 +717,7 @@ describe("workspace report commands", () => {
     const root = new Command();
     const workspace = root.command("workspace");
     registerWorkspaceCommands(workspace, {
-      getDeletedUsers: async () => [],
+      getDeletedUsers: async () => ({ items: [] }),
     });
 
     const stdout = await captureStdout(() => root.parseAsync(["node", "typee", "workspace", "report", "deleted-users"]));
