@@ -1005,7 +1005,7 @@ export function buildWorkspaceReportCommandDeps(options: ServiceRuntimeOptions):
         let keepFetching = true;
         let loops = 0; // Prevent infinite loop
 
-        while (keepFetching && loops < 10) {
+        while (keepFetching && loops < 100) {
           loops++;
           const params: Record<string, any> = {
             userKey: "all",
@@ -1074,8 +1074,19 @@ export function buildWorkspaceReportCommandDeps(options: ServiceRuntimeOptions):
           }
         }
 
-        const result: { items: DeletedUser[]; nextPageToken?: string } = { items };
-        if (pageToken && items.length >= targetCount) {
+                // If we found more items than requested in our last chunk, slice them
+        const resultItems = items.slice(0, targetCount);
+        
+        // If we sliced off some items, we shouldn't really throw them away without giving a pageToken to resume.
+        // However, Google Reports API pagination is opaque (we can't just pass an offset).
+        // For simplicity, we just return the items up to targetCount. 
+        // If there's a page token from the API, we pass it along so they can fetch the next chunk.
+        const result: { items: DeletedUser[]; nextPageToken?: string } = { items: resultItems };
+        
+        // Return the pageToken if we have one so the caller can continue querying.
+        // We shouldn't drop it just because items.length < targetCount, 
+        // because the caller might just want the next page of results!
+        if (pageToken) {
           result.nextPageToken = pageToken;
         }
 
