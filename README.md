@@ -540,6 +540,9 @@ gtypee workspace device list --type mobile --org-unit "/Sales"
 ```bash
 gtypee workspace report logins --days 30
 gtypee workspace report admin --days 7
+# Deleted Users
+gtypee workspace report deleted-users                    # List deleted users
+gtypee workspace report deleted-users --query "john"     # Search deleted users
 ```
 
 ### Docs, Sheets, Slides Commands
@@ -1029,7 +1032,10 @@ gtypee workspace report logins --days 1 --json | jq -r '.[] | select(.success ==
 
 ```bash
 # Get admin activities for past 7 days
-gtypee workspace report admin --days 7 --json > admin-audit.json
+gtypee workspace report admin --days 7
+# Deleted Users
+gtypee workspace report deleted-users                    # List deleted users
+gtypee workspace report deleted-users --query "john"     # Search deleted users --json > admin-audit.json
 
 # Find user creation events
 gtypee workspace report admin --days 30 --json | jq '.[] | select(.action == "CREATE_USER")'
