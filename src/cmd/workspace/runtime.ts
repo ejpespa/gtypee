@@ -1010,7 +1010,6 @@ export function buildWorkspaceReportCommandDeps(options: ServiceRuntimeOptions):
                     const params: Record<string, any> = {
             userKey: "all",
             applicationName: "admin",
-            eventName: "DELETE_USER", // Native server-side filter for massive speedup!
             startTime: getStartTime(days),
             maxResults: 1000, // use maximum chunk size to minimize API calls for sparse data
           };
