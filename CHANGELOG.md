@@ -1,3 +1,10 @@
+# [1.15.0](https://github.com/ejpespa/gtypee/compare/v1.14.0...v1.15.0) (2026-06-13)
+
+
+### Features
+
+* add pagination to deleted-users report ([519dbbe](https://github.com/ejpespa/gtypee/commit/519dbbe013f5a4b1f9638f6b71eb788b8ba3528e))
+
 # [1.14.0](https://github.com/ejpespa/gtypee/compare/v1.13.0...v1.14.0) (2026-06-12)
 
 
