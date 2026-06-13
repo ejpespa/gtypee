@@ -1,3 +1,12 @@
+# [1.16.0](https://github.com/ejpespa/gtypee/compare/v1.15.0...v1.16.0) (2026-06-13)
+
+
+### Features
+
+* add firstName and lastName to DeletedUser type and prepare options ([5ea989b](https://github.com/ejpespa/gtypee/commit/5ea989b17c7fb45e9c1054c0eef98d002e495e32))
+* parse and filter deleted users by first name and last name ([2f91b99](https://github.com/ejpespa/gtypee/commit/2f91b99e41620f4ab0400341b5682c2d1811f5b0))
+* wire up search flags for deleted-users command ([68b2665](https://github.com/ejpespa/gtypee/commit/68b266596cab809293207f5aade66576c4002314))
+
 # [1.15.0](https://github.com/ejpespa/gtypee/compare/v1.14.0...v1.15.0) (2026-06-13)
 
 
