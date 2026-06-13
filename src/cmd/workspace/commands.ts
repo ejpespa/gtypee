@@ -211,10 +211,16 @@ export type DeviceActionResult = {
   applied: boolean;
 };
 
+export type DeletedUserOptions = PaginationOptions & {
+  query?: string;
+  firstName?: string;
+  lastName?: string;
+};
+
 export type WorkspaceReportCommandDeps = {
   getLoginAudit?: (days: number) => Promise<LoginActivity[]>;
   getAdminAudit?: (days: number) => Promise<AdminActivity[]>;
-  getDeletedUsers?: (days: number, options?: PaginationOptions) => Promise<PaginatedResult<DeletedUser>>;
+  getDeletedUsers?: (days: number, options?: DeletedUserOptions) => Promise<PaginatedResult<DeletedUser>>;
 };
 
 export type LoginActivity = {
@@ -234,6 +240,8 @@ export type AdminActivity = {
 export type DeletedUser = {
   userEmail: string;
   deletionTime: string;
+  firstName?: string;
+  lastName?: string;
 };
 
 export type WorkspaceOrgUnitCommandDeps = {
