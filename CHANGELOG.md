@@ -1,3 +1,10 @@
+## [1.16.1](https://github.com/ejpespa/gtypee/compare/v1.16.0...v1.16.1) (2026-06-13)
+
+
+### Bug Fixes
+
+* resolve TypeScript type error regarding nextPageToken nullable value ([f0170ed](https://github.com/ejpespa/gtypee/commit/f0170edc8ae87af02933148bab047c9c25da4ccd))
+
 # [1.16.0](https://github.com/ejpespa/gtypee/compare/v1.15.0...v1.16.0) (2026-06-13)
 
 
