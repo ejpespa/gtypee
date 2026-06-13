@@ -998,78 +998,87 @@ export function buildWorkspaceReportCommandDeps(options: ServiceRuntimeOptions):
       const admin = google.admin({ version: "reports_v1", auth });
 
       const items: DeletedUser[] = [];
+      let pageToken = options?.pageToken;
+      const targetCount = options?.pageSize ?? 1000;
 
       try {
-        const params: Record<string, any> = {
-          userKey: "all",
-          applicationName: "admin",
-          startTime: getStartTime(days),
-          maxResults: options?.pageSize ?? 1000,
-        };
+        let keepFetching = true;
+        let loops = 0; // Prevent infinite loop
 
-        if (options?.pageToken) {
-          params.pageToken = options.pageToken;
-        }
+        while (keepFetching && loops < 10) {
+          loops++;
+          const params: Record<string, any> = {
+            userKey: "all",
+            applicationName: "admin",
+            startTime: getStartTime(days),
+            maxResults: 1000, // use maximum chunk size to minimize API calls for sparse data
+          };
 
-        const response = await admin.activities.list(params);
+          if (pageToken) {
+            params.pageToken = pageToken;
+          }
 
-        const activities = response.data.items ?? [];
+          const response = await admin.activities.list(params);
+          const activities = response.data.items ?? [];
+          pageToken = response.data.nextPageToken ?? undefined;
 
-        for (const activity of activities) {
-          const events = activity.events ?? [];
-          for (const event of events) {
-            // Filter for user deletion events
-            if (event.name === "DELETE_USER" || event.name === "delete_user") {
-              // Try to extract the deleted user's email from parameters
-              const parameters = event.parameters ?? [];
-              const userEmailParam = parameters.find(
-                (p) => p.name === "user_email" || p.name === "USER_EMAIL"
-              );
-              const firstNameParam = parameters.find((p) => p.name === "first_name" || p.name === "FIRST_NAME");
-              const lastNameParam = parameters.find((p) => p.name === "last_name" || p.name === "LAST_NAME");
+          for (const activity of activities) {
+            const events = activity.events ?? [];
+            for (const event of events) {
+              if (event.name === "DELETE_USER" || event.name === "delete_user") {
+                const parameters = event.parameters ?? [];
+                const userEmailParam = parameters.find((p) => p.name === "user_email" || p.name === "USER_EMAIL");
+                const firstNameParam = parameters.find((p) => p.name === "first_name" || p.name === "FIRST_NAME");
+                const lastNameParam = parameters.find((p) => p.name === "last_name" || p.name === "LAST_NAME");
 
-              const userEmail = userEmailParam?.value ?? "";
-              const firstName = firstNameParam?.value ? (firstNameParam.value as string) : undefined;
-              const lastName = lastNameParam?.value ? (lastNameParam.value as string) : undefined;
+                const userEmail = userEmailParam?.value ?? "";
+                const firstName = firstNameParam?.value ? (firstNameParam.value as string) : undefined;
+                const lastName = lastNameParam?.value ? (lastNameParam.value as string) : undefined;
 
-              if (userEmail) {
-                let match = true;
-                const fn = firstName?.toLowerCase() ?? "";
-                const ln = lastName?.toLowerCase() ?? "";
+                if (userEmail) {
+                  let match = true;
+                  const fn = firstName?.toLowerCase() ?? "";
+                  const ln = lastName?.toLowerCase() ?? "";
 
-                if (options?.query) {
-                  const q = options.query.toLowerCase();
-                  if (!fn.includes(q) && !ln.includes(q) && !(userEmail as string).toLowerCase().includes(q)) {
+                  if (options?.query) {
+                    const q = options.query.toLowerCase();
+                    if (!fn.includes(q) && !ln.includes(q) && !(userEmail as string).toLowerCase().includes(q)) {
+                      match = false;
+                    }
+                  }
+
+                  if (options?.firstName && !fn.includes(options.firstName.toLowerCase())) {
                     match = false;
                   }
-                }
 
-                if (options?.firstName && !fn.includes(options.firstName.toLowerCase())) {
-                  match = false;
-                }
+                  if (options?.lastName && !ln.includes(options.lastName.toLowerCase())) {
+                    match = false;
+                  }
 
-                if (options?.lastName && !ln.includes(options.lastName.toLowerCase())) {
-                  match = false;
-                }
-
-                if (match) {
-                  const deletedUser: DeletedUser = {
-                    userEmail: userEmail as string,
-                    deletionTime: activity.id?.time ?? "",
-                  };
-                  if (firstName !== undefined) deletedUser.firstName = firstName;
-                  if (lastName !== undefined) deletedUser.lastName = lastName;
-                  items.push(deletedUser);
+                  if (match) {
+                    const deletedUser: DeletedUser = {
+                      userEmail: userEmail as string,
+                      deletionTime: activity.id?.time ?? "",
+                    };
+                    if (firstName) deletedUser.firstName = firstName;
+                    if (lastName) deletedUser.lastName = lastName;
+                    items.push(deletedUser);
+                  }
                 }
               }
             }
           }
+
+          if (items.length >= targetCount || !pageToken) {
+            keepFetching = false;
+          }
         }
 
         const result: { items: DeletedUser[]; nextPageToken?: string } = { items };
-        if (response.data.nextPageToken) {
-          result.nextPageToken = response.data.nextPageToken;
+        if (pageToken && items.length >= targetCount) {
+          result.nextPageToken = pageToken;
         }
+
         return result;
       } catch (err) {
         console.error("getDeletedUsers error:", err);
