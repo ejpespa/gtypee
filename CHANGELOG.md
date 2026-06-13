@@ -1,3 +1,10 @@
+## [1.16.3](https://github.com/ejpespa/gtypee/compare/v1.16.2...v1.16.3) (2026-06-13)
+
+
+### Performance Improvements
+
+* add server-side eventName filtering for deleted-users api ([12129af](https://github.com/ejpespa/gtypee/commit/12129afb89c0635670b542568c2cf50eb6c3de09))
+
 ## [1.16.2](https://github.com/ejpespa/gtypee/compare/v1.16.1...v1.16.2) (2026-06-13)
 
 
