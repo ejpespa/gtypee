@@ -1,3 +1,10 @@
+## [1.16.4](https://github.com/ejpespa/gtypee/compare/v1.16.3...v1.16.4) (2026-06-13)
+
+
+### Bug Fixes
+
+* revert native eventName filter causing silent API rejection ([e50e54f](https://github.com/ejpespa/gtypee/commit/e50e54fb2400f8ee1da51acb2bc8304bfe813eb4))
+
 ## [1.16.3](https://github.com/ejpespa/gtypee/compare/v1.16.2...v1.16.3) (2026-06-13)
 
 
