@@ -1,3 +1,10 @@
+## [1.16.2](https://github.com/ejpespa/gtypee/compare/v1.16.1...v1.16.2) (2026-06-13)
+
+
+### Bug Fixes
+
+* increase api loop limit for sparse admin report scanning ([aff2abe](https://github.com/ejpespa/gtypee/commit/aff2abefcd32f6aa888bcc2f7c50696c974fd5d5))
+
 ## [1.16.1](https://github.com/ejpespa/gtypee/compare/v1.16.0...v1.16.1) (2026-06-13)
 
 
