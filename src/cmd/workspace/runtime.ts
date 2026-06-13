@@ -1029,13 +1029,13 @@ export function buildWorkspaceReportCommandDeps(options: ServiceRuntimeOptions):
               const lastNameParam = parameters.find((p) => p.name === "last_name" || p.name === "LAST_NAME");
 
               const userEmail = userEmailParam?.value ?? "";
-              const firstName = (firstNameParam?.value ?? "") as string;
-              const lastName = (lastNameParam?.value ?? "") as string;
+              const firstName = firstNameParam?.value ? (firstNameParam.value as string) : undefined;
+              const lastName = lastNameParam?.value ? (lastNameParam.value as string) : undefined;
 
               if (userEmail) {
                 let match = true;
-                const fn = firstName.toLowerCase();
-                const ln = lastName.toLowerCase();
+                const fn = firstName?.toLowerCase() ?? "";
+                const ln = lastName?.toLowerCase() ?? "";
 
                 if (options?.query) {
                   const q = options.query.toLowerCase();
@@ -1053,12 +1053,13 @@ export function buildWorkspaceReportCommandDeps(options: ServiceRuntimeOptions):
                 }
 
                 if (match) {
-                  items.push({
+                  const deletedUser: DeletedUser = {
                     userEmail: userEmail as string,
                     deletionTime: activity.id?.time ?? "",
-                    firstName: firstName,
-                    lastName: lastName,
-                  });
+                  };
+                  if (firstName !== undefined) deletedUser.firstName = firstName;
+                  if (lastName !== undefined) deletedUser.lastName = lastName;
+                  items.push(deletedUser);
                 }
               }
             }

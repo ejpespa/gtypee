@@ -1335,7 +1335,7 @@ export function registerWorkspaceCommands(
       const opts = this.opts<{ days: string; pageSize?: number; pageToken?: string; query?: string; firstName?: string; lastName?: string }>();
       const days = parseInt(opts.days, 10);
 
-      const searchOpts: any = {};
+      const searchOpts: DeletedUserOptions = {};
       if (opts.pageSize !== undefined) searchOpts.pageSize = opts.pageSize;
       if (opts.pageToken !== undefined) searchOpts.pageToken = opts.pageToken;
       if (opts.query !== undefined) searchOpts.query = opts.query;
@@ -1356,7 +1356,8 @@ export function registerWorkspaceCommands(
 
       process.stdout.write(`Deleted users in the last ${days} days (${result.items.length} found on this page):\n\n`);
       for (const user of result.items) {
-        const namePart = (user.firstName || user.lastName) ? ` (${(user.firstName || '')} ${(user.lastName || '')})`.replace(/ +/g, ' ').trim().replace(/\( /, '(').replace(/ \)/, ')') : '';
+        const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ");
+        const namePart = fullName ? ` (${fullName})` : "";
         process.stdout.write(`${user.userEmail}${namePart} - deleted ${user.deletionTime}\n`);
       }
 
