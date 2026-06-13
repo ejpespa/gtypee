@@ -35,6 +35,7 @@ import {
   type LoginActivity,
   type AdminActivity,
   type DeletedUser,
+  type DeletedUserOptions,
   type WorkspaceOrgUnitCommandDeps,
   type CreateOrgUnitInput,
   type CreateOrgUnitResult,
@@ -992,7 +993,7 @@ export function buildWorkspaceReportCommandDeps(options: ServiceRuntimeOptions):
       return result;
     },
 
-    getDeletedUsers: async (days: number, options?: PaginationOptions): Promise<{ items: DeletedUser[]; nextPageToken?: string }> => {
+    getDeletedUsers: async (days: number, options?: DeletedUserOptions): Promise<{ items: DeletedUser[]; nextPageToken?: string }> => {
       const auth = await runtime.getClient(scopes("workspace"));
       const admin = google.admin({ version: "reports_v1", auth });
 
@@ -1024,13 +1025,41 @@ export function buildWorkspaceReportCommandDeps(options: ServiceRuntimeOptions):
               const userEmailParam = parameters.find(
                 (p) => p.name === "user_email" || p.name === "USER_EMAIL"
               );
+              const firstNameParam = parameters.find((p) => p.name === "first_name" || p.name === "FIRST_NAME");
+              const lastNameParam = parameters.find((p) => p.name === "last_name" || p.name === "LAST_NAME");
+
               const userEmail = userEmailParam?.value ?? "";
+              const firstName = (firstNameParam?.value ?? "") as string;
+              const lastName = (lastNameParam?.value ?? "") as string;
 
               if (userEmail) {
-                items.push({
-                  userEmail: userEmail as string,
-                  deletionTime: activity.id?.time ?? "",
-                });
+                let match = true;
+                const fn = firstName.toLowerCase();
+                const ln = lastName.toLowerCase();
+
+                if (options?.query) {
+                  const q = options.query.toLowerCase();
+                  if (!fn.includes(q) && !ln.includes(q) && !(userEmail as string).toLowerCase().includes(q)) {
+                    match = false;
+                  }
+                }
+
+                if (options?.firstName && !fn.includes(options.firstName.toLowerCase())) {
+                  match = false;
+                }
+
+                if (options?.lastName && !ln.includes(options.lastName.toLowerCase())) {
+                  match = false;
+                }
+
+                if (match) {
+                  items.push({
+                    userEmail: userEmail as string,
+                    deletionTime: activity.id?.time ?? "",
+                    firstName: firstName,
+                    lastName: lastName,
+                  });
+                }
               }
             }
           }
