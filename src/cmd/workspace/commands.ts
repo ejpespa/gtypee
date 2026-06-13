@@ -1326,17 +1326,23 @@ export function registerWorkspaceCommands(
     .option("--days <number>", "Number of days to look back", "30")
     .option("--page-size <number>", "Number of audit events per page", parseInt)
     .option("--page-token <token>", "Token for the next page")
+    .option("--query <text>", "Search deleted users by name or email")
+    .option("--first-name <text>", "Filter by first name")
+    .option("--last-name <text>", "Filter by last name")
     .action(async function actionReportDeletedUsers(this: Command) {
       const rootOptions = this.optsWithGlobals() as RootOptions;
       const ctx = buildExecutionContext(rootOptions);
-      const opts = this.opts<{ days: string; pageSize?: number; pageToken?: string }>();
+      const opts = this.opts<{ days: string; pageSize?: number; pageToken?: string; query?: string; firstName?: string; lastName?: string }>();
       const days = parseInt(opts.days, 10);
 
-      const paginationOpts: import("../../types/pagination.js").PaginationOptions = {};
-      if (opts.pageSize !== undefined) paginationOpts.pageSize = opts.pageSize;
-      if (opts.pageToken !== undefined) paginationOpts.pageToken = opts.pageToken;
+      const searchOpts: any = {};
+      if (opts.pageSize !== undefined) searchOpts.pageSize = opts.pageSize;
+      if (opts.pageToken !== undefined) searchOpts.pageToken = opts.pageToken;
+      if (opts.query !== undefined) searchOpts.query = opts.query;
+      if (opts.firstName !== undefined) searchOpts.firstName = opts.firstName;
+      if (opts.lastName !== undefined) searchOpts.lastName = opts.lastName;
 
-      const result = await reportDeps.getDeletedUsers(days, paginationOpts);
+      const result = await reportDeps.getDeletedUsers!(days, searchOpts);
 
       if (ctx.output.mode === "json") {
         process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
@@ -1350,7 +1356,8 @@ export function registerWorkspaceCommands(
 
       process.stdout.write(`Deleted users in the last ${days} days (${result.items.length} found on this page):\n\n`);
       for (const user of result.items) {
-        process.stdout.write(`${user.userEmail} - deleted ${user.deletionTime}\n`);
+        const namePart = (user.firstName || user.lastName) ? ` (${(user.firstName || '')} ${(user.lastName || '')})`.replace(/ +/g, ' ').trim().replace(/\( /, '(').replace(/ \)/, ')') : '';
+        process.stdout.write(`${user.userEmail}${namePart} - deleted ${user.deletionTime}\n`);
       }
 
       if (result.nextPageToken) {
