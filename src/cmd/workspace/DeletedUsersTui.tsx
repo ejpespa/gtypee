@@ -25,7 +25,10 @@ export function DeletedUsersTui({ reportDeps, days, searchOpts }: DeletedUsersTu
       setLoading(true);
       setError(null);
       try {
-        const queryOpts = { ...searchOpts, pageToken: pageHistory[currentIndex] };
+        const queryOpts: DeletedUserOptions = { ...searchOpts };
+        if (pageHistory[currentIndex] !== undefined) {
+          queryOpts.pageToken = pageHistory[currentIndex];
+        }
         const result = await reportDeps.getDeletedUsers(days, queryOpts);
 
         if (!isCancelled) {
@@ -50,7 +53,7 @@ export function DeletedUsersTui({ reportDeps, days, searchOpts }: DeletedUsersTu
 
     fetchPage();
     return () => { isCancelled = true; };
-  }, [currentIndex, days, reportDeps]);
+  }, [currentIndex, days, reportDeps, searchOpts, pageHistory]);
 
   useInput((input, key) => {
     if (input === 'q' || key.escape) {

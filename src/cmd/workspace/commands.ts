@@ -1,4 +1,7 @@
 import { Command } from "commander";
+import React from "react";
+import { render } from "ink";
+import { DeletedUsersTui } from "./DeletedUsersTui.js";
 
 import { buildExecutionContext, stderr, type RootOptions } from "../execution-context.js";
 import type { PaginatedResult, PaginationOptions } from "../../types/pagination.js";
@@ -1342,28 +1345,46 @@ export function registerWorkspaceCommands(
       if (opts.firstName !== undefined) searchOpts.firstName = opts.firstName;
       if (opts.lastName !== undefined) searchOpts.lastName = opts.lastName;
 
-      const result = await reportDeps.getDeletedUsers!(days, searchOpts);
+      // Standard linear fallback setup
+      const runStandardMode = async () => {
+        const result = await reportDeps.getDeletedUsers!(days, searchOpts);
 
-      if (ctx.output.mode === "json") {
-        process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
-        return;
+        if (ctx.output.mode === "json") {
+          process.stdout.write(JSON.stringify(result, null, 2) + "\n");
+          return;
+        }
+
+        if (result.items.length === 0) {
+          process.stdout.write(`No deleted users found in the last ${days} days\n`);
+          return;
+        }
+
+        process.stdout.write(`Deleted users in the last ${days} days (${result.items.length} found on this page):\n\n`);
+        for (const user of result.items) {
+          const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ");
+          const namePart = fullName ? ` (${fullName})` : "";
+          process.stdout.write(`${user.userEmail}${namePart} - deleted ${user.deletionTime}\n`);
+        }
+
+        if (result.nextPageToken) {
+          process.stdout.write("---\n");
+          process.stdout.write(`Next page token: ${result.nextPageToken}\n`);
+        }
+      };
+
+      if (!process.stdin.isTTY || process.stdout.isTTY === false || ctx.output.mode === "json") {
+        return runStandardMode();
       }
 
-      if (result.items.length === 0) {
-        process.stdout.write(`No deleted users found in the last ${days} days\n`);
-        return;
-      }
+      // TUI Interactive Mode
+      const { waitUntilExit } = render(
+        React.createElement(DeletedUsersTui, {
+          reportDeps,
+          days,
+          searchOpts
+        })
+      );
 
-      process.stdout.write(`Deleted users in the last ${days} days (${result.items.length} found on this page):\n\n`);
-      for (const user of result.items) {
-        const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ");
-        const namePart = fullName ? ` (${fullName})` : "";
-        process.stdout.write(`${user.userEmail}${namePart} - deleted ${user.deletionTime}\n`);
-      }
-
-      if (result.nextPageToken) {
-        process.stdout.write("---\n");
-        process.stdout.write(`Next page token: ${result.nextPageToken}\n`);
-      }
+      await waitUntilExit();
     });
 }
