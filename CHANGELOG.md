@@ -1,3 +1,16 @@
+# [1.18.0](https://github.com/ejpespa/gtypee/compare/v1.17.0...v1.18.0) (2026-06-15)
+
+
+### Bug Fixes
+
+* **tui:** gracefully handle missing next-page tokens at end of pagination stream ([be92599](https://github.com/ejpespa/gtypee/commit/be925994e52483a5b2b2f7421895fe78dfe90b43))
+* **workspace:** fix token serialization and exact bounds for deleted-users api ([f62251f](https://github.com/ejpespa/gtypee/commit/f62251fb93d2b0c34106a971e1e00f9bf8caa220))
+
+
+### Features
+
+* **cli:** bind native interactive paging with keyboard arrows ([af8aaf5](https://github.com/ejpespa/gtypee/commit/af8aaf5fd6cbcf8391f9f55a110d982f740550f1))
+
 # [1.17.0](https://github.com/ejpespa/gtypee/compare/v1.16.4...v1.17.0) (2026-06-15)
 
 
