@@ -20,8 +20,16 @@ export function MasterLayout({ workspaceDeps }: MasterLayoutProps) {
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
 
   useInput((input, key) => {
+    // Top-level exit
     if (activeMenu === null && (input === 'q' || key.escape)) {
       exit();
+      return;
+    }
+
+    // Sub-menu exit (Back to main layout) for placeholders
+    if (activeMenu !== null && activeMenu !== 'workspace' && key.escape) {
+      handleBack();
+      return;
     }
   });
 
