@@ -12,11 +12,14 @@ export function registerTuiCommand(root: Command): void {
     .action(async function (this: Command) {
       const rootOptions = this.optsWithGlobals() as RootOptions;
 
-      const workspaceDeps = buildWorkspaceReportCommandDeps({
-         useServiceAccount: rootOptions.sa !== undefined,
-         serviceAccountEmail: rootOptions.sa as string,
-         impersonateEmail: rootOptions.impersonate as string,
-      } as any);
+            const workspaceDeps = buildWorkspaceReportCommandDeps({
+         resolveAccount: async () => ({
+            email: rootOptions.account || "",
+            clientOverride: rootOptions.client || "default",
+            serviceAccount: rootOptions.sa,
+            impersonate: rootOptions.impersonate
+         })
+      });
 
       process.stdout.write("\x1b[2J\x1b[3J\x1b[H"); // Clean state
 
