@@ -1000,6 +1000,16 @@ export function buildWorkspaceReportCommandDeps(options: ServiceRuntimeOptions):
       const items: DeletedUser[] = [];
       let pageToken = options?.pageToken;
       const targetCount = options?.pageSize ?? 1000;
+      let offset = 0;
+
+      // Unpack our custom offset token
+      if (pageToken !== undefined && typeof pageToken === 'string' && pageToken.includes('::')) {
+        const parts = pageToken.split('::');
+        pageToken = parts[0] === 'EMPTY' ? undefined : parts[0];
+        offset = parseInt(parts[1] ?? '0', 10);
+      }
+
+      let currentGoogleToken = pageToken;
 
       try {
         let keepFetching = true;
@@ -1007,29 +1017,32 @@ export function buildWorkspaceReportCommandDeps(options: ServiceRuntimeOptions):
 
         while (keepFetching && loops < 100) {
           loops++;
-                    const params: Record<string, any> = {
+          const params: Record<string, any> = {
             userKey: "all",
             applicationName: "admin",
             startTime: getStartTime(days),
             maxResults: 1000, // use maximum chunk size to minimize API calls for sparse data
           };
 
-          if (pageToken) {
-            params.pageToken = pageToken;
+          if (currentGoogleToken) {
+            params.pageToken = currentGoogleToken;
           }
 
           const response = await admin.activities.list(params);
           const activities = response.data.items ?? [];
-          pageToken = response.data.nextPageToken ?? undefined;
+          const nextGoogleToken = response.data.nextPageToken ?? undefined;
+
+          const pageItems: DeletedUser[] = [];
 
           for (const activity of activities) {
             const events = activity.events ?? [];
             for (const event of events) {
               if (event.name === "DELETE_USER" || event.name === "delete_user") {
                 const parameters = event.parameters ?? [];
-                const userEmailParam = parameters.find((p) => p.name === "user_email" || p.name === "USER_EMAIL");
-                const firstNameParam = parameters.find((p) => p.name === "first_name" || p.name === "FIRST_NAME");
-                const lastNameParam = parameters.find((p) => p.name === "last_name" || p.name === "LAST_NAME");
+                // Case-insensitive checks to guarantee reliable extraction
+                const userEmailParam = parameters.find((p) => (p.name || "").toLowerCase() === "user_email");
+                const firstNameParam = parameters.find((p) => (p.name || "").toLowerCase() === "first_name");
+                const lastNameParam = parameters.find((p) => (p.name || "").toLowerCase() === "last_name");
 
                 const userEmail = userEmailParam?.value ?? "";
                 const firstName = firstNameParam?.value ? (firstNameParam.value as string) : undefined;
@@ -1062,40 +1075,56 @@ export function buildWorkspaceReportCommandDeps(options: ServiceRuntimeOptions):
                     };
                     if (firstName) deletedUser.firstName = firstName;
                     if (lastName) deletedUser.lastName = lastName;
-                    items.push(deletedUser);
+                    pageItems.push(deletedUser);
                   }
                 }
               }
             }
+          } // End processing activities
+
+          // Extract the slice we need taking the offset into account
+          let pageItemsToUse = pageItems;
+          if (offset > 0) {
+            pageItemsToUse = pageItems.slice(offset);
           }
 
-          if (items.length >= targetCount || !pageToken) {
-            keepFetching = false;
+          const itemsNeeded = targetCount - items.length;
+
+          // If this slice hits our limit, return it with the updated custom pageToken state!
+          if (pageItemsToUse.length >= itemsNeeded) {
+            items.push(...pageItemsToUse.slice(0, itemsNeeded));
+
+            const nextOffset = (offset > 0 ? offset : 0) + itemsNeeded;
+            let returnToken = "";
+
+            if (nextOffset >= pageItems.length) {
+              if (!nextGoogleToken) {
+                return { items };
+              }
+              returnToken = (nextGoogleToken || "EMPTY") + "::0";
+            } else {
+              returnToken = (currentGoogleToken || "EMPTY") + "::" + nextOffset;
+            }
+
+            return { items, nextPageToken: returnToken };
+          } else {
+            items.push(...pageItemsToUse);
+            offset = 0;
+            currentGoogleToken = nextGoogleToken;
+
+            if (!currentGoogleToken) {
+              keepFetching = false;
+            }
           }
         }
 
-                // If we found more items than requested in our last chunk, slice them
-        const resultItems = items.slice(0, targetCount);
-        
-        // If we sliced off some items, we shouldn't really throw them away without giving a pageToken to resume.
-        // However, Google Reports API pagination is opaque (we can't just pass an offset).
-        // For simplicity, we just return the items up to targetCount. 
-        // If there's a page token from the API, we pass it along so they can fetch the next chunk.
-        const result: { items: DeletedUser[]; nextPageToken?: string } = { items: resultItems };
-        
-        // Return the pageToken if we have one so the caller can continue querying.
-        // We shouldn't drop it just because items.length < targetCount, 
-        // because the caller might just want the next page of results!
-        if (pageToken) {
-          result.nextPageToken = pageToken;
-        }
-
-        return result;
+        return { items };
       } catch (err) {
         console.error("getDeletedUsers error:", err);
-        return { items: [] };
+        return { items }; // Don't wipe items out on failure anymore!
       }
     },
+
   };
 }
 
