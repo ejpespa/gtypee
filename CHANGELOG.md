@@ -1,3 +1,19 @@
+# [1.17.0](https://github.com/ejpespa/gtypee/compare/v1.16.4...v1.17.0) (2026-06-15)
+
+
+### Bug Fixes
+
+* **tui:** correct resolveAccount prop missing from TUI command instantiation ([eb80675](https://github.com/ejpespa/gtypee/commit/eb806752c4e12081692abe40c6226e59e309a62d))
+* **tui:** handle return navigation for tui spacer modules ([e160fea](https://github.com/ejpespa/gtypee/commit/e160feaea87c2f4b73f546fe214406c7689a2cd2))
+
+
+### Features
+
+* attach interactive master tui shell to root command tree ([025adb6](https://github.com/ejpespa/gtypee/commit/025adb61bcc819b8da628be41b0e75843d938de1))
+* **tui:** build react layout split logic for sidebar routing ([f6d5b28](https://github.com/ejpespa/gtypee/commit/f6d5b283877344751f6bcdbe6452c9ce4d97f1e2))
+* **workspace:** create ink component for deleted users pagination ([0daccc1](https://github.com/ejpespa/gtypee/commit/0daccc1f982177158fc6a150034e01a0ccd95546))
+* **workspace:** serve deleted users via ink terminal interface ([5d206b1](https://github.com/ejpespa/gtypee/commit/5d206b1d0c48058443ed0b0ae75455b672ba41c8))
+
 ## [1.16.4](https://github.com/ejpespa/gtypee/compare/v1.16.3...v1.16.4) (2026-06-13)
 
 
