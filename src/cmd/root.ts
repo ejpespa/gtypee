@@ -62,6 +62,7 @@ import { buildAppScriptCommandDeps } from "./appscript/runtime.js";
 import { registerMeetCommands } from "./meet/commands.js";
 import { buildMeetCommandDeps } from "./meet/runtime.js";
 import { registerWorkspaceCommands } from "./workspace/commands.js";
+import { registerTuiCommand } from "./tui/commands.js";
 import { buildWorkspaceUserCommandDeps, buildWorkspaceGroupCommandDeps, buildWorkspaceDeviceCommandDeps, buildWorkspaceReportCommandDeps } from "./workspace/runtime.js";
 
 type BuildProgramOptions = {
@@ -226,6 +227,8 @@ export function buildProgram(options: BuildProgramOptions = {}): Command {
     currentContext.serviceAccount = (rootOpts.sa ?? "").trim();
     currentContext.impersonate = (rootOpts.impersonate ?? "").trim();
   });
+
+  registerTuiCommand(program);
 
   for (const def of [...desirePathCommands, ...serviceCommands]) {
     const cmd = program.command(def.name).description(def.description);
