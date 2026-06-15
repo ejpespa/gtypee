@@ -40,6 +40,8 @@ export function DeletedUsersTui({ reportDeps, days, searchOpts, onCancel }: Dele
               return next;
             });
           } else {
+            // Even if there's no next page token, if we fetched a full page, 
+            // the user might still legitimately be parsing through the cached page arrays!
             setNextPageAvailable(false);
           }
         }
