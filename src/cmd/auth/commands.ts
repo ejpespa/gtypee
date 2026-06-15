@@ -1,4 +1,6 @@
 import type { Command } from "commander";
+import { KeyringStore, EncryptedFileBackend } from "../../secrets/store.js";
+import { credentialsEncPath } from "../../config/paths.js";
 
 import type { OutputMode } from "../../outfmt/outfmt.js";
 import { buildExecutionContext, type RootOptions } from "../execution-context.js";
@@ -267,4 +269,24 @@ export function registerAuthCommands(authCommand: Command, deps: AuthCommandDeps
       }
       process.stdout.write(`${result.message}\n`);
     });
+}
+
+// Expose the core resolution logic for programmatic clients like TUI
+
+
+// Expose the core resolution logic for programmatic clients like TUI
+export async function resolveDefaultAccount(
+  ctx: { account?: string; clientOverride?: string; serviceAccount?: string; impersonate?: string }
+) {
+  let sa = ctx.serviceAccount;
+  if (!sa && !ctx.account) {
+    const store = new KeyringStore(new EncryptedFileBackend(credentialsEncPath()));
+    sa = (await store.getDefaultServiceAccount()) ?? undefined;
+  }
+  return {
+    email: ctx.account ?? "",
+    clientOverride: ctx.clientOverride ?? "",
+    serviceAccount: sa,
+    impersonate: ctx.impersonate || undefined,
+  };
 }
