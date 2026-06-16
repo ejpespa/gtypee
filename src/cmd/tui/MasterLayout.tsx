@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
 import { Box, Text, useApp, useInput } from 'ink';
 import SelectInput from 'ink-select-input';
-import { DeletedUsersTui } from '../workspace/DeletedUsersTui.js';
-import type { WorkspaceReportCommandDeps } from '../workspace/commands.js';
+import { WorkspaceRouter } from './WorkspaceRouter.js';
+import type { WorkspaceReportCommandDeps, WorkspaceUserCommandDeps } from '../workspace/commands.js';
+
+export interface TuiConfigDeps {
+  reportDeps: Required<WorkspaceReportCommandDeps>;
+  userDeps: Required<WorkspaceUserCommandDeps>;
+}
 
 interface MasterLayoutProps {
-  deps: {
-    reportDeps: Required<WorkspaceReportCommandDeps>;
-  };
+  deps: TuiConfigDeps;
 }
 
 const items = [
@@ -17,7 +20,7 @@ const items = [
   { label: 'Calendar', value: 'calendar' }
 ];
 
-export function MasterLayout({ deps: { reportDeps } }: MasterLayoutProps) {
+export function MasterLayout({ deps }: MasterLayoutProps) {
   const { exit } = useApp();
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
 
@@ -80,10 +83,8 @@ export function MasterLayout({ deps: { reportDeps } }: MasterLayoutProps) {
 
         {activeMenu === 'workspace' && (
           <Box flexDirection="column" width="100%">
-             <DeletedUsersTui
-               reportDeps={reportDeps}
-               days={30}
-               searchOpts={{}}
+             <WorkspaceRouter
+               deps={deps}
                onCancel={handleBack}
              />
           </Box>
