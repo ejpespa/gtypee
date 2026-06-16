@@ -5,7 +5,9 @@ import { DeletedUsersTui } from '../workspace/DeletedUsersTui.js';
 import type { WorkspaceReportCommandDeps } from '../workspace/commands.js';
 
 interface MasterLayoutProps {
-  workspaceDeps: Required<WorkspaceReportCommandDeps>;
+  deps: {
+    reportDeps: Required<WorkspaceReportCommandDeps>;
+  };
 }
 
 const items = [
@@ -15,7 +17,7 @@ const items = [
   { label: 'Calendar', value: 'calendar' }
 ];
 
-export function MasterLayout({ workspaceDeps }: MasterLayoutProps) {
+export function MasterLayout({ deps: { reportDeps } }: MasterLayoutProps) {
   const { exit } = useApp();
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
 
@@ -79,7 +81,7 @@ export function MasterLayout({ workspaceDeps }: MasterLayoutProps) {
         {activeMenu === 'workspace' && (
           <Box flexDirection="column" width="100%">
              <DeletedUsersTui
-               reportDeps={workspaceDeps}
+               reportDeps={reportDeps}
                days={30}
                searchOpts={{}}
                onCancel={handleBack}
@@ -96,8 +98,4 @@ export function MasterLayout({ workspaceDeps }: MasterLayoutProps) {
       </Box>
     </Box>
   );
-}
-
-export function MasterLayoutWrapper(props: MasterLayoutProps) {
-  return <MasterLayout {...props} />;
 }

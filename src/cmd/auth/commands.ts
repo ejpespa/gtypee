@@ -272,21 +272,73 @@ export function registerAuthCommands(authCommand: Command, deps: AuthCommandDeps
 }
 
 // Expose the core resolution logic for programmatic clients like TUI
-
-
-// Expose the core resolution logic for programmatic clients like TUI
 export async function resolveDefaultAccount(
-  ctx: { account?: string; clientOverride?: string; serviceAccount?: string; impersonate?: string }
+  ctx: { account?: string | undefined; clientOverride?: string | undefined; serviceAccount?: string | undefined; impersonate?: string | undefined }
 ) {
-  let sa = ctx.serviceAccount;
-  if (!sa && !ctx.account) {
-    const store = new KeyringStore(new EncryptedFileBackend(credentialsEncPath()));
-    sa = (await store.getDefaultServiceAccount()) ?? undefined;
+  const account = (ctx.account ?? "").trim();
+  const clientOverride = (ctx.clientOverride ?? "").trim();
+  const sa = (ctx.serviceAccount ?? "").trim();
+  const impersonate = (ctx.impersonate ?? "").trim();
+
+  const store = new KeyringStore(new EncryptedFileBackend(credentialsEncPath()));
+
+  // If --account was passed, use it (could still have --sa for SA mode).
+  if (account !== "") {
+    return {
+      email: account,
+      clientOverride,
+      serviceAccount: sa || undefined,
+      impersonate: impersonate || undefined,
+    };
   }
-  return {
-    email: ctx.account ?? "",
-    clientOverride: ctx.clientOverride ?? "",
-    serviceAccount: sa,
-    impersonate: ctx.impersonate || undefined,
-  };
+
+  // If --sa was passed without --account, use SA as the identity.
+  if (sa !== "") {
+    return {
+      email: sa,
+      clientOverride,
+      serviceAccount: sa,
+      impersonate: impersonate || undefined,
+    };
+  }
+
+  // If --impersonate was passed without --sa, use default service account with impersonation.
+  if (impersonate !== "") {
+    const defaultSa = await store.getDefaultServiceAccount();
+    if (defaultSa && defaultSa !== "") {
+      return {
+        email: defaultSa,
+        clientOverride,
+        serviceAccount: defaultSa,
+        impersonate: impersonate,
+      };
+    }
+    // No default SA configured, fall through to error
+    return { email: "", clientOverride };
+  }
+
+  // Fall back to default user account.
+  const defaultEmail = await store.getDefaultAccount("default");
+  if (defaultEmail && defaultEmail !== "") {
+    return { email: defaultEmail, clientOverride };
+  }
+
+  // Fall back to first available token.
+  const tokens = await store.listTokens();
+  const first = tokens[0];
+  if (first !== undefined) {
+    return { email: first.email, clientOverride };
+  }
+
+  // Fall back to default service account.
+  const defaultSa = await store.getDefaultServiceAccount();
+  if (defaultSa && defaultSa !== "") {
+    return {
+      email: defaultSa,
+      clientOverride,
+      serviceAccount: defaultSa,
+    };
+  }
+
+  return { email: "", clientOverride };
 }

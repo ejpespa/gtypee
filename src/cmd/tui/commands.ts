@@ -1,10 +1,10 @@
 import { Command } from "commander";
 import React from "react";
 import { render } from "ink";
-import { MasterLayoutWrapper } from "./MasterLayout.js";
-import { buildExecutionContext, type RootOptions } from "../execution-context.js";
+import { MasterLayout } from "./MasterLayout.js";
+import { type RootOptions } from "../execution-context.js";
 import { buildWorkspaceReportCommandDeps } from "../workspace/runtime.js";
-import { resolveAuthCommandDeps, resolveDefaultAccount } from "../auth/commands.js";
+import { resolveDefaultAccount } from "../auth/commands.js";
 
 export function registerTuiCommand(root: Command): void {
   root
@@ -12,26 +12,24 @@ export function registerTuiCommand(root: Command): void {
     .description("Launch the interactive gtypee Master Dashboard")
     .action(async function (this: Command) {
       const rootOptions = this.optsWithGlobals() as RootOptions;
-      
-      const authDeps = resolveAuthCommandDeps();
 
-      const workspaceDeps = buildWorkspaceReportCommandDeps({
-         resolveAccount: async () => {
-            const args: any = {};
-            if (rootOptions.account !== undefined) args.account = rootOptions.account;
-            if (rootOptions.client !== undefined) args.clientOverride = rootOptions.client;
-            if (rootOptions.sa !== undefined) args.serviceAccount = rootOptions.sa;
-            if (rootOptions.impersonate !== undefined) args.impersonate = rootOptions.impersonate;
-            return resolveDefaultAccount(args);
-         }
+      const resolved = await resolveDefaultAccount({
+        account: rootOptions.account,
+        clientOverride: rootOptions.client,
+        serviceAccount: rootOptions.sa,
+        impersonate: rootOptions.impersonate,
       });
 
-      process.stdout.write("[2J[3J[H"); // Clean state
-      
+      const reportDeps = buildWorkspaceReportCommandDeps({
+        resolveAccount: async () => resolved,
+      });
+
+      process.stdout.write("\x1b[2J\x1b[3J\x1b[H"); // clear the screen
+
       const { waitUntilExit } = render(
-        React.createElement(MasterLayoutWrapper, { workspaceDeps })
+        React.createElement(MasterLayout, { deps: { reportDeps } })
       );
-      
+
       await waitUntilExit();
     });
 }

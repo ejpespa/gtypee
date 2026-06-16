@@ -12,13 +12,16 @@ export interface DeletedUsersTuiProps {
 export function DeletedUsersTui({ reportDeps, days, searchOpts, onCancel }: DeletedUsersTuiProps) {
   const { exit } = useApp();
   
-  const [users, setUsers] = useState<DeletedUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
+  // pageHistory holds tokens. pageHistory[0] is the initial token.
   const [pageHistory, setPageHistory] = useState<(string | undefined)[]>([searchOpts.pageToken]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [hasNextPage, setNextPageAvailable] = useState(false);
+  
+  // Only caching the CURRENT page of exactly 20 users so it's super lean!
+  const [currentViewUsers, setCurrentViewUsers] = useState<DeletedUser[]>([]);
+  const pageSize = searchOpts.pageSize || 20;
 
   useEffect(() => {
     let isCancelled = false;
@@ -26,23 +29,32 @@ export function DeletedUsersTui({ reportDeps, days, searchOpts, onCancel }: Dele
       setLoading(true);
       setError(null);
       try {
-        const queryOpts: any = { ...searchOpts };
-        if (pageHistory[currentIndex]) { queryOpts.pageToken = pageHistory[currentIndex]; } else { delete queryOpts.pageToken; }
+        let currentToken = pageHistory[currentIndex];
+        
+        const queryOpts: any = { ...searchOpts, pageSize };
+        if (currentToken) { queryOpts.pageToken = currentToken; } else { delete queryOpts.pageToken; }
+        
+        // This will only ask for exactly 20 users from runtime.ts, which correctly handles the offset loops!
         const result = await reportDeps.getDeletedUsers(days, queryOpts);
         
         if (!isCancelled) {
-          setUsers(result.items);
+          setCurrentViewUsers(result.items);
+          
           if (result.nextPageToken) {
-            setNextPageAvailable(true);
             setPageHistory(prev => {
               const next = [...prev];
               next[currentIndex + 1] = result.nextPageToken;
               return next;
             });
           } else {
-            // Even if there's no next page token, if we fetched a full page, 
-            // the user might still legitimately be parsing through the cached page arrays!
-            setNextPageAvailable(false);
+             // Wipe any forward tokens ensuring it terminates cleanly
+             setPageHistory(prev => {
+               const next = [...prev];
+               if (next.length > currentIndex + 1) {
+                 next[currentIndex + 1] = undefined;
+               }
+               return next;
+             });
           }
         }
       } catch (err: any) {
@@ -54,7 +66,10 @@ export function DeletedUsersTui({ reportDeps, days, searchOpts, onCancel }: Dele
     
     fetchPage();
     return () => { isCancelled = true; };
-  }, [currentIndex, days, reportDeps]); // REMOVED pageHistory / searchOpts specifically from deps to prevent infinite re-rendering!
+  }, [currentIndex, days, reportDeps]);
+
+  // If there's a valid token queued in history for the next page, we can go right!
+  const localHasNextPage = pageHistory[currentIndex + 1] !== undefined;
 
   useInput((input, key) => {
     if (input === 'q' || key.escape) {
@@ -64,7 +79,7 @@ export function DeletedUsersTui({ reportDeps, days, searchOpts, onCancel }: Dele
     }
     
     if (!loading) {
-      if ((key.rightArrow || input === ' ') && hasNextPage) {
+      if ((key.rightArrow || input === ' ') && localHasNextPage) {
         setCurrentIndex(prev => prev + 1);
       }
       if (key.leftArrow && currentIndex > 0) {
@@ -83,13 +98,13 @@ export function DeletedUsersTui({ reportDeps, days, searchOpts, onCancel }: Dele
         <Box marginBottom={1}><Text color="red">Error: {error}</Text></Box>
       )}
       
-      {loading && users.length === 0 ? (
+      {loading && currentViewUsers.length === 0 ? (
         <Text color="yellow">Loading records from Google Workspace API...</Text>
-      ) : users.length === 0 ? (
+      ) : currentViewUsers.length === 0 ? (
         <Text color="gray">No deleted users found on this page.</Text>
       ) : (
         <Box flexDirection="column" marginBottom={1}>
-          {users.map((user, i) => {
+          {currentViewUsers.map((user: DeletedUser, i: number) => {
             const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ");
             const namePart = fullName ? ` (${fullName})` : "";
             return (
@@ -107,7 +122,7 @@ export function DeletedUsersTui({ reportDeps, days, searchOpts, onCancel }: Dele
         <Text color="gray">Navigation: </Text>
         <Text color={currentIndex > 0 && !loading ? "green" : "gray"}>[← Prev]</Text>
         <Text color="gray">  </Text>
-        <Text color={hasNextPage && !loading ? "green" : "gray"}>[Next →]</Text>
+        <Text color={localHasNextPage && !loading ? "green" : "gray"}>[Next →]</Text>
         <Text color="gray"> | press 'q' to quit (Page {currentIndex + 1}){loading ? ' | Loading...' : ''}</Text>
       </Box>
     </Box>
