@@ -3,6 +3,7 @@ import { Box, Text, useInput } from 'ink';
 import SelectInput from 'ink-select-input';
 import { DeletedUsersTui } from '../workspace/DeletedUsersTui.js';
 import { CreateUserWizard as WorkspaceUserTui } from '../workspace/CreateUserWizard.js';
+import { WorkspaceDeviceTui } from '../workspace/WorkspaceDeviceTui.js';
 import type { TuiConfigDeps } from './MasterLayout.js';
 
 interface WorkspaceRouterProps {
@@ -15,7 +16,8 @@ export function WorkspaceRouter({ deps, onCancel }: WorkspaceRouterProps) {
 
   const items = [
     { label: 'Deleted Users', value: 'deleted-users' },
-    { label: 'Create User Wizard', value: 'users' }
+    { label: 'Create User Wizard', value: 'users' },
+    { label: 'Device Management', value: 'devices' }
   ];
 
   const handleSelect = (item: { value: string }) => {
@@ -43,6 +45,15 @@ export function WorkspaceRouter({ deps, onCancel }: WorkspaceRouterProps) {
     return (
       <WorkspaceUserTui
         userDeps={deps.userDeps}
+        onCancel={() => setActiveSubMenu(null)}
+      />
+    );
+  }
+
+  if (activeSubMenu === 'devices') {
+    return (
+      <WorkspaceDeviceTui
+        deviceDeps={deps.deviceDeps}
         onCancel={() => setActiveSubMenu(null)}
       />
     );
