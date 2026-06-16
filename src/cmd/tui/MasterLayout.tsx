@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import { Box, Text, useApp, useInput } from 'ink';
 import SelectInput from 'ink-select-input';
 import { WorkspaceRouter } from './WorkspaceRouter.js';
-import type { WorkspaceReportCommandDeps, WorkspaceUserCommandDeps } from '../workspace/commands.js';
+import type { WorkspaceDeviceCommandDeps, WorkspaceReportCommandDeps, WorkspaceUserCommandDeps } from '../workspace/commands.js';
 
 export interface TuiConfigDeps {
   reportDeps: Required<WorkspaceReportCommandDeps>;
   userDeps: Required<WorkspaceUserCommandDeps>;
+  deviceDeps: Required<WorkspaceDeviceCommandDeps>;
 }
 
 interface MasterLayoutProps {
