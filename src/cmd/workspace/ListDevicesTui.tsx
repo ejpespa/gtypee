@@ -202,7 +202,7 @@ export function ListDevicesTui({ deviceDeps, type, onCancel }: ListDevicesTuiPro
   if (actionsDeviceId !== null) {
     return (
       <DeviceActionsTui
-        deviceDeps={deviceDeps as Required<WorkspaceDeviceCommandDeps>}
+        deviceDeps={deviceDeps}
         prefillDeviceId={actionsDeviceId}
         onCancel={() => setActionsDeviceId(null)}
       />
