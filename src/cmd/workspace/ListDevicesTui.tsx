@@ -14,6 +14,7 @@ import { useDetailActions } from '../tui/hooks/useDetailActions.js';
 import { useTuiNavigation } from '../tui/TuiNavigationContext.js';
 import { DeviceActionsTui } from './DeviceActionsTui.js';
 import type { WorkspaceDeviceCommandDeps, Device } from './commands.js';
+import { getLastOrgUnitPath, setLastOrgUnitPath } from './workspaceSessionState.js';
 
 export interface ListDevicesTuiProps {
   deviceDeps: WorkspaceDeviceCommandDeps;
@@ -28,7 +29,7 @@ function formatDeviceLabel(device: Device): string {
 export function ListDevicesTui({ deviceDeps, type, onCancel }: ListDevicesTuiProps) {
   const { setBreadcrumbs, setHelpLines } = useTuiNavigation();
 
-  const [orgUnitDraft, setOrgUnitDraft] = useState('');
+  const [orgUnitDraft, setOrgUnitDraft] = useState(getLastOrgUnitPath);
   const [searchDraft, setSearchDraft] = useState('');
   const [appliedOrgPath, setAppliedOrgPath] = useState<string | undefined>(undefined);
   const [appliedSearch, setAppliedSearch] = useState('');
@@ -93,6 +94,9 @@ export function ListDevicesTui({ deviceDeps, type, onCancel }: ListDevicesTuiPro
   const applyOrgPath = useCallback(() => {
     const trimmed = orgUnitDraft.trim();
     const newPath = trimmed ? normalizeOrgUnitPath(trimmed) : undefined;
+    if (newPath) {
+      setLastOrgUnitPath(newPath);
+    }
     setAppliedOrgPath(newPath);
     setActiveField(null);
   }, [orgUnitDraft]);

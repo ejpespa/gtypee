@@ -63,7 +63,6 @@ export function WorkspaceUserTui({ userDeps, reportDeps, onCancel }: WorkspaceUs
     return (
       <ListUsersTui
         userDeps={userDeps}
-        defaultOrgUnitPath="/Test"
         onCancel={() => setActiveView(null)}
       />
     );

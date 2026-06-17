@@ -15,6 +15,7 @@ import { useDetailActions } from '../tui/hooks/useDetailActions.js';
 import { useTuiNavigation } from '../tui/TuiNavigationContext.js';
 import { UserActionsTui } from './UserActionsTui.js';
 import type { WorkspaceUserCommandDeps, WorkspaceUser } from './commands.js';
+import { getLastOrgUnitPath, setLastOrgUnitPath } from './workspaceSessionState.js';
 
 export interface ListUsersTuiProps {
   userDeps: WorkspaceUserCommandDeps;
@@ -32,7 +33,7 @@ function formatUserLabel(user: WorkspaceUser): string {
 
 export function ListUsersTui({
   userDeps,
-  defaultOrgUnitPath = '/Test',
+  defaultOrgUnitPath = getLastOrgUnitPath(),
   onCancel,
 }: ListUsersTuiProps) {
   const { setBreadcrumbs, setHelpLines } = useTuiNavigation();
@@ -88,7 +89,9 @@ export function ListUsersTui({
   }, [setBreadcrumbs, setHelpLines]);
 
   const applyFilters = useCallback(() => {
-    setAppliedOrgPath(normalizeOrgUnitPath(orgUnitDraft));
+    const normalized = normalizeOrgUnitPath(orgUnitDraft);
+    setLastOrgUnitPath(normalized);
+    setAppliedOrgPath(normalized);
     setAppliedSearch(searchDraft.trim());
     setActiveField(null);
   }, [orgUnitDraft, searchDraft]);
