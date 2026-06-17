@@ -202,6 +202,12 @@ export interface WorkspaceGroupTuiProps {
 export function WorkspaceGroupTui({ groupDeps, onCancel }: WorkspaceGroupTuiProps) {
   const { setBreadcrumbs, setHelpLines } = useTuiNavigation();
   const [activeView, setActiveView] = useState<string | null>(null);
+  const [prefillGroupEmailForMembers, setPrefillGroupEmailForMembers] = useState<string | undefined>(undefined);
+
+  const handleViewMembers = (groupEmail: string) => {
+    setPrefillGroupEmailForMembers(groupEmail);
+    setActiveView('list-group-members');
+  };
 
   useEffect(() => {
     if (activeView === null) {
@@ -243,6 +249,7 @@ export function WorkspaceGroupTui({ groupDeps, onCancel }: WorkspaceGroupTuiProp
     return (
       <ListGroupsTui
         groupDeps={groupDeps}
+        onViewMembers={handleViewMembers}
         onCancel={() => setActiveView(null)}
       />
     );
@@ -252,7 +259,11 @@ export function WorkspaceGroupTui({ groupDeps, onCancel }: WorkspaceGroupTuiProp
     return (
       <ListGroupMembersTui
         groupDeps={groupDeps}
-        onCancel={() => setActiveView(null)}
+        {...(prefillGroupEmailForMembers ? { prefillGroupEmail: prefillGroupEmailForMembers } : {})}
+        onCancel={() => {
+          setPrefillGroupEmailForMembers(undefined);
+          setActiveView(null);
+        }}
       />
     );
   }

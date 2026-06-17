@@ -19,6 +19,7 @@ import type { WorkspaceGroupCommandDeps, GroupMember } from './commands.js';
 
 export interface ListGroupMembersTuiProps {
   groupDeps: WorkspaceGroupCommandDeps;
+  prefillGroupEmail?: string;
   onCancel?: () => void;
 }
 
@@ -32,12 +33,12 @@ function memberId(member: GroupMember): string {
   return `${member.email}::${member.role}`;
 }
 
-export function ListGroupMembersTui({ groupDeps, onCancel }: ListGroupMembersTuiProps) {
+export function ListGroupMembersTui({ groupDeps, prefillGroupEmail, onCancel }: ListGroupMembersTuiProps) {
   const { setBreadcrumbs, setHelpLines } = useTuiNavigation();
 
-  const [step, setStep] = useState<ViewStep>('PICK_GROUP');
-  const [groupEmailInput, setGroupEmailInput] = useState('');
-  const [groupEmail, setGroupEmail] = useState('');
+  const [step, setStep] = useState<ViewStep>(prefillGroupEmail ? 'MEMBERS' : 'PICK_GROUP');
+  const [groupEmailInput, setGroupEmailInput] = useState(prefillGroupEmail ?? '');
+  const [groupEmail, setGroupEmail] = useState(prefillGroupEmail ?? '');
   const [validationError, setValidationError] = useState<string | null>(null);
 
   const [searchDraft, setSearchDraft] = useState('');
