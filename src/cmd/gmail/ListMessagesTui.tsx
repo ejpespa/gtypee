@@ -12,6 +12,7 @@ import { TuiListFooter } from '../tui/TuiListFooter.js';
 import { TuiDetailPanel } from '../tui/TuiDetailPanel.js';
 import type { TuiDetailAction } from '../tui/TuiDetailPanel.js';
 import { textToDetailLines } from '../tui/detail.js';
+import { buildGmailListQuery } from '../tui/gmail-query.js';
 import { formatGmailMessageDetail } from './commands.js';
 import type {
   GmailAttachmentDeps,
@@ -53,6 +54,15 @@ export function ListMessagesTui({
   const [appliedQuery, setAppliedQuery] = useState(defaultQuery);
   const [isEditingQuery, setIsEditingQuery] = useState(false);
 
+  const [fromDraft, setFromDraft] = useState('');
+  const [appliedFrom, setAppliedFrom] = useState('');
+  const [isEditingFrom, setIsEditingFrom] = useState(false);
+
+  const effectiveQuery = useMemo(
+    () => buildGmailListQuery(appliedQuery, appliedFrom),
+    [appliedQuery, appliedFrom],
+  );
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pageHistory, setPageHistory] = useState<(string | undefined)[]>([undefined]);
@@ -77,13 +87,23 @@ export function ListMessagesTui({
     setActionBusy(false);
   }, []);
 
-  const applyQuery = useCallback(() => {
-    setAppliedQuery(queryDraft.trim());
+  const resetPages = useCallback(() => {
     setPageHistory([undefined]);
     setCurrentIndex(0);
     setPageCache({});
+  }, []);
+
+  const applyQuery = useCallback(() => {
+    setAppliedQuery(queryDraft.trim());
+    resetPages();
     setIsEditingQuery(false);
-  }, [queryDraft]);
+  }, [queryDraft, resetPages]);
+
+  const applyFrom = useCallback(() => {
+    setAppliedFrom(fromDraft.trim());
+    resetPages();
+    setIsEditingFrom(false);
+  }, [fromDraft, resetPages]);
 
   useEffect(() => {
     if (pageCache[currentIndex]) return;
@@ -97,7 +117,7 @@ export function ListMessagesTui({
           throw new Error('listMessages dependency function is not provided.');
         }
         const currentToken = pageHistory[currentIndex];
-        const result = await gmailDeps.listMessages(appliedQuery || undefined, {
+        const result = await gmailDeps.listMessages(effectiveQuery || undefined, {
           pageSize: DEFAULT_TUI_PAGE_SIZE,
           ...(currentToken !== undefined ? { pageToken: currentToken } : {}),
         });
@@ -116,7 +136,7 @@ export function ListMessagesTui({
 
     void fetchPage();
     return () => { cancelled = true; };
-  }, [currentIndex, gmailDeps, pageCache, pageHistory, appliedQuery]);
+  }, [currentIndex, gmailDeps, pageCache, pageHistory, effectiveQuery]);
 
   const localHasNextPage = hasNextTokenPage(pageHistory, currentIndex);
   const currentMessages = pageCache[currentIndex] ?? [];
@@ -216,10 +236,16 @@ export function ListMessagesTui({
   useInput((input, key) => {
     if (inDetail) return;
 
-    if (isEditingQuery) {
+    if (isEditingQuery || isEditingFrom) {
       if (key.escape) {
-        setQueryDraft(appliedQuery);
-        setIsEditingQuery(false);
+        if (isEditingQuery) {
+          setQueryDraft(appliedQuery);
+          setIsEditingQuery(false);
+        }
+        if (isEditingFrom) {
+          setFromDraft(appliedFrom);
+          setIsEditingFrom(false);
+        }
       }
       return;
     }
@@ -231,6 +257,11 @@ export function ListMessagesTui({
 
     if (input === '/' || input === 's') {
       setIsEditingQuery(true);
+      return;
+    }
+
+    if (input === 'f') {
+      setIsEditingFrom(true);
       return;
     }
 
@@ -264,7 +295,7 @@ export function ListMessagesTui({
         </Text>
         <Text>
           <Text color="gray">Query: </Text>
-          <Text color="green">{appliedQuery || '(none)'}</Text>
+          <Text color="green">{effectiveQuery || '(none)'}</Text>
         </Text>
       </Box>
 
@@ -273,7 +304,27 @@ export function ListMessagesTui({
         {isEditingQuery ? (
           <TextInput value={queryDraft} onChange={setQueryDraft} onSubmit={applyQuery} />
         ) : (
-          <Text color="gray">press / or s to edit · Enter to apply</Text>
+          <>
+            <Text color="green">{appliedQuery || '(none)'}</Text>
+            <Text color="gray"> · / or s to edit</Text>
+          </>
+        )}
+      </Box>
+
+      <Box marginBottom={1}>
+        <Text color={isEditingFrom ? 'cyan' : 'gray'}>From: </Text>
+        {isEditingFrom ? (
+          <TextInput
+            value={fromDraft}
+            onChange={setFromDraft}
+            onSubmit={applyFrom}
+            placeholder="sample@adssu.edu.ph"
+          />
+        ) : (
+          <>
+            <Text color="green">{appliedFrom || '(any)'}</Text>
+            <Text color="gray"> · f to filter by sender · Enter to apply</Text>
+          </>
         )}
       </Box>
 
