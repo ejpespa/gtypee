@@ -37,6 +37,7 @@ export function WorkspaceRouter({ deps, onCancel }: WorkspaceRouterProps) {
     return (
       <DeletedUsersTui
         reportDeps={deps.reportDeps}
+        userDeps={deps.userDeps}
         days={30}
         searchOpts={{}}
         onCancel={() => setActiveSubMenu(null)}

@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput, useApp } from 'ink';
-import type { WorkspaceReportCommandDeps, DeletedUser, DeletedUserOptions } from './commands.js';
+import type { WorkspaceReportCommandDeps, DeletedUser, DeletedUserOptions, WorkspaceUserCommandDeps } from './commands.js';
 
 export interface DeletedUsersTuiProps {
   reportDeps: Required<WorkspaceReportCommandDeps>;
+  userDeps: Required<WorkspaceUserCommandDeps>;
   days: number;
   searchOpts: DeletedUserOptions;
   onCancel?: () => void;
 }
 
-export function DeletedUsersTui({ reportDeps, days, searchOpts, onCancel }: DeletedUsersTuiProps) {
+export function DeletedUsersTui({ reportDeps, userDeps, days, searchOpts, onCancel }: DeletedUsersTuiProps) {
   const { exit } = useApp();
   
   const [loading, setLoading] = useState(true);
