@@ -43,15 +43,7 @@ import {
   type UpdateOrgUnitResult,
   type DeleteOrgUnitResult,
 } from "./commands.js";
-
-function generatePassword(length = 8): string {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
-  let password = "";
-  for (let i = 0; i < length; i++) {
-    password += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return password;
-}
+import { generatePassword } from "./password.js";
 
 export function buildWorkspaceUserCommandDeps(options: ServiceRuntimeOptions): Required<WorkspaceUserCommandDeps> {
   const runtime = new ServiceRuntime(options);
@@ -83,7 +75,7 @@ export function buildWorkspaceUserCommandDeps(options: ServiceRuntimeOptions): R
       const items: WorkspaceUser[] = [];
 
       for (const user of users) {
-        items.push({
+        const item: WorkspaceUser = {
           id: user.id ?? "",
           primaryEmail: user.primaryEmail ?? "",
           name: {
@@ -93,7 +85,11 @@ export function buildWorkspaceUserCommandDeps(options: ServiceRuntimeOptions): R
           suspended: user.suspended ?? false,
           orgUnitPath: user.orgUnitPath ?? "/",
           isAdmin: user.isAdmin ?? false,
-        });
+        };
+        if (user.lastLoginTime) {
+          item.lastLoginTime = user.lastLoginTime;
+        }
+        items.push(item);
       }
 
       const result: { items: WorkspaceUser[]; nextPageToken?: string } = { items };
@@ -109,7 +105,7 @@ export function buildWorkspaceUserCommandDeps(options: ServiceRuntimeOptions): R
       const auth = await runtime.getClient(scopes("workspace"));
       const admin = google.admin({ version: "directory_v1", auth });
 
-      const password = input.password ?? generatePassword(8);
+      const password = input.password ?? generatePassword();
 
       try {
         const response = await admin.users.insert({
@@ -229,7 +225,7 @@ export function buildWorkspaceUserCommandDeps(options: ServiceRuntimeOptions): R
       const auth = await runtime.getClient(scopes("workspace"));
       const admin = google.admin({ version: "directory_v1", auth });
 
-      const newPassword = password ?? generatePassword(8);
+      const newPassword = password ?? generatePassword();
 
       try {
         await admin.users.update({
@@ -363,9 +359,9 @@ export function buildWorkspaceUserCommandDeps(options: ServiceRuntimeOptions): R
         
         const codes = response.data.items ?? [];
         return { email, codes: codes.map((c) => c.verificationCode ?? ""), applied: true };
-      } catch (err) {
-        console.error("generateBackupCodes error:", err);
-        return { email, codes: [], applied: false };
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : "Failed to generate backup codes";
+        return { email, codes: [], applied: false, error: message };
       }
     },
 

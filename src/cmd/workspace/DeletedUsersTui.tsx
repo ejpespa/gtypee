@@ -213,7 +213,8 @@ export function DeletedUsersTui({
           <SelectInput
             items={currentViewUsers.map((u) => {
               const fullName = [u.firstName, u.lastName].filter(Boolean).join(' ');
-              const label = `${u.userEmail} ${fullName ? `(${fullName})` : ''} - deleted ${u.deletionTime}`;
+              const namePart = fullName ? ` · ${fullName}` : '';
+              const label = `ID: ${u.userEmail}${namePart} · deleted ${u.deletionTime}`;
               return { label, value: u.userEmail };
             })}
             onSelect={handleSelectUser}

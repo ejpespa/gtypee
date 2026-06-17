@@ -5,16 +5,17 @@ import type { WorkspaceUserCommandDeps, SuspendUserResult } from './commands.js'
 
 export interface SuspendUserWizardProps {
   userDeps: WorkspaceUserCommandDeps;
+  prefillEmail?: string;
   onCancel?: () => void;
 }
 
 type Step = 'EMAIL' | 'CONFIRM' | 'SUBMITTING' | 'DONE';
 
-export function SuspendUserWizard({ userDeps, onCancel }: SuspendUserWizardProps) {
-  const [step, setStep] = useState<Step>('EMAIL');
+export function SuspendUserWizard({ userDeps, prefillEmail, onCancel }: SuspendUserWizardProps) {
+  const [step, setStep] = useState<Step>(prefillEmail ? 'CONFIRM' : 'EMAIL');
 
-  const [email, setEmail] = useState('');
-  const [emailInput, setEmailInput] = useState('');
+  const [email, setEmail] = useState(prefillEmail ?? '');
+  const [emailInput, setEmailInput] = useState(prefillEmail ?? '');
 
   const [validationError, setValidationError] = useState<string | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);

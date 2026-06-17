@@ -1,55 +1,65 @@
 import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import TextInput from 'ink-text-input';
-import type { WorkspaceUserCommandDeps, UnsuspendUserResult } from './commands.js';
+import { copyToClipboard } from '../tui/systemActions.js';
+import type { WorkspaceUserCommandDeps, ResetPasswordResult } from './commands.js';
 
-export interface UnsuspendUserWizardProps {
-  userDeps: WorkspaceUserCommandDeps;
+export interface ResetPasswordWizardProps {
+  userDeps: Required<WorkspaceUserCommandDeps>;
   prefillEmail?: string;
   onCancel?: () => void;
 }
 
 type Step = 'EMAIL' | 'CONFIRM' | 'SUBMITTING' | 'DONE';
 
-export function UnsuspendUserWizard({ userDeps, prefillEmail, onCancel }: UnsuspendUserWizardProps) {
+export function ResetPasswordWizard({ userDeps, prefillEmail, onCancel }: ResetPasswordWizardProps) {
   const [step, setStep] = useState<Step>(prefillEmail ? 'CONFIRM' : 'EMAIL');
-
   const [email, setEmail] = useState(prefillEmail ?? '');
   const [emailInput, setEmailInput] = useState(prefillEmail ?? '');
-
   const [validationError, setValidationError] = useState<string | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
-  const [result, setResult] = useState<UnsuspendUserResult | null>(null);
+  const [result, setResult] = useState<ResetPasswordResult | null>(null);
+  const [copyStatus, setCopyStatus] = useState<string | null>(null);
 
   const handleConfirm = async () => {
     setStep('SUBMITTING');
     setApiError(null);
     try {
-      if (!userDeps.unsuspendUser) {
-        throw new Error('unsuspendUser dependency function is not provided.');
-      }
-      const res = await userDeps.unsuspendUser(email);
-      if (res.applied) {
+      const res = await userDeps.resetPassword(email);
+      if (res.applied && res.newPassword) {
         setResult(res);
         setStep('DONE');
       } else {
-        throw new Error('User unsuspension was not applied (failed).');
+        throw new Error('Password reset was not applied.');
       }
-    } catch (err: any) {
-      setApiError(err.message || 'An error occurred while unsuspending the user.');
+    } catch (err: unknown) {
+      setApiError(err instanceof Error ? err.message : 'An error occurred while resetting the password.');
       setStep('CONFIRM');
     }
   };
 
   useInput((input, key) => {
-    if (key.escape) {
-      onCancel?.();
+    if (step === 'DONE') {
+      if (input === 'c' && result?.newPassword) {
+        void copyToClipboard(result.newPassword).then(() => {
+          setCopyStatus('Password copied to clipboard.');
+        }).catch(() => {
+          setCopyStatus('Failed to copy password.');
+        });
+      }
+      if (key.escape) {
+        onCancel?.();
+      }
+      return;
     }
 
-    if (step === 'CONFIRM') {
-      if (input.toLowerCase() === 'y') {
-        handleConfirm();
-      }
+    if (key.escape) {
+      onCancel?.();
+      return;
+    }
+
+    if (step === 'CONFIRM' && input.toLowerCase() === 'y') {
+      void handleConfirm();
     }
   });
 
@@ -71,7 +81,7 @@ export function UnsuspendUserWizard({ userDeps, prefillEmail, onCancel }: Unsusp
   return (
     <Box flexDirection="column" padding={1} borderStyle="round" borderColor="blue">
       <Box marginBottom={1}>
-        <Text bold color="cyan">Workspace Admin: Unsuspend User Wizard</Text>
+        <Text bold color="cyan">Workspace Admin: Reset Password</Text>
       </Box>
 
       {step !== 'EMAIL' && (
@@ -92,9 +102,7 @@ export function UnsuspendUserWizard({ userDeps, prefillEmail, onCancel }: Unsusp
               focus
             />
           </Box>
-          {validationError && (
-            <Text color="red">{validationError}</Text>
-          )}
+          {validationError && <Text color="red">{validationError}</Text>}
         </Box>
       )}
 
@@ -105,31 +113,33 @@ export function UnsuspendUserWizard({ userDeps, prefillEmail, onCancel }: Unsusp
               <Text color="red">Error: {apiError}</Text>
             </Box>
           )}
-          <Box flexDirection="column">
-            <Text bold color="yellow">Please confirm unsuspension of the user above.</Text>
-            <Text color="white">Press <Text bold color="green">'y'</Text> to unsuspend the user, or <Text bold color="red">ESC</Text> to cancel.</Text>
-          </Box>
+          <Text bold color="yellow">Reset password for this user?</Text>
+          <Text color="gray">A new 16-character password will be generated.</Text>
+          <Text color="white">Press <Text bold color="green">y</Text> to confirm, or <Text bold color="red">ESC</Text> to cancel.</Text>
         </Box>
       )}
 
       {step === 'SUBMITTING' && (
         <Box marginTop={1}>
-          <Text color="yellow">Unsuspending user in Google Workspace...</Text>
+          <Text color="yellow">Resetting password via Google Workspace API...</Text>
         </Box>
       )}
 
-      {step === 'DONE' && (
+      {step === 'DONE' && result && (
         <Box flexDirection="column" marginTop={1}>
-          <Text color="green" bold>User unsuspended successfully!</Text>
-          {result && (
-            <Box flexDirection="column" marginTop={1}>
-              <Text>Email: <Text color="cyan">{result.email}</Text></Text>
-              <Text>Suspended: <Text color="cyan">{result.suspended ? 'yes' : 'no'}</Text></Text>
+          <Text color="green" bold>Password reset successfully!</Text>
+          <Box flexDirection="column" marginTop={1}>
+            <Text>Email: <Text color="cyan">{result.email}</Text></Text>
+            <Text>New password: <Text color="yellow">{result.newPassword}</Text></Text>
+          </Box>
+          <Box marginTop={1}>
+            <Text color="gray">Save this password — it will not be shown again. Press c to copy · ESC to exit.</Text>
+          </Box>
+          {copyStatus && (
+            <Box marginTop={1}>
+              <Text color="green">{copyStatus}</Text>
             </Box>
           )}
-          <Box marginTop={1}>
-            <Text color="gray">Press ESC to exit.</Text>
-          </Box>
         </Box>
       )}
 

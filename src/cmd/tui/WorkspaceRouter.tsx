@@ -49,6 +49,7 @@ export function WorkspaceRouter({ deps, onCancel }: WorkspaceRouterProps) {
     return (
       <WorkspaceUserTui
         userDeps={deps.userDeps}
+        reportDeps={deps.reportDeps}
         onCancel={() => setActiveSubMenu(null)}
       />
     );

@@ -1,18 +1,33 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import TextInput from 'ink-text-input';
-import { DEFAULT_TUI_PAGE_SIZE, shouldHandlePaginationKey } from '../tui/pagination.js';
+import { DEFAULT_TUI_PAGE_SIZE } from '../tui/pagination.js';
 import { filterWorkspaceUsersByQuery, normalizeOrgUnitPath } from '../tui/search.js';
 import { TuiSearchControls } from '../tui/TuiSearchControls.js';
-import { TuiListFooter } from '../tui/TuiListFooter.js';
+import { TuiDetailPanel } from '../tui/TuiDetailPanel.js';
+import type { TuiDetailAction } from '../tui/TuiDetailPanel.js';
+import { TuiListScreen } from '../tui/TuiListScreen.js';
+import { adminUserUrl } from '../tui/resourceLinks.js';
+import { copyToClipboard, openInBrowser } from '../tui/systemActions.js';
 import { usePaginatedList } from '../tui/hooks/usePaginatedList.js';
+import { useDetailView } from '../tui/hooks/useDetailView.js';
+import { useDetailActions } from '../tui/hooks/useDetailActions.js';
 import { useTuiNavigation } from '../tui/TuiNavigationContext.js';
+import { UserActionsTui } from './UserActionsTui.js';
 import type { WorkspaceUserCommandDeps, WorkspaceUser } from './commands.js';
 
 export interface ListUsersTuiProps {
   userDeps: WorkspaceUserCommandDeps;
   defaultOrgUnitPath?: string;
   onCancel?: () => void;
+}
+
+function formatUserLabel(user: WorkspaceUser): string {
+  const adminTag = user.isAdmin ? ' [ADMIN]' : '';
+  const susTag = user.suspended ? ' [SUSPENDED]' : '';
+  const fullName = [user.name.givenName, user.name.familyName].filter(Boolean).join(' ');
+  const namePart = fullName ? ` — ${fullName}` : '';
+  return `${user.primaryEmail}${adminTag}${susTag}${namePart}`;
 }
 
 export function ListUsersTui({
@@ -27,6 +42,8 @@ export function ListUsersTui({
   const [appliedOrgPath, setAppliedOrgPath] = useState(normalizeOrgUnitPath(defaultOrgUnitPath));
   const [appliedSearch, setAppliedSearch] = useState('');
   const [activeField, setActiveField] = useState<'org' | 'search' | null>(null);
+  const [selectedUser, setSelectedUser] = useState<WorkspaceUser | null>(null);
+  const [actionsEmail, setActionsEmail] = useState<string | null>(null);
 
   const fetchPage = useCallback(
     async (pageToken: string | undefined) => {
@@ -54,12 +71,16 @@ export function ListUsersTui({
     queryKey: appliedOrgPath,
   });
 
+  const detail = useDetailView();
+  const actions = useDetailActions();
+
   useEffect(() => {
     setBreadcrumbs(['Workspace', 'Users']);
     setHelpLines([
       'f or / — edit org unit',
       's — search current page',
       'r — refresh list',
+      'Enter — view user',
       'Tab — switch field while editing',
       '←/→ or Space — paginate',
       'ESC — back',
@@ -74,7 +95,86 @@ export function ListUsersTui({
 
   const visibleUsers = filterWorkspaceUsersByQuery(rawUsers, appliedSearch);
 
+  const clearDetail = useCallback(() => {
+    detail.clear();
+    actions.resetStatus();
+    setSelectedUser(null);
+  }, [actions, detail]);
+
+  const openUserActions = useCallback((email: string) => {
+    clearDetail();
+    setActionsEmail(email);
+  }, [clearDetail]);
+
+  const handleSelectUser = useCallback(async (userId: string) => {
+    const user = visibleUsers.find((u) => u.id === userId);
+    if (!user) return;
+
+    actions.resetStatus();
+    setSelectedUser(user);
+
+    await detail.open({
+      title: user.primaryEmail,
+      load: async () => {
+        const fullName = [user.name.givenName, user.name.familyName].filter(Boolean).join(' ') || '(none)';
+        const aliases = userDeps.listAliases
+          ? await userDeps.listAliases(user.primaryEmail).catch(() => [])
+          : [];
+        const aliasLine = aliases.length > 0 ? aliases.join(', ') : '(none)';
+
+        return [
+          `Email: ${user.primaryEmail}`,
+          `Name: ${fullName}`,
+          `Org unit: ${user.orgUnitPath}`,
+          `Admin: ${user.isAdmin ? 'yes' : 'no'}`,
+          `Suspended: ${user.suspended ? 'yes' : 'no'}`,
+          `Last login: ${user.lastLoginTime ?? 'unknown'}`,
+          `User ID: ${user.id}`,
+          `Aliases: ${aliasLine}`,
+        ];
+      },
+    });
+  }, [actions, detail, userDeps, visibleUsers]);
+
+  const detailPanelActions = useMemo((): TuiDetailAction[] => {
+    if (!selectedUser) return [];
+
+    const userKey = selectedUser.id || selectedUser.primaryEmail;
+
+    return [
+      {
+        key: 'o',
+        label: 'open in Admin',
+        onAction: () => actions.runAction(async () => {
+          await openInBrowser(adminUserUrl(userKey));
+          return 'Opened in Admin Console';
+        }),
+      },
+      {
+        key: 'c',
+        label: 'copy email',
+        onAction: () => actions.runAction(async () => {
+          await copyToClipboard(selectedUser.primaryEmail);
+          return `Copied email: ${selectedUser.primaryEmail}`;
+        }),
+      },
+      {
+        key: 'a',
+        label: 'user actions',
+        onAction: () => actions.runAction(async () => {
+          openUserActions(selectedUser.primaryEmail);
+          return `Opening actions for ${selectedUser.primaryEmail}`;
+        }),
+      },
+    ];
+  }, [actions, openUserActions, selectedUser]);
+
+  const editing = activeField !== null;
+  const blocked = editing || detail.isOpen;
+
   useInput((input, key) => {
+    if (actionsEmail !== null || detail.isOpen) return;
+
     if (activeField !== null) {
       if (key.escape) {
         setActiveField(null);
@@ -91,11 +191,6 @@ export function ListUsersTui({
       return;
     }
 
-    if (input === 'r') {
-      refresh();
-      return;
-    }
-
     if (input === 'f' || input === '/') {
       setActiveField('org');
       return;
@@ -103,87 +198,83 @@ export function ListUsersTui({
 
     if (input === 's') {
       setActiveField('search');
-      return;
     }
-
-    if (loading) return;
-
-    const action = shouldHandlePaginationKey(input, key, false);
-    if (action === 'next' && hasNextPage) setCurrentIndex((i) => i + 1);
-    if (action === 'prev' && currentIndex > 0) setCurrentIndex((i) => i - 1);
   });
 
-  return (
-    <Box flexDirection="column" flexGrow={1}>
-      <Box flexShrink={0} marginBottom={1}>
-        <Text bold color="cyan">
-          Users in org {appliedOrgPath} (page {currentIndex + 1})
-        </Text>
-      </Box>
+  if (actionsEmail !== null) {
+    return (
+      <UserActionsTui
+        userDeps={userDeps as Required<WorkspaceUserCommandDeps>}
+        prefillEmail={actionsEmail}
+        onCancel={() => setActionsEmail(null)}
+      />
+    );
+  }
 
-      <Box flexDirection="column" flexShrink={0} marginBottom={1}>
-        <Box>
-          <Text color={activeField === 'org' ? 'cyan' : 'gray'}>Org unit: </Text>
-          {activeField === 'org' ? (
-            <TextInput
-              value={orgUnitDraft}
-              onChange={setOrgUnitDraft}
-              onSubmit={applyFilters}
-            />
-          ) : (
-            <Text color="green">{orgUnitDraft || '/'}</Text>
-          )}
-        </Box>
-        <TuiSearchControls
-          appliedSearch={appliedSearch}
-          searchDraft={searchDraft}
-          isEditing={activeField === 'search'}
-          onDraftChange={setSearchDraft}
-          onSubmit={applyFilters}
-          hint="f or / = org unit · s = search · Enter applies · Tab switches field · ESC cancels edit · filters current page"
-        />
-      </Box>
+  if (detail.isOpen) {
+    return (
+      <TuiDetailPanel
+        title={detail.title ?? 'User'}
+        lines={detail.lines}
+        loading={detail.loading}
+        error={detail.error}
+        onBack={clearDetail}
+        actions={detailPanelActions}
+        actionStatus={actions.actionStatus}
+        actionBusy={actions.actionBusy}
+      />
+    );
+  }
 
-      <Box flexDirection="column" flexGrow={1} marginBottom={1}>
-        {error ? (
-          <Text color="red">Error: {error}</Text>
-        ) : loading && rawUsers.length === 0 ? (
-          <Text color="yellow">Loading users from Google Workspace API...</Text>
-        ) : rawUsers.length === 0 ? (
-          <Text color="gray">No users found for {appliedOrgPath} on this page.</Text>
-        ) : visibleUsers.length === 0 ? (
-          <Text color="gray">
-            No users match &quot;{appliedSearch}&quot; on this page. Try Next → or clear search.
-          </Text>
+  const filterSlot = (
+    <Box flexDirection="column" flexShrink={0} marginBottom={1}>
+      <Box>
+        <Text color={activeField === 'org' ? 'cyan' : 'gray'}>Org unit: </Text>
+        {activeField === 'org' ? (
+          <TextInput
+            value={orgUnitDraft}
+            onChange={setOrgUnitDraft}
+            onSubmit={applyFilters}
+          />
         ) : (
-          visibleUsers.map((user) => (
-            <UserRow key={user.id} user={user} />
-          ))
+          <Text color="green">{orgUnitDraft || '/'}</Text>
         )}
       </Box>
-
-      <TuiListFooter
-        currentIndex={currentIndex}
-        hasNextPage={hasNextPage}
-        loading={loading}
-        backHint="r refresh · ESC to return"
+      <TuiSearchControls
+        appliedSearch={appliedSearch}
+        searchDraft={searchDraft}
+        isEditing={activeField === 'search'}
+        onDraftChange={setSearchDraft}
+        onSubmit={applyFilters}
+        hint="f or / = org unit · s = search · Enter applies · Tab switches field · ESC cancels edit · filters current page"
       />
     </Box>
   );
-}
 
-function UserRow({ user }: { user: WorkspaceUser }) {
-  const adminTag = user.isAdmin ? ' [ADMIN]' : '';
-  const susTag = user.suspended ? ' [SUSPENDED]' : '';
-  const fullName = [user.name.givenName, user.name.familyName].filter(Boolean).join(' ');
+  const emptyMessage = visibleUsers.length === 0 && rawUsers.length > 0 && appliedSearch
+    ? `No users match "${appliedSearch}" on this page. Try Next → or clear search.`
+    : `No users found for ${appliedOrgPath} on this page.`;
 
   return (
-    <Box marginBottom={0}>
-      <Text wrap="wrap">
-        <Text color="green">{user.primaryEmail}</Text>
-        {adminTag || susTag ? <Text color="yellow">{adminTag}{susTag}</Text> : null}
-        {fullName ? <Text color="gray"> — {fullName}</Text> : null}
-      </Text>
-    </Box>
+    <TuiListScreen
+      title={`Users in org ${appliedOrgPath}`}
+      pageLabel={`Page ${currentIndex + 1}`}
+      items={visibleUsers}
+      loading={loading}
+      error={error}
+      hasNextPage={hasNextPage}
+      currentIndex={currentIndex}
+      onSelect={handleSelectUser}
+      formatLabel={formatUserLabel}
+      getId={(user) => user.id}
+      filterSlot={filterSlot}
+      emptyMessage={emptyMessage}
+      onPagination={(action) => {
+        if (action === 'next' && hasNextPage) setCurrentIndex((i) => i + 1);
+        if (action === 'prev' && currentIndex > 0) setCurrentIndex((i) => i - 1);
+      }}
+      onRefresh={refresh}
+      blocked={blocked}
+    />
   );
 }

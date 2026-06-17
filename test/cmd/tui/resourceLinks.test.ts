@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  adminUserUrl,
   driveFileUrl,
   gmailMessageUrl,
   googleDocUrl,
@@ -21,5 +22,11 @@ describe('resourceLinks', () => {
 
   it('builds Sheets URL', () => {
     expect(googleSheetUrl('sheet-id')).toContain('sheet-id');
+  });
+
+  it('builds Admin user URL', () => {
+    expect(adminUserUrl('user@example.com')).toBe(
+      'https://admin.google.com/ac/users/user%40example.com',
+    );
   });
 });

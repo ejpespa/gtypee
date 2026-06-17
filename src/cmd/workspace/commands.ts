@@ -2,6 +2,7 @@ import { Command } from "commander";
 
 import { buildExecutionContext, stderr, type RootOptions } from "../execution-context.js";
 import type { PaginatedResult, PaginationOptions } from "../../types/pagination.js";
+import { generatePassword } from "./password.js";
 
 export type WorkspaceUserCommandDeps = {
   listUsers?: (orgUnitPath?: string, options?: PaginationOptions) => Promise<PaginatedResult<WorkspaceUser>>;
@@ -118,6 +119,7 @@ export type BackupCodesResult = {
   email: string;
   codes: string[];
   applied: boolean;
+  error?: string;
 };
 
 export type RecoverUserResult = {
@@ -354,15 +356,6 @@ function fixOrgUnitPath(path: string | undefined): string | undefined {
   return path;
 }
 
-function generatePassword(length = 8): string {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
-  let password = "";
-  for (let i = 0; i < length; i++) {
-    password += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return password;
-}
-
 export function registerWorkspaceCommands(
   workspaceCommand: Command,
   deps: WorkspaceUserCommandDeps & WorkspaceGroupCommandDeps & WorkspaceDeviceCommandDeps & WorkspaceReportCommandDeps & WorkspaceOrgUnitCommandDeps = {},
@@ -472,7 +465,7 @@ export function registerWorkspaceCommands(
         admin: boolean;
       }>();
 
-      const password = opts.password ?? generatePassword(8);
+      const password = opts.password ?? generatePassword();
       const groups = opts.groups ? opts.groups.split(",").map((g) => g.trim()) : [];
 
       const result = await userDeps.createUser({
@@ -795,7 +788,8 @@ export function registerWorkspaceCommands(
         }
         process.stdout.write("\nSave these codes - they will not be shown again!\n");
       } else {
-        process.stdout.write("Failed to generate backup codes\n");
+        process.stdout.write(result.error ?? "Failed to generate backup codes\n");
+        if (result.error) process.stdout.write("\n");
       }
     });
 

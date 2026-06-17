@@ -29,3 +29,7 @@ export function googleFormUrl(formId: string): string {
 export function calendarEventUrl(eventId: string): string {
   return `https://calendar.google.com/calendar/event?eid=${encodeURIComponent(eventId)}`;
 }
+
+export function adminUserUrl(userKey: string): string {
+  return `https://admin.google.com/ac/users/${encodeURIComponent(userKey)}`;
+}
