@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { Box, Text, useApp, useInput } from 'ink';
+import { Box, Text, useApp, useInput, useStdout } from 'ink';
 import SelectInput from 'ink-select-input';
 import { WorkspaceRouter } from './WorkspaceRouter.js';
+import { GmailRouter } from './GmailRouter.js';
 import type { WorkspaceDeviceCommandDeps, WorkspaceReportCommandDeps, WorkspaceUserCommandDeps, WorkspaceGroupCommandDeps, WorkspaceOrgUnitCommandDeps } from '../workspace/commands.js';
+import type { GmailCommandDeps } from '../gmail/commands.js';
 
 export interface TuiConfigDeps {
   reportDeps: Required<WorkspaceReportCommandDeps>;
@@ -10,6 +12,7 @@ export interface TuiConfigDeps {
   deviceDeps: Required<WorkspaceDeviceCommandDeps>;
   groupDeps: Required<WorkspaceGroupCommandDeps>;
   orgDeps: Required<WorkspaceOrgUnitCommandDeps>;
+  gmailDeps: Required<GmailCommandDeps>;
 }
 
 interface MasterLayoutProps {
@@ -25,6 +28,8 @@ const items = [
 
 export function MasterLayout({ deps }: MasterLayoutProps) {
   const { exit } = useApp();
+  const { stdout } = useStdout();
+  const terminalHeight = stdout.rows > 0 ? stdout.rows : 24;
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
 
   useInput((input, key) => {
@@ -35,7 +40,7 @@ export function MasterLayout({ deps }: MasterLayoutProps) {
     }
 
     // Sub-menu exit (Back to main layout) for placeholders
-    if (activeMenu !== null && activeMenu !== 'workspace' && key.escape) {
+    if (activeMenu !== null && activeMenu !== 'workspace' && activeMenu !== 'gmail' && key.escape) {
       handleBack();
       return;
     }
@@ -50,7 +55,7 @@ export function MasterLayout({ deps }: MasterLayoutProps) {
   };
 
   return (
-    <Box flexDirection="row" width="100%" height={20}>
+    <Box flexDirection="row" width="100%" height={terminalHeight}>
       <Box
         flexDirection="column"
         width={30}
@@ -77,7 +82,7 @@ export function MasterLayout({ deps }: MasterLayoutProps) {
         )}
       </Box>
 
-      <Box flexDirection="column" flexGrow={1} borderStyle="round" borderColor="blue" padding={1}>
+      <Box flexDirection="column" flexGrow={1} height="100%" borderStyle="round" borderColor="blue" padding={1}>
         {activeMenu === null && (
           <Box justifyContent="center" alignItems="center" flexGrow={1}>
             <Text>Select a service from the sidebar</Text>
@@ -93,7 +98,16 @@ export function MasterLayout({ deps }: MasterLayoutProps) {
           </Box>
         )}
 
-        {activeMenu !== null && activeMenu !== 'workspace' && (
+        {activeMenu === 'gmail' && (
+          <Box flexDirection="column" width="100%">
+             <GmailRouter
+               deps={deps.gmailDeps}
+               onCancel={handleBack}
+             />
+          </Box>
+        )}
+
+        {activeMenu !== null && activeMenu !== 'workspace' && activeMenu !== 'gmail' && (
           <Box justifyContent="center" alignItems="center" flexGrow={1}>
             <Text color="yellow">Module '{activeMenu}' coming soon...</Text>
             <Box marginTop={2}><Text color="gray">Press ESC to return</Text></Box>
