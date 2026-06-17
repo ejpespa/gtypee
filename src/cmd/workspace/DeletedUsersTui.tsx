@@ -1,15 +1,15 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Box, Text, useInput, useApp } from 'ink';
-import SelectInput from 'ink-select-input';
 import TextInput from 'ink-text-input';
-import {
-  DEFAULT_TUI_PAGE_SIZE,
-  mergeNextPageToken,
-  hasNextTokenPage,
-  shouldHandlePaginationKey,
-} from '../tui/pagination.js';
+import { DEFAULT_TUI_PAGE_SIZE } from '../tui/pagination.js';
 import { TuiSearchControls } from '../tui/TuiSearchControls.js';
-import { TuiListFooter } from '../tui/TuiListFooter.js';
+import { TuiDetailPanel } from '../tui/TuiDetailPanel.js';
+import type { TuiDetailAction } from '../tui/TuiDetailPanel.js';
+import { TuiListScreen } from '../tui/TuiListScreen.js';
+import { copyToClipboard } from '../tui/systemActions.js';
+import { usePaginatedList } from '../tui/hooks/usePaginatedList.js';
+import { useDetailView } from '../tui/hooks/useDetailView.js';
+import { useDetailActions } from '../tui/hooks/useDetailActions.js';
 import type { WorkspaceReportCommandDeps, DeletedUser, DeletedUserOptions, WorkspaceUserCommandDeps } from './commands.js';
 
 export interface DeletedUsersTuiProps {
@@ -18,6 +18,12 @@ export interface DeletedUsersTuiProps {
   days: number;
   searchOpts?: DeletedUserOptions;
   onCancel?: () => void;
+}
+
+function formatDeletedUserLabel(user: DeletedUser): string {
+  const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ');
+  const namePart = fullName ? ` · ${fullName}` : '';
+  return `${user.userEmail}${namePart} · deleted ${user.deletionTime}`;
 }
 
 export function DeletedUsersTui({
@@ -33,11 +39,7 @@ export function DeletedUsersTui({
   const [appliedSearch, setAppliedSearch] = useState(searchOpts.query ?? '');
   const [isEditingSearch, setIsEditingSearch] = useState(false);
 
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [pageHistory, setPageHistory] = useState<(string | undefined)[]>([undefined]);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [currentViewUsers, setCurrentViewUsers] = useState<DeletedUser[]>([]);
+  const [selectedUser, setSelectedUser] = useState<DeletedUser | null>(null);
   const [selectedUserToRecover, setSelectedUserToRecover] = useState<string | null>(null);
   const [isRecovering, setIsRecovering] = useState(false);
   const [recoveryStatus, setRecoveryStatus] = useState<string | null>(null);
@@ -45,60 +47,74 @@ export function DeletedUsersTui({
 
   const pageSize = searchOpts.pageSize || DEFAULT_TUI_PAGE_SIZE;
 
+  const detail = useDetailView();
+  const actions = useDetailActions();
+
   const applySearch = useCallback(() => {
     setAppliedSearch(searchDraft.trim());
-    setPageHistory([undefined]);
-    setCurrentIndex(0);
-    setCurrentViewUsers([]);
     setIsEditingSearch(false);
   }, [searchDraft]);
 
-  useEffect(() => {
-    let isCancelled = false;
-    const fetchPage = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const currentToken = pageHistory[currentIndex];
-        const queryOpts: DeletedUserOptions = {
-          ...searchOpts,
-          pageSize,
-          ...(appliedSearch ? { query: appliedSearch } : {}),
-        };
-        if (currentToken) {
-          queryOpts.pageToken = currentToken;
-        } else {
-          delete queryOpts.pageToken;
-        }
-
-        const result = await reportDeps.getDeletedUsers(days, queryOpts);
-
-        if (!isCancelled) {
-          setCurrentViewUsers(result.items);
-          setPageHistory((prev) =>
-            mergeNextPageToken(prev, currentIndex, result.nextPageToken),
-          );
-        }
-      } catch (err: unknown) {
-        if (!isCancelled) {
-          setError(err instanceof Error ? err.message : 'Failed to fetch users');
-        }
-      } finally {
-        if (!isCancelled) setLoading(false);
+  const fetchPage = useCallback(
+    async (pageToken: string | undefined) => {
+      const queryOpts: DeletedUserOptions = {
+        ...searchOpts,
+        pageSize,
+        ...(appliedSearch ? { query: appliedSearch } : {}),
+        ...(pageToken !== undefined ? { pageToken } : {}),
+      };
+      if (!pageToken) {
+        delete queryOpts.pageToken;
       }
-    };
+      return reportDeps.getDeletedUsers(days, queryOpts);
+    },
+    [appliedSearch, days, pageSize, reportDeps, searchOpts],
+  );
 
-    void fetchPage();
-    return () => { isCancelled = true; };
-  }, [currentIndex, days, reportDeps, appliedSearch, pageSize, searchOpts]);
+  const {
+    items: currentViewUsers,
+    currentIndex,
+    setCurrentIndex,
+    hasNextPage: localHasNextPage,
+    loading,
+    error,
+  } = usePaginatedList({
+    fetchPage,
+    queryKey: `${days}:${pageSize}:${appliedSearch}`,
+  });
 
-  const localHasNextPage = hasNextTokenPage(pageHistory, currentIndex);
+  const clearDetail = useCallback(() => {
+    detail.clear();
+    actions.resetStatus();
+    setSelectedUser(null);
+  }, [actions, detail]);
 
-  const handleSelectUser = (item: { value: string }) => {
-    setSelectedUserToRecover(item.value);
+  const openRecoverConfirm = useCallback((email: string) => {
+    clearDetail();
+    setSelectedUserToRecover(email);
     setRecoveryStatus(null);
     setConfirmInput('');
-  };
+  }, [clearDetail]);
+
+  const handleSelectUser = useCallback(async (userEmail: string) => {
+    const user = currentViewUsers.find((u) => u.userEmail === userEmail);
+    if (!user) return;
+
+    actions.resetStatus();
+    setSelectedUser(user);
+
+    await detail.open({
+      title: user.userEmail,
+      load: async () => {
+        const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ') || '(none)';
+        return [
+          `Email: ${user.userEmail}`,
+          `Name: ${fullName}`,
+          `Deletion time: ${user.deletionTime}`,
+        ];
+      },
+    });
+  }, [actions, currentViewUsers, detail]);
 
   const handleRecoveryConfirm = async (val: string) => {
     if (val.trim().toLowerCase() === 'y' && selectedUserToRecover) {
@@ -116,20 +132,46 @@ export function DeletedUsersTui({
     }
   };
 
-  useInput((input, key) => {
-    if (isEditingSearch) {
-      if (key.escape) {
-        setSearchDraft(appliedSearch);
-        setIsEditingSearch(false);
-      }
-      return;
-    }
+  const detailPanelActions = useMemo((): TuiDetailAction[] => {
+    if (!selectedUser) return [];
 
+    return [
+      {
+        key: 'c',
+        label: 'copy email',
+        onAction: () => actions.runAction(async () => {
+          await copyToClipboard(selectedUser.userEmail);
+          return `Copied email: ${selectedUser.userEmail}`;
+        }),
+      },
+      {
+        key: 'a',
+        label: 'recover user',
+        onAction: () => {
+          openRecoverConfirm(selectedUser.userEmail);
+        },
+      },
+    ];
+  }, [actions, openRecoverConfirm, selectedUser]);
+
+  const blocked = isEditingSearch || detail.isOpen || selectedUserToRecover !== null;
+
+  useInput((input, key) => {
     if (selectedUserToRecover !== null) {
       if (key.escape) {
         setSelectedUserToRecover(null);
         setRecoveryStatus(null);
         setConfirmInput('');
+      }
+      return;
+    }
+
+    if (detail.isOpen) return;
+
+    if (isEditingSearch) {
+      if (key.escape) {
+        setSearchDraft(appliedSearch);
+        setIsEditingSearch(false);
       }
       return;
     }
@@ -142,91 +184,95 @@ export function DeletedUsersTui({
 
     if (input === '/' || input === 's') {
       setIsEditingSearch(true);
-      return;
     }
-
-    if (loading) return;
-
-    const action = shouldHandlePaginationKey(input, key, false);
-    if (action === 'next' && localHasNextPage) setCurrentIndex((i) => i + 1);
-    if (action === 'prev' && currentIndex > 0) setCurrentIndex((i) => i - 1);
   });
 
-  return (
-    <Box flexDirection="column" flexGrow={1}>
-      <Box flexShrink={0} marginBottom={1}>
-        <Text bold color="cyan">
-          Deleted Users (last {days} days · page {currentIndex + 1})
-        </Text>
-      </Box>
-
-      <Box flexShrink={0}>
-        <TuiSearchControls
-          appliedSearch={appliedSearch}
-          searchDraft={searchDraft}
-          isEditing={isEditingSearch}
-          onDraftChange={setSearchDraft}
-          onSubmit={applySearch}
-        />
-      </Box>
-
-      {error && (
-        <Box marginBottom={1}><Text color="red">Error: {error}</Text></Box>
-      )}
-
-      <Box flexDirection="column" flexGrow={1} marginBottom={1}>
-        {selectedUserToRecover !== null ? (
-          <Box flexDirection="column" padding={1} borderStyle="round" borderColor="yellow">
-            <Text bold color="yellow">Confirm Action: Recover User Account</Text>
-            <Text>
-              Recover account: <Text bold>{selectedUserToRecover}</Text>?
-            </Text>
-            <Text color="gray">[y/Enter] to Confirm | [ESC] to Cancel</Text>
-
-            {isRecovering && (
-              <Box marginTop={1}><Text color="cyan">Recovering user via Google Admin API...</Text></Box>
-            )}
-            {recoveryStatus && (
-              <Box marginTop={1}>
-                <Text color={recoveryStatus.includes('Error') || recoveryStatus.includes('Failed') ? 'red' : 'green'}>
-                  {recoveryStatus}
-                </Text>
-              </Box>
-            )}
-
-            {!isRecovering && !recoveryStatus && (
-              <Box marginTop={1}>
-                <Text>Confirm: </Text>
-                <TextInput value={confirmInput} onChange={setConfirmInput} onSubmit={handleRecoveryConfirm} />
-              </Box>
-            )}
-          </Box>
-        ) : loading && currentViewUsers.length === 0 ? (
-          <Text color="yellow">Loading records from Google Workspace API...</Text>
-        ) : currentViewUsers.length === 0 ? (
-          <Text color="gray">
-            {appliedSearch
-              ? `No deleted users match "${appliedSearch}" on this page.`
-              : 'No deleted users found on this page.'}
+  if (selectedUserToRecover !== null) {
+    return (
+      <Box flexDirection="column" flexGrow={1}>
+        <Box flexShrink={0} marginBottom={1}>
+          <Text bold color="cyan">
+            Deleted Users (last {days} days · page {currentIndex + 1})
           </Text>
-        ) : (
-          <SelectInput
-            items={currentViewUsers.map((u) => {
-              const fullName = [u.firstName, u.lastName].filter(Boolean).join(' ');
-              const namePart = fullName ? ` · ${fullName}` : '';
-              const label = `ID: ${u.userEmail}${namePart} · deleted ${u.deletionTime}`;
-              return { label, value: u.userEmail };
-            })}
-            onSelect={handleSelectUser}
-          />
-        )}
-      </Box>
+        </Box>
 
-      <TuiListFooter
-        currentIndex={currentIndex}
-        hasNextPage={localHasNextPage}
-        loading={loading}
+        <Box flexDirection="column" padding={1} borderStyle="round" borderColor="yellow">
+          <Text bold color="yellow">Confirm Action: Recover User Account</Text>
+          <Text>
+            Recover account: <Text bold>{selectedUserToRecover}</Text>?
+          </Text>
+          <Text color="gray">[y/Enter] to Confirm | [ESC] to Cancel</Text>
+
+          {isRecovering && (
+            <Box marginTop={1}><Text color="cyan">Recovering user via Google Admin API...</Text></Box>
+          )}
+          {recoveryStatus && (
+            <Box marginTop={1}>
+              <Text color={recoveryStatus.includes('Error') || recoveryStatus.includes('Failed') ? 'red' : 'green'}>
+                {recoveryStatus}
+              </Text>
+            </Box>
+          )}
+
+          {!isRecovering && !recoveryStatus && (
+            <Box marginTop={1}>
+              <Text>Confirm: </Text>
+              <TextInput value={confirmInput} onChange={setConfirmInput} onSubmit={handleRecoveryConfirm} />
+            </Box>
+          )}
+        </Box>
+      </Box>
+    );
+  }
+
+  if (detail.isOpen) {
+    return (
+      <TuiDetailPanel
+        title={detail.title ?? 'Deleted User'}
+        lines={detail.lines}
+        loading={detail.loading}
+        error={detail.error}
+        onBack={clearDetail}
+        actions={detailPanelActions}
+        actionStatus={actions.actionStatus}
+        actionBusy={actions.actionBusy}
       />
-    </Box>
+    );
+  }
+
+  const emptyMessage = appliedSearch
+    ? `No deleted users match "${appliedSearch}" on this page.`
+    : 'No deleted users found on this page.';
+
+  return (
+    <TuiListScreen
+      title={`Deleted Users (last ${days} days`}
+      pageLabel={`page ${currentIndex + 1}`}
+      items={currentViewUsers}
+      loading={loading}
+      error={error}
+      hasNextPage={localHasNextPage}
+      currentIndex={currentIndex}
+      onSelect={handleSelectUser}
+      formatLabel={formatDeletedUserLabel}
+      getId={(user) => user.userEmail}
+      filterSlot={(
+        <Box flexShrink={0} marginBottom={1}>
+          <TuiSearchControls
+            appliedSearch={appliedSearch}
+            searchDraft={searchDraft}
+            isEditing={isEditingSearch}
+            onDraftChange={setSearchDraft}
+            onSubmit={applySearch}
+          />
+        </Box>
+      )}
+      emptyMessage={emptyMessage}
+      onPagination={(action) => {
+        if (action === 'next' && localHasNextPage) setCurrentIndex((i) => i + 1);
+        if (action === 'prev' && currentIndex > 0) setCurrentIndex((i) => i - 1);
+      }}
+      blocked={blocked}
+    />
   );
 }
