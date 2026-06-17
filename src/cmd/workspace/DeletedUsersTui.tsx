@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Box, Text, useInput, useApp } from 'ink';
 import TextInput from 'ink-text-input';
 import { DEFAULT_TUI_PAGE_SIZE } from '../tui/pagination.js';
@@ -10,7 +10,10 @@ import { copyToClipboard } from '../tui/systemActions.js';
 import { usePaginatedList } from '../tui/hooks/usePaginatedList.js';
 import { useDetailView } from '../tui/hooks/useDetailView.js';
 import { useDetailActions } from '../tui/hooks/useDetailActions.js';
+import { useTuiNavigation } from '../tui/TuiNavigationContext.js';
 import type { WorkspaceReportCommandDeps, DeletedUser, DeletedUserOptions, WorkspaceUserCommandDeps } from './commands.js';
+
+const DAY_OPTIONS = [7, 20, 30] as const;
 
 export interface DeletedUsersTuiProps {
   reportDeps: Required<WorkspaceReportCommandDeps>;
@@ -34,7 +37,9 @@ export function DeletedUsersTui({
   onCancel,
 }: DeletedUsersTuiProps) {
   const { exit } = useApp();
+  const { setBreadcrumbs, setHelpLines } = useTuiNavigation();
 
+  const [lookbackDays, setLookbackDays] = useState(days);
   const [searchDraft, setSearchDraft] = useState(searchOpts.query ?? '');
   const [appliedSearch, setAppliedSearch] = useState(searchOpts.query ?? '');
   const [isEditingSearch, setIsEditingSearch] = useState(false);
@@ -49,6 +54,26 @@ export function DeletedUsersTui({
 
   const detail = useDetailView();
   const actions = useDetailActions();
+
+  useEffect(() => {
+    setBreadcrumbs(['Workspace', 'Reports', 'Deleted Users']);
+    setHelpLines([
+      '/ or s — search',
+      'd — cycle lookback window (7/20/30 days)',
+      'Enter — view deleted user',
+      'c/a — actions in detail',
+      '←/→ or Space — paginate',
+      'ESC — back',
+    ]);
+  }, [setBreadcrumbs, setHelpLines]);
+
+  const cycleLookbackDays = useCallback(() => {
+    setLookbackDays((current) => {
+      const idx = DAY_OPTIONS.indexOf(current as (typeof DAY_OPTIONS)[number]);
+      const nextIndex = idx === -1 ? 0 : (idx + 1) % DAY_OPTIONS.length;
+      return DAY_OPTIONS[nextIndex] ?? DAY_OPTIONS[0];
+    });
+  }, []);
 
   const applySearch = useCallback(() => {
     setAppliedSearch(searchDraft.trim());
@@ -66,9 +91,9 @@ export function DeletedUsersTui({
       if (!pageToken) {
         delete queryOpts.pageToken;
       }
-      return reportDeps.getDeletedUsers(days, queryOpts);
+      return reportDeps.getDeletedUsers(lookbackDays, queryOpts);
     },
-    [appliedSearch, days, pageSize, reportDeps, searchOpts],
+    [appliedSearch, lookbackDays, pageSize, reportDeps, searchOpts],
   );
 
   const {
@@ -80,7 +105,7 @@ export function DeletedUsersTui({
     error,
   } = usePaginatedList({
     fetchPage,
-    queryKey: `${days}:${pageSize}:${appliedSearch}`,
+    queryKey: `${lookbackDays}:${pageSize}:${appliedSearch}`,
   });
 
   const clearDetail = useCallback(() => {
@@ -184,6 +209,11 @@ export function DeletedUsersTui({
 
     if (input === '/' || input === 's') {
       setIsEditingSearch(true);
+      return;
+    }
+
+    if (input === 'd') {
+      cycleLookbackDays();
     }
   });
 
@@ -192,7 +222,7 @@ export function DeletedUsersTui({
       <Box flexDirection="column" flexGrow={1}>
         <Box flexShrink={0} marginBottom={1}>
           <Text bold color="cyan">
-            Deleted Users (last {days} days · page {currentIndex + 1})
+            Deleted Users (last {lookbackDays} days · page {currentIndex + 1})
           </Text>
         </Box>
 
@@ -246,7 +276,7 @@ export function DeletedUsersTui({
 
   return (
     <TuiListScreen
-      title={`Deleted Users (last ${days} days`}
+      title={`Deleted Users (last ${lookbackDays} days`}
       pageLabel={`page ${currentIndex + 1}`}
       items={currentViewUsers}
       loading={loading}

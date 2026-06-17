@@ -71,7 +71,7 @@ export function WorkspaceReportTui({ reportDeps, userDeps, onCancel }: Workspace
       <DeletedUsersTui
         reportDeps={reportDeps}
         userDeps={userDeps}
-        days={30}
+        days={20}
         onCancel={() => setActiveView(null)}
       />
     );

@@ -6,16 +6,26 @@ import { TuiScreenShell } from '../tui/TuiScreenShell.js';
 import { TuiKeybar } from '../tui/TuiKeybar.js';
 import { CreateOrgWizard } from './CreateOrgWizard.js';
 import { ListOrgsTui } from './ListOrgsTui.js';
-import type { WorkspaceOrgUnitCommandDeps } from './commands.js';
+import { ListUsersTui } from './ListUsersTui.js';
+import { setLastOrgUnitPath } from './workspaceSessionState.js';
+import type { WorkspaceOrgUnitCommandDeps, WorkspaceUserCommandDeps } from './commands.js';
 
 export interface WorkspaceOrgTuiProps {
   orgDeps: WorkspaceOrgUnitCommandDeps;
+  userDeps: WorkspaceUserCommandDeps;
   onCancel?: () => void;
 }
 
-export function WorkspaceOrgTui({ orgDeps, onCancel }: WorkspaceOrgTuiProps) {
+export function WorkspaceOrgTui({ orgDeps, userDeps, onCancel }: WorkspaceOrgTuiProps) {
   const { setBreadcrumbs, setHelpLines } = useTuiNavigation();
   const [activeView, setActiveView] = useState<string | null>(null);
+  const [prefillOrgUnitPathForUsers, setPrefillOrgUnitPathForUsers] = useState<string | undefined>(undefined);
+
+  const handleViewUsersInOrg = (orgUnitPath: string) => {
+    setLastOrgUnitPath(orgUnitPath);
+    setPrefillOrgUnitPathForUsers(orgUnitPath);
+    setActiveView('list-users');
+  };
 
   useEffect(() => {
     if (activeView === null) {
@@ -34,17 +44,20 @@ export function WorkspaceOrgTui({ orgDeps, onCancel }: WorkspaceOrgTuiProps) {
   };
 
   useInput((_input, key) => {
-    if (activeView === null && key.escape) {
-      if (onCancel) {
-        onCancel();
-      }
+    if (!key.escape) return;
+
+    if (activeView === null) {
+      onCancel?.();
       return;
     }
 
-    if (activeView !== null && key.escape) {
-      setActiveView(null);
+    if (activeView === 'list-users') {
+      setPrefillOrgUnitPathForUsers(undefined);
+      setActiveView('list-orgs');
       return;
     }
+
+    setActiveView(null);
   });
 
   if (activeView === 'create-org') {
@@ -60,7 +73,21 @@ export function WorkspaceOrgTui({ orgDeps, onCancel }: WorkspaceOrgTuiProps) {
     return (
       <ListOrgsTui
         orgDeps={orgDeps}
+        onViewUsersInOrg={handleViewUsersInOrg}
         onCancel={() => setActiveView(null)}
+      />
+    );
+  }
+
+  if (activeView === 'list-users') {
+    return (
+      <ListUsersTui
+        userDeps={userDeps}
+        {...(prefillOrgUnitPathForUsers ? { defaultOrgUnitPath: prefillOrgUnitPathForUsers } : {})}
+        onCancel={() => {
+          setPrefillOrgUnitPathForUsers(undefined);
+          setActiveView('list-orgs');
+        }}
       />
     );
   }
