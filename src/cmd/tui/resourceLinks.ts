@@ -33,3 +33,7 @@ export function calendarEventUrl(eventId: string): string {
 export function adminUserUrl(userKey: string): string {
   return `https://admin.google.com/ac/users/${encodeURIComponent(userKey)}`;
 }
+
+export function adminGroupUrl(groupEmail: string): string {
+  return `https://admin.google.com/ac/groups/${encodeURIComponent(groupEmail)}`;
+}

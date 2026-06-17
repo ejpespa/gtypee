@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  adminGroupUrl,
   adminUserUrl,
   driveFileUrl,
   gmailMessageUrl,
@@ -27,6 +28,12 @@ describe('resourceLinks', () => {
   it('builds Admin user URL', () => {
     expect(adminUserUrl('user@example.com')).toBe(
       'https://admin.google.com/ac/users/user%40example.com',
+    );
+  });
+
+  it('builds Admin group URL', () => {
+    expect(adminGroupUrl('group@example.com')).toBe(
+      'https://admin.google.com/ac/groups/group%40example.com',
     );
   });
 });
