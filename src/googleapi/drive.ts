@@ -20,6 +20,12 @@ function looksLikeDriveQuery(query: string): boolean {
   return false;
 }
 
+export function buildDriveFolderQuery(parentId: string): string {
+  return `'${escapeDriveQueryLiteral(parentId)}' in parents and trashed = false`;
+}
+
+export const DRIVE_FOLDER_MIME = "application/vnd.google-apps.folder";
+
 export function normalizeDriveSearchQuery(query: string): string {
   const trimmed = query.trim();
   if (!trimmed) return trimmed;

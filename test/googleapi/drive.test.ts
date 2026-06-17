@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeDriveSearchQuery, resolveDriveDownloadPath } from '../../src/googleapi/drive.js';
+import {
+  buildDriveFolderQuery,
+  normalizeDriveSearchQuery,
+  resolveDriveDownloadPath,
+} from '../../src/googleapi/drive.js';
 
 describe('drive helpers', () => {
   it('resolveDriveDownloadPath uses id when out is empty', () => {
@@ -27,5 +31,10 @@ describe('drive helpers', () => {
 
   it('wraps plain text that includes and/or words', () => {
     expect(normalizeDriveSearchQuery('trip and tour')).toBe("fullText contains 'trip and tour'");
+  });
+
+  it('builds folder parent query', () => {
+    expect(buildDriveFolderQuery('root')).toBe("'root' in parents and trashed = false");
+    expect(buildDriveFolderQuery("Joe's folder")).toBe("'Joe\\'s folder' in parents and trashed = false");
   });
 });

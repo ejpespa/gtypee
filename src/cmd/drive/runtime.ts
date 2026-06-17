@@ -9,6 +9,7 @@ import { scopes } from "../../googleauth/service.js";
 import type { PaginationOptions } from "../../types/pagination.js";
 import type {
   DriveCommandDeps,
+  DriveListOptions,
   DriveFileSummary,
   DriveDeleteResult,
   DriveCopyResult,
@@ -28,18 +29,22 @@ import type {
   SharedDriveSummary,
 } from "./commands.js";
 import { resolveDriveExportMime } from "./commands.js";
+import { buildDriveFolderQuery } from "../../googleapi/drive.js";
 
 export function buildDriveCommandDeps(runtime: ServiceRuntime): Required<DriveCommandDeps> {
   return {
-    listFiles: async (options?: PaginationOptions): Promise<{ items: DriveFileSummary[]; nextPageToken?: string }> => {
+    listFiles: async (options?: DriveListOptions): Promise<{ items: DriveFileSummary[]; nextPageToken?: string }> => {
       const auth = await runtime.getClient(scopes("drive"));
       const drive = google.drive({ version: "v3", auth });
-      const params: { pageSize: number; pageToken?: string; fields: string } = {
+      const params: { pageSize: number; pageToken?: string; fields: string; q?: string } = {
         pageSize: options?.pageSize ?? 100,
         fields: "nextPageToken,files(id,name,mimeType)",
       };
       if (options?.pageToken !== undefined) {
         params.pageToken = options.pageToken;
+      }
+      if (options?.parentId !== undefined) {
+        params.q = buildDriveFolderQuery(options.parentId);
       }
       const res = await drive.files.list(params);
       const files = res.data.files ?? [];

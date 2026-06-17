@@ -22,7 +22,7 @@ import { useDetailView } from '../tui/hooks/useDetailView.js';
 import { useDetailActions } from '../tui/hooks/useDetailActions.js';
 import { useTuiNavigation } from '../tui/TuiNavigationContext.js';
 import { driveFileUrl } from '../tui/resourceLinks.js';
-import { normalizeDriveSearchQuery } from '../../googleapi/drive.js';
+import { DRIVE_FOLDER_MIME, normalizeDriveSearchQuery } from '../../googleapi/drive.js';
 import { formatDriveFileInfo } from './commands.js';
 import type { DriveCommandDeps, DriveFileInfo, DriveFileSummary } from './commands.js';
 
@@ -32,13 +32,25 @@ export interface ListFilesTuiProps {
   onCancel?: () => void;
 }
 
+type FolderFrame = {
+  id: string;
+  name: string;
+};
+
+const ROOT_FOLDER: FolderFrame = { id: 'root', name: 'My Drive' };
+
 function truncateMime(mimeType: string, max = 36): string {
   if (mimeType.length <= max) return mimeType;
   return `${mimeType.slice(0, max - 3)}...`;
 }
 
+function isDriveFolder(file: DriveFileSummary): boolean {
+  return file.mimeType === DRIVE_FOLDER_MIME;
+}
+
 function formatFileLabel(file: DriveFileSummary): string {
-  return `${file.name} · ${truncateMime(file.mimeType)}`;
+  const prefix = isDriveFolder(file) ? '[folder] ' : '';
+  return `${prefix}${file.name} · ${truncateMime(file.mimeType)}`;
 }
 
 export function ListFilesTui({
@@ -47,6 +59,9 @@ export function ListFilesTui({
   onCancel,
 }: ListFilesTuiProps) {
   const { setBreadcrumbs, setHelpLines } = useTuiNavigation();
+
+  const [folderStack, setFolderStack] = useState<FolderFrame[]>([ROOT_FOLDER]);
+  const currentFolder = folderStack[folderStack.length - 1]!;
 
   const [apiQueryDraft, setApiQueryDraft] = useState('');
   const [appliedApiQuery, setAppliedApiQuery] = useState('');
@@ -59,6 +74,12 @@ export function ListFilesTui({
   const [detailFile, setDetailFile] = useState<DriveFileInfo | null>(null);
   const [writeMode, setWriteMode] = useState<'share' | 'trash' | null>(null);
 
+  const browseMode = !appliedApiQuery;
+
+  const listQueryKey = browseMode
+    ? `folder:${currentFolder.id}`
+    : `search:${appliedApiQuery}`;
+
   const fetchPage = useCallback(
     async (pageToken: string | undefined) => {
       const paginationOpts = {
@@ -66,16 +87,19 @@ export function ListFilesTui({
         ...(pageToken !== undefined ? { pageToken } : {}),
       };
 
-      if (!appliedApiQuery) {
-        return driveDeps.listFiles(paginationOpts);
+      if (!browseMode) {
+        return driveDeps.searchFiles(
+          normalizeDriveSearchQuery(appliedApiQuery),
+          paginationOpts,
+        );
       }
 
-      return driveDeps.searchFiles(
-        normalizeDriveSearchQuery(appliedApiQuery),
-        paginationOpts,
-      );
+      return driveDeps.listFiles({
+        ...paginationOpts,
+        parentId: currentFolder.id,
+      });
     },
-    [appliedApiQuery, driveDeps],
+    [appliedApiQuery, browseMode, currentFolder.id, driveDeps],
   );
 
   const {
@@ -88,24 +112,29 @@ export function ListFilesTui({
     refresh,
   } = usePaginatedList({
     fetchPage,
-    queryKey: appliedApiQuery,
+    queryKey: listQueryKey,
   });
 
   const detail = useDetailView();
   const actions = useDetailActions();
 
+  const folderPath = useMemo(
+    () => folderStack.map((frame) => frame.name).join(' / '),
+    [folderStack],
+  );
+
   useEffect(() => {
-    setBreadcrumbs(['Drive', title]);
+    setBreadcrumbs(['Drive', title, ...folderStack.slice(1).map((frame) => frame.name)]);
     setHelpLines([
-      'q — edit Drive query (empty lists all, text searches)',
+      browseMode ? 'Enter folder to open · Enter file for detail' : 'Search mode — q to clear query and browse folders',
+      'q — edit Drive query (empty browses current folder)',
       '/ or s — filter current page',
       'r — refresh list',
-      'Enter — view file',
+      browseMode && folderStack.length > 1 ? 'ESC — up one folder' : 'ESC — back',
       'Detail: s share · t trash',
       '←/→ or Space — paginate',
-      'ESC — back',
     ]);
-  }, [setBreadcrumbs, setHelpLines, title]);
+  }, [browseMode, folderStack, setBreadcrumbs, setHelpLines, title]);
 
   const applyApiQuery = useCallback(() => {
     setAppliedApiQuery(apiQueryDraft.trim());
@@ -130,26 +159,45 @@ export function ListFilesTui({
     setWriteMode(null);
   }, [detail, actions]);
 
+  const openFolder = useCallback((folder: DriveFileSummary) => {
+    setFolderStack((stack) => [...stack, { id: folder.id, name: folder.name }]);
+    setAppliedSearch('');
+    setSearchDraft('');
+  }, []);
+
+  const goUpFolder = useCallback(() => {
+    setFolderStack((stack) => (stack.length > 1 ? stack.slice(0, -1) : stack));
+    setAppliedSearch('');
+    setSearchDraft('');
+  }, []);
+
   const handleSelectFile = useCallback(async (id: string) => {
     const summary = visibleFiles.find((f) => f.id === id);
+    if (!summary) return;
+
+    if (browseMode && isDriveFolder(summary)) {
+      openFolder(summary);
+      return;
+    }
+
     actions.resetStatus();
     setDetailFile(null);
 
     await detail.open({
-      title: summary?.name || 'File',
+      title: summary.name || 'File',
       load: async () => {
         const info = await driveDeps.getFileInfo(id);
         setDetailFile(info);
         return textToDetailLines(formatDriveFileInfo(info, 'human'));
       },
     });
-  }, [actions, detail, driveDeps, visibleFiles]);
+  }, [actions, browseMode, detail, driveDeps, openFolder, visibleFiles]);
 
   const detailActions = useMemo((): TuiDetailAction[] => {
     if (!detailFile) return [];
 
     const isWorkspaceFile = isGoogleAppsFile(detailFile.mimeType);
-    const isFolder = detailFile.mimeType === 'application/vnd.google-apps.folder';
+    const isFolder = detailFile.mimeType === DRIVE_FOLDER_MIME;
 
     const fileActions: TuiDetailAction[] = [];
     if (!isFolder) {
@@ -192,12 +240,27 @@ export function ListFilesTui({
       },
     ];
 
+    if (isFolder && browseMode) {
+      mutationActions.unshift({
+        key: 'g',
+        label: 'open folder',
+        onAction: () => {
+          openFolder({
+            id: detailFile.id,
+            name: detailFile.name,
+            mimeType: detailFile.mimeType,
+          });
+          clearDetail();
+        },
+      });
+    }
+
     return mergeDetailActions(actions.runAction, {
       resourceId: detailFile.id,
       openUrl: driveFileUrl(detailFile.id),
       actions: [...mutationActions, ...fileActions],
     });
-  }, [actions, detailFile, driveDeps]);
+  }, [actions, browseMode, clearDetail, detailFile, driveDeps, openFolder]);
 
   const editing = isEditingApiQuery || isEditingSearch;
   const blocked = editing || detail.isOpen;
@@ -220,7 +283,11 @@ export function ListFilesTui({
     }
 
     if (key.escape) {
-      if (onCancel) onCancel();
+      if (browseMode && folderStack.length > 1) {
+        goUpFolder();
+        return;
+      }
+      onCancel?.();
       return;
     }
 
@@ -297,13 +364,21 @@ export function ListFilesTui({
 
   const filterSlot = (
     <>
+      {browseMode && (
+        <Box marginBottom={1}>
+          <Text>
+            <Text color="gray">Location: </Text>
+            <Text color="green">{folderPath}</Text>
+          </Text>
+        </Box>
+      )}
       <Box marginBottom={1}>
         <Text color={isEditingApiQuery ? 'cyan' : 'gray'}>Drive query: </Text>
         {isEditingApiQuery ? (
           <TextInput value={apiQueryDraft} onChange={setApiQueryDraft} onSubmit={applyApiQuery} />
         ) : (
           <>
-            <Text color="green">{appliedApiQuery || '(all files)'}</Text>
+            <Text color="green">{appliedApiQuery || (browseMode ? '(browse folders)' : '(all files)')}</Text>
             <Text color="gray"> · q to edit · plain text or Drive query · Enter to apply</Text>
           </>
         )}
@@ -320,7 +395,9 @@ export function ListFilesTui({
 
   const emptyMessage = visibleFiles.length === 0 && currentFiles.length > 0 && appliedSearch
     ? `No files match "${appliedSearch}" on this page. Try Next → or clear search.`
-    : 'No files found on this page.';
+    : browseMode
+      ? `No items in ${currentFolder.name} on this page.`
+      : 'No files found on this page.';
 
   return (
     <TuiListScreen

@@ -107,6 +107,8 @@ export type GmailThreadSummary = {
   id: string;
   snippet: string;
   messageCount: number;
+  subject?: string;
+  from?: string;
 };
 
 export type GmailThreadDetail = {
@@ -605,10 +607,12 @@ export function formatGmailThreads(threads: GmailThreadSummary[], mode: OutputMo
     return "No threads found";
   }
 
-  const lines = ["THREAD-ID\tMESSAGES\tSNIPPET"];
+  const lines = ["THREAD-ID\tMESSAGES\tSUBJECT\tFROM\tSNIPPET"];
   for (const thread of threads) {
     const snippet = thread.snippet.length > 50 ? thread.snippet.substring(0, 47) + "..." : thread.snippet;
-    lines.push(`${thread.id}\t${thread.messageCount}\t${snippet}`);
+    const subject = thread.subject ?? "";
+    const from = thread.from ?? "";
+    lines.push(`${thread.id}\t${thread.messageCount}\t${subject}\t${from}\t${snippet}`);
   }
   return lines.join("\n");
 }
@@ -622,10 +626,12 @@ export function formatGmailThreadsPaginated(result: PaginatedResult<GmailThreadS
     return "No threads found";
   }
 
-  const lines = ["THREAD-ID\tMESSAGES\tSNIPPET"];
+  const lines = ["THREAD-ID\tMESSAGES\tSUBJECT\tFROM\tSNIPPET"];
   for (const thread of result.items) {
     const snippet = thread.snippet.length > 50 ? thread.snippet.substring(0, 47) + "..." : thread.snippet;
-    lines.push(`${thread.id}\t${thread.messageCount}\t${snippet}`);
+    const subject = thread.subject ?? "";
+    const from = thread.from ?? "";
+    lines.push(`${thread.id}\t${thread.messageCount}\t${subject}\t${from}\t${snippet}`);
   }
   if (result.nextPageToken) {
     lines.push("---");
@@ -639,17 +645,25 @@ export function formatGmailThreadDetail(thread: GmailThreadDetail, mode: OutputM
     return JSON.stringify(thread, null, 2);
   }
 
-  const lines = [`Thread-ID: ${thread.id}`, `Messages: ${thread.messages.length}`, ""];
+  const lines = [
+    `Thread-ID: ${thread.id}`,
+    `Messages: ${thread.messages.length}`,
+    "",
+  ];
   for (let i = 0; i < thread.messages.length; i++) {
     const msg = thread.messages[i];
     if (!msg) continue;
-    lines.push(`--- Message ${i + 1} ---`);
+    const divider = "═".repeat(48);
+    const subDivider = "─".repeat(48);
+    lines.push(divider);
+    lines.push(`Message ${i + 1} of ${thread.messages.length}  (id: ${msg.id})`);
+    lines.push(subDivider);
     lines.push(`From: ${msg.from}`);
     lines.push(`To: ${msg.to}`);
     lines.push(`Subject: ${msg.subject}`);
     lines.push(`Date: ${msg.date}`);
     lines.push("");
-    lines.push(msg.body);
+    lines.push(msg.body || "(no body)");
     lines.push("");
   }
   return lines.join("\n");

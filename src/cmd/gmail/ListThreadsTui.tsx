@@ -29,8 +29,11 @@ function truncate(text: string, max = 50): string {
 }
 
 function formatThreadLabel(thread: GmailThreadSummary): string {
+  const subject = thread.subject || '(no subject)';
+  const count = `${thread.messageCount} msg`;
+  const from = thread.from ? ` · ${truncate(thread.from, 28)}` : '';
   const snippet = thread.snippet ? ` · ${truncate(thread.snippet)}` : '';
-  return `${thread.messageCount} message(s)${snippet}`;
+  return `${subject} (${count})${from}${snippet}`;
 }
 
 export function ListThreadsTui({
@@ -80,7 +83,7 @@ export function ListThreadsTui({
     setHelpLines([
       '/ or s — edit Gmail query',
       'r — refresh list',
-      'Enter — view thread',
+      'Enter — view full thread (all messages)',
       'o — open thread in browser (detail view)',
       '←/→ or Space — paginate',
       'ESC — back',
@@ -104,7 +107,9 @@ export function ListThreadsTui({
     setDetailThreadId(id);
 
     await detail.open({
-      title: summary ? `Thread (${summary.messageCount} messages)` : 'Thread',
+      title: summary
+        ? `${summary.subject || 'Thread'} (${summary.messageCount} messages)`
+        : 'Thread',
       load: async () => {
         if (!threadDeps.getThread) {
           throw new Error('getThread dependency function is not provided.');

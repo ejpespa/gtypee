@@ -97,8 +97,12 @@ export type DriveRevision = {
   keepForever: boolean;
 };
 
+export type DriveListOptions = PaginationOptions & {
+  parentId?: string;
+};
+
 export type DriveCommandDeps = {
-  listFiles?: (options?: PaginationOptions) => Promise<PaginatedResult<DriveFileSummary>>;
+  listFiles?: (options?: DriveListOptions) => Promise<PaginatedResult<DriveFileSummary>>;
   searchFiles?: (query: string, options?: PaginationOptions) => Promise<PaginatedResult<DriveFileSummary>>;
   downloadFile?: (id: string, out?: string) => Promise<{ id: string; path: string; downloaded: boolean }>;
   uploadFile?: (path: string) => Promise<{ id: string; name: string; uploaded: boolean }>;

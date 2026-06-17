@@ -585,11 +585,22 @@ export function buildGmailThreadDeps(options: ServiceRuntimeOptions): Required<G
               userId: "me",
               id: thread.id!,
               format: "metadata",
+              metadataHeaders: ["Subject", "From"],
             });
+            const firstMessage = detail.data.messages?.[0];
+            const headers = firstMessage?.payload?.headers ?? [];
+            const getHeader = (name: string): string => {
+              const header = headers.find(
+                (h) => h.name?.toLowerCase() === name.toLowerCase(),
+              );
+              return header?.value ?? "";
+            };
             return {
               id: thread.id ?? "",
               snippet: detail.data.snippet ?? "",
               messageCount: detail.data.messages?.length ?? 0,
+              subject: getHeader("Subject") || "(no subject)",
+              from: getHeader("From"),
             };
           }),
         );
