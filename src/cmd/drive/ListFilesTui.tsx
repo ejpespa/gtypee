@@ -15,6 +15,8 @@ import {
   sanitizeFilename,
 } from '../tui/download.js';
 import { mergeDetailActions } from '../tui/detailActions.js';
+import { TuiWizard } from '../tui/TuiWizard.js';
+import { TuiConfirmPrompt } from '../tui/TuiConfirmPrompt.js';
 import { usePaginatedList } from '../tui/hooks/usePaginatedList.js';
 import { useDetailView } from '../tui/hooks/useDetailView.js';
 import { useDetailActions } from '../tui/hooks/useDetailActions.js';
@@ -55,6 +57,7 @@ export function ListFilesTui({
   const [isEditingSearch, setIsEditingSearch] = useState(false);
 
   const [detailFile, setDetailFile] = useState<DriveFileInfo | null>(null);
+  const [writeMode, setWriteMode] = useState<'share' | 'trash' | null>(null);
 
   const fetchPage = useCallback(
     async (pageToken: string | undefined) => {
@@ -98,6 +101,7 @@ export function ListFilesTui({
       '/ or s — filter current page',
       'r — refresh list',
       'Enter — view file',
+      'Detail: s share · t trash',
       '←/→ or Space — paginate',
       'ESC — back',
     ]);
@@ -123,6 +127,7 @@ export function ListFilesTui({
     detail.clear();
     actions.resetStatus();
     setDetailFile(null);
+    setWriteMode(null);
   }, [detail, actions]);
 
   const handleSelectFile = useCallback(async (id: string) => {
@@ -174,10 +179,23 @@ export function ListFilesTui({
       });
     }
 
+    const mutationActions: TuiDetailAction[] = [
+      {
+        key: 's',
+        label: 'share',
+        onAction: () => setWriteMode('share'),
+      },
+      {
+        key: 't',
+        label: 'trash',
+        onAction: () => setWriteMode('trash'),
+      },
+    ];
+
     return mergeDetailActions(actions.runAction, {
       resourceId: detailFile.id,
       openUrl: driveFileUrl(detailFile.id),
-      actions: fileActions,
+      actions: [...mutationActions, ...fileActions],
     });
   }, [actions, detailFile, driveDeps]);
 
@@ -217,6 +235,52 @@ export function ListFilesTui({
   });
 
   if (detail.isOpen) {
+    if (writeMode === 'share' && detailFile) {
+      return (
+        <TuiWizard
+          title={`Share ${detailFile.name}`}
+          fields={[
+            { key: 'email', label: 'Email', required: true, placeholder: 'user@example.com' },
+            { key: 'role', label: 'Role (reader or writer)', required: true, initialValue: 'reader' },
+          ]}
+          summary={(values) => `Share ${detailFile.name} with ${values.email} as ${values.role}`}
+          onCancel={() => setWriteMode(null)}
+          onSubmit={async (values) => {
+            const role = (values.role ?? 'reader').toLowerCase();
+            if (role !== 'reader' && role !== 'writer') {
+              throw new Error('Role must be reader or writer');
+            }
+            const result = await driveDeps.createPermission!(
+              detailFile.id,
+              values.email ?? '',
+              role,
+              'user',
+            );
+            if (!result.applied) throw new Error('Failed to share file');
+            return `Shared with ${values.email} as ${role}`;
+          }}
+        />
+      );
+    }
+
+    if (writeMode === 'trash' && detailFile) {
+      return (
+        <TuiConfirmPrompt
+          title="Trash file"
+          message={`Move "${detailFile.name}" to trash?`}
+          destructive
+          onCancel={() => setWriteMode(null)}
+          onConfirm={() => actions.runAction(async () => {
+            const result = await driveDeps.deleteFile!(detailFile.id, false);
+            if (!result.deleted) throw new Error('Failed to trash file');
+            clearDetail();
+            refresh();
+            return 'File moved to trash';
+          })}
+        />
+      );
+    }
+
     return (
       <TuiDetailPanel
         title={detail.title ?? 'File'}

@@ -17,6 +17,7 @@ import { usePaginatedList } from '../tui/hooks/usePaginatedList.js';
 import { useDetailView } from '../tui/hooks/useDetailView.js';
 import { useDetailActions } from '../tui/hooks/useDetailActions.js';
 import { useTuiNavigation } from '../tui/TuiNavigationContext.js';
+import { mergeDetailActions } from '../tui/detailActions.js';
 import { formatDriveFileInfo } from './commands.js';
 import type { DriveCommandDeps, DriveFileInfo, DriveFileSummary, DriveTrashDeps } from './commands.js';
 
@@ -84,6 +85,7 @@ export function ListTrashTui({
       '/ or s — filter current page',
       'r — refresh list',
       'Enter — view file',
+      'Detail: R restore',
       '←/→ or Space — paginate',
       'ESC — back',
     ]);
@@ -131,7 +133,7 @@ export function ListTrashTui({
     const exportFormat = resolveDefaultDriveExportFormat(detailFile.mimeType);
     const label = isWorkspaceFile ? `export as ${exportFormat}` : 'download';
 
-    return [{
+    const fileActions: TuiDetailAction[] = [{
       key: 'd',
       label,
       onAction: () => actions.runAction(async () => {
@@ -151,8 +153,23 @@ export function ListTrashTui({
         }
         return `Saved to ${result.path}`;
       }),
+    }, {
+      key: 'R',
+      label: 'restore',
+      onAction: () => actions.runAction(async () => {
+        const result = await trashDeps.restoreFromTrash!(detailFile.id);
+        if (!result.restored) throw new Error('Failed to restore file');
+        clearDetail();
+        refresh();
+        return `Restored ${detailFile.name}`;
+      }),
     }];
-  }, [actions, detailFile, driveDeps]);
+
+    return mergeDetailActions(actions.runAction, {
+      resourceId: detailFile.id,
+      actions: fileActions,
+    });
+  }, [actions, clearDetail, detailFile, driveDeps, refresh, trashDeps]);
 
   const blocked = isEditingSearch || detail.isOpen;
 

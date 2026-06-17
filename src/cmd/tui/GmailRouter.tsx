@@ -4,6 +4,7 @@ import SelectInput from 'ink-select-input';
 import { ListMessagesTui } from '../gmail/ListMessagesTui.js';
 import { ListDraftsTui } from '../gmail/ListDraftsTui.js';
 import { ListThreadsTui } from '../gmail/ListThreadsTui.js';
+import { TuiWizard } from './TuiWizard.js';
 import type { GmailAttachmentDeps, GmailCommandDeps, GmailDraftDeps, GmailThreadDeps } from '../gmail/commands.js';
 
 interface GmailRouterProps {
@@ -19,7 +20,9 @@ export function GmailRouter({ deps, attachmentDeps, draftDeps, threadDeps, onCan
 
   const items = [
     { label: 'Inbox Messages', value: 'inbox' },
+    { label: 'Sent Messages', value: 'sent' },
     { label: 'Search Messages', value: 'search' },
+    { label: 'Compose Email', value: 'compose' },
     { label: 'Drafts', value: 'drafts' },
     { label: 'Threads', value: 'threads' },
   ];
@@ -42,6 +45,41 @@ export function GmailRouter({ deps, attachmentDeps, draftDeps, threadDeps, onCan
         title="Inbox Messages"
         defaultQuery="in:inbox"
         onCancel={() => setActiveSubMenu(null)}
+      />
+    );
+  }
+
+  if (activeSubMenu === 'sent') {
+    return (
+      <ListMessagesTui
+        gmailDeps={deps}
+        gmailAttachmentDeps={attachmentDeps}
+        title="Sent Messages"
+        defaultQuery="in:sent"
+        onCancel={() => setActiveSubMenu(null)}
+      />
+    );
+  }
+
+  if (activeSubMenu === 'compose') {
+    return (
+      <TuiWizard
+        title="Compose email"
+        fields={[
+          { key: 'to', label: 'To', required: true, placeholder: 'user@example.com' },
+          { key: 'subject', label: 'Subject', required: true },
+          { key: 'body', label: 'Body', required: true, multiline: true },
+        ]}
+        onCancel={() => setActiveSubMenu(null)}
+        onSubmit={async (values) => {
+          const result = await deps.sendEmail({
+            to: values.to ?? '',
+            subject: values.subject ?? '',
+            body: values.body ?? '',
+          });
+          if (!result.accepted) throw new Error('Email was not accepted');
+          return `Sent to ${values.to} (id=${result.id || 'unknown'})`;
+        }}
       />
     );
   }

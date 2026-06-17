@@ -237,6 +237,7 @@ export function buildGmailCommandDeps(options: ServiceRuntimeOptions): Required<
         date: getHeader("date"),
         body,
         attachments,
+        labelIds: response.data.labelIds ?? [],
       };
     },
 
@@ -340,7 +341,12 @@ export function buildGmailCommandDeps(options: ServiceRuntimeOptions): Required<
 /**
  * Helper function to extract message details from Gmail API response
  */
-function extractMessageDetail(message: { id?: string | null; threadId?: string | null; payload?: any }): GmailMessageDetail {
+function extractMessageDetail(message: {
+  id?: string | null;
+  threadId?: string | null;
+  labelIds?: string[] | null;
+  payload?: any;
+}): GmailMessageDetail {
   type MessagePart = {
     mimeType?: string | null;
     filename?: string | null;
@@ -428,6 +434,7 @@ function extractMessageDetail(message: { id?: string | null; threadId?: string |
     date: getHeader("date"),
     body,
     attachments,
+    labelIds: message.labelIds ?? [],
   };
 }
 

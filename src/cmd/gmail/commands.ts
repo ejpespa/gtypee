@@ -54,6 +54,7 @@ export type GmailMessageDetail = {
   date: string;
   body: string;
   attachments: GmailAttachment[];
+  labelIds?: string[];
 };
 
 export type GmailDeleteResult = {

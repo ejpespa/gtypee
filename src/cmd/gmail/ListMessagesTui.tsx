@@ -13,6 +13,10 @@ import { useDetailView } from '../tui/hooks/useDetailView.js';
 import { useDetailActions } from '../tui/hooks/useDetailActions.js';
 import { useTuiNavigation } from '../tui/TuiNavigationContext.js';
 import { gmailMessageUrl } from '../tui/resourceLinks.js';
+import { TuiWizard } from '../tui/TuiWizard.js';
+import { TuiConfirmPrompt } from '../tui/TuiConfirmPrompt.js';
+import { GmailLabelPicker } from '../tui/GmailLabelPicker.js';
+import { buildReplySubject, isMessageUnread, parseSenderEmail } from '../tui/gmailWrite.js';
 import { formatGmailMessageDetail } from './commands.js';
 import type {
   GmailAttachmentDeps,
@@ -61,6 +65,7 @@ export function ListMessagesTui({
   const [isEditingFrom, setIsEditingFrom] = useState(false);
 
   const [detailMessage, setDetailMessage] = useState<GmailMessageDetail | null>(null);
+  const [writeMode, setWriteMode] = useState<'reply' | 'label' | 'trash' | null>(null);
 
   const effectiveQuery = useMemo(
     () => buildGmailListQuery(appliedQuery, appliedFrom),
@@ -103,6 +108,7 @@ export function ListMessagesTui({
       'f — filter by sender',
       'r — refresh list',
       'Enter — view message',
+      'Detail: r reply · t trash · m read/unread · l label',
       '←/→ or Space — paginate',
       'ESC — back',
     ]);
@@ -122,6 +128,7 @@ export function ListMessagesTui({
     detail.clear();
     actions.resetStatus();
     setDetailMessage(null);
+    setWriteMode(null);
   }, [detail, actions]);
 
   const handleSelectMessage = useCallback(async (id: string) => {
@@ -195,12 +202,50 @@ export function ListMessagesTui({
       });
     }
 
+    const writeActions: TuiDetailAction[] = [
+      {
+        key: 'r',
+        label: 'reply',
+        onAction: () => setWriteMode('reply'),
+      },
+      {
+        key: 't',
+        label: 'trash',
+        onAction: () => setWriteMode('trash'),
+      },
+      {
+        key: 'm',
+        label: isMessageUnread(detailMessage.labelIds) ? 'mark read' : 'mark unread',
+        onAction: () => actions.runAction(async () => {
+          const unread = isMessageUnread(detailMessage.labelIds);
+          const result = await gmailDeps.modifyMessage!(
+            detailMessage.id,
+            unread ? undefined : ['UNREAD'],
+            unread ? ['UNREAD'] : undefined,
+          );
+          if (!result.applied) throw new Error('Failed to update read state');
+          setDetailMessage({
+            ...detailMessage,
+            labelIds: unread
+              ? (detailMessage.labelIds ?? []).filter((id) => id !== 'UNREAD')
+              : [...(detailMessage.labelIds ?? []), 'UNREAD'],
+          });
+          return unread ? 'Marked as read' : 'Marked as unread';
+        }),
+      },
+      {
+        key: 'l',
+        label: 'label',
+        onAction: () => setWriteMode('label'),
+      },
+    ];
+
     return mergeDetailActions(actions.runAction, {
       resourceId: detailMessage.id,
       openUrl: gmailMessageUrl(detailMessage.id),
-      actions: attachmentActions,
+      actions: [...writeActions, ...attachmentActions],
     });
-  }, [actions, detailMessage, gmailAttachmentDeps]);
+  }, [actions, detailMessage, gmailAttachmentDeps, gmailDeps]);
 
   const editing = isEditingQuery || isEditingFrom;
   const blocked = editing || detail.isOpen;
@@ -238,6 +283,82 @@ export function ListMessagesTui({
   });
 
   if (detail.isOpen) {
+    if (writeMode === 'reply' && detailMessage) {
+      const replyTo = parseSenderEmail(detailMessage.from);
+      const replySubject = buildReplySubject(detailMessage.subject);
+      return (
+        <TuiWizard
+          title={`Reply to ${replyTo}`}
+          fields={[{
+            key: 'body',
+            label: 'Reply body',
+            required: true,
+            multiline: true,
+            placeholder: 'Type reply, empty line to finish',
+          }]}
+          summary={() => `To: ${replyTo}\nSubject: ${replySubject}`}
+          onCancel={() => setWriteMode(null)}
+          onSubmit={async (values) => {
+            const result = await gmailDeps.replyToMessage!({
+              messageId: detailMessage.id,
+              to: replyTo,
+              body: values.body ?? '',
+              subject: replySubject,
+            });
+            if (!result.accepted) throw new Error('Reply was not accepted');
+            return `Reply sent (id=${result.id || 'unknown'})`;
+          }}
+        />
+      );
+    }
+
+    if (writeMode === 'label' && detailMessage) {
+      return (
+        <GmailLabelPicker
+          listLabels={() => gmailDeps.listLabels!()}
+          messageLabelIds={detailMessage.labelIds ?? []}
+          onCancel={() => setWriteMode(null)}
+          onSelect={(label, action) => {
+            void actions.runAction(async () => {
+              const result = await gmailDeps.modifyMessage!(
+                detailMessage.id,
+                action === 'add' ? [label.id] : undefined,
+                action === 'remove' ? [label.id] : undefined,
+              );
+              if (!result.applied) throw new Error('Failed to update labels');
+              const labelIds = detailMessage.labelIds ?? [];
+              setDetailMessage({
+                ...detailMessage,
+                labelIds: action === 'add'
+                  ? [...labelIds, label.id]
+                  : labelIds.filter((id) => id !== label.id),
+              });
+              setWriteMode(null);
+              return `${action === 'add' ? 'Added' : 'Removed'} label ${label.name}`;
+            });
+          }}
+        />
+      );
+    }
+
+    if (writeMode === 'trash' && detailMessage) {
+      return (
+        <TuiConfirmPrompt
+          title="Trash message"
+          message={`Move "${detailMessage.subject}" to trash?`}
+          destructive
+          onCancel={() => setWriteMode(null)}
+          onConfirm={() => actions.runAction(async () => {
+            const result = await gmailDeps.trashMessage!(detailMessage.id);
+            if (!result.applied) throw new Error('Failed to trash message');
+            clearDetail();
+            refresh();
+            return 'Message moved to trash';
+          })}
+        />
+      );
+    }
+
     return (
       <TuiDetailPanel
         title={detail.title ?? 'Message'}

@@ -4,6 +4,7 @@ import SelectInput from 'ink-select-input';
 import { ListFilesTui } from '../drive/ListFilesTui.js';
 import { ListTrashTui } from '../drive/ListTrashTui.js';
 import { ListSharedDrivesTui } from '../drive/ListSharedDrivesTui.js';
+import { TuiWizard } from './TuiWizard.js';
 import type { DriveCommandDeps, DriveSharedDrivesDeps, DriveTrashDeps } from '../drive/commands.js';
 
 interface DriveRouterProps {
@@ -18,6 +19,8 @@ export function DriveRouter({ deps, trashDeps, sharedDrivesDeps, onCancel }: Dri
 
   const items = [
     { label: 'Files', value: 'files' },
+    { label: 'Upload File', value: 'upload' },
+    { label: 'New Folder', value: 'mkdir' },
     { label: 'Trash', value: 'trash' },
     { label: 'Shared Drives', value: 'shared-drives' },
   ];
@@ -38,6 +41,43 @@ export function DriveRouter({ deps, trashDeps, sharedDrivesDeps, onCancel }: Dri
         driveDeps={deps}
         title="Files"
         onCancel={() => setActiveSubMenu(null)}
+      />
+    );
+  }
+
+  if (activeSubMenu === 'upload') {
+    return (
+      <TuiWizard
+        title="Upload file"
+        fields={[
+          { key: 'path', label: 'Local file path', required: true, placeholder: 'C:\\path\\to\\file.pdf' },
+        ]}
+        summary={(values) => `Upload ${values.path}`}
+        onCancel={() => setActiveSubMenu(null)}
+        onSubmit={async (values) => {
+          const result = await deps.uploadFile(values.path ?? '');
+          if (!result.uploaded) throw new Error(`Upload failed for ${values.path}`);
+          return `Uploaded ${result.name} (id=${result.id || 'unknown'})`;
+        }}
+      />
+    );
+  }
+
+  if (activeSubMenu === 'mkdir') {
+    return (
+      <TuiWizard
+        title="New folder"
+        fields={[
+          { key: 'name', label: 'Folder name', required: true },
+          { key: 'parentId', label: 'Parent folder ID (optional)', placeholder: 'leave empty for root' },
+        ]}
+        onCancel={() => setActiveSubMenu(null)}
+        onSubmit={async (values) => {
+          const parentId = values.parentId?.trim() || undefined;
+          const result = await deps.createFolder(values.name ?? '', parentId);
+          if (!result.created) throw new Error('Failed to create folder');
+          return `Created folder ${result.name} (id=${result.id || 'unknown'})`;
+        }}
       />
     );
   }

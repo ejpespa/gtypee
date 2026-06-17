@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react';
+import { translateApiError } from '../translateApiError.js';
 
 export function useDetailActions() {
   const [actionStatus, setActionStatus] = useState<string | null>(null);
@@ -16,7 +17,7 @@ export function useDetailActions() {
       const message = await action();
       setActionStatus(message);
     } catch (err: unknown) {
-      setActionStatus(`Error: ${err instanceof Error ? err.message : 'Action failed'}`);
+      setActionStatus(`Error: ${translateApiError(err)}`);
     } finally {
       setActionBusy(false);
     }
