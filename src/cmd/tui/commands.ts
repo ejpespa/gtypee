@@ -11,6 +11,7 @@ import {
   buildWorkspaceUserCommandDeps,
 } from "../workspace/runtime.js";
 import { buildGmailCommandDeps } from "../gmail/runtime.js";
+import { buildCalendarCommandDeps } from "../calendar/runtime.js";
 import { resolveDefaultAccount } from "../auth/commands.js";
 
 export function registerTuiCommand(root: Command): void {
@@ -51,10 +52,16 @@ export function registerTuiCommand(root: Command): void {
         resolveAccount: async () => resolved,
       });
 
+      const calendarDeps = buildCalendarCommandDeps({
+        resolveAccount: async () => resolved,
+      });
+
       process.stdout.write("\x1b[2J\x1b[3J\x1b[H"); // clear the screen
 
       const { waitUntilExit } = render(
-        React.createElement(MasterLayout, { deps: { reportDeps, userDeps, deviceDeps, groupDeps, orgDeps, gmailDeps } })
+        React.createElement(MasterLayout, {
+          deps: { reportDeps, userDeps, deviceDeps, groupDeps, orgDeps, gmailDeps, calendarDeps },
+        })
       );
 
       await waitUntilExit();

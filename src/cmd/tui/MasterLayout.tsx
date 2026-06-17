@@ -3,8 +3,10 @@ import { Box, Text, useApp, useInput, useStdout } from 'ink';
 import SelectInput from 'ink-select-input';
 import { WorkspaceRouter } from './WorkspaceRouter.js';
 import { GmailRouter } from './GmailRouter.js';
+import { CalendarRouter } from './CalendarRouter.js';
 import type { WorkspaceDeviceCommandDeps, WorkspaceReportCommandDeps, WorkspaceUserCommandDeps, WorkspaceGroupCommandDeps, WorkspaceOrgUnitCommandDeps } from '../workspace/commands.js';
 import type { GmailCommandDeps } from '../gmail/commands.js';
+import type { CalendarCommandDeps } from '../calendar/commands.js';
 
 export interface TuiConfigDeps {
   reportDeps: Required<WorkspaceReportCommandDeps>;
@@ -13,6 +15,7 @@ export interface TuiConfigDeps {
   groupDeps: Required<WorkspaceGroupCommandDeps>;
   orgDeps: Required<WorkspaceOrgUnitCommandDeps>;
   gmailDeps: Required<GmailCommandDeps>;
+  calendarDeps: Required<CalendarCommandDeps>;
 }
 
 interface MasterLayoutProps {
@@ -40,7 +43,7 @@ export function MasterLayout({ deps }: MasterLayoutProps) {
     }
 
     // Sub-menu exit (Back to main layout) for placeholders
-    if (activeMenu !== null && activeMenu !== 'workspace' && activeMenu !== 'gmail' && key.escape) {
+    if (activeMenu !== null && activeMenu !== 'workspace' && activeMenu !== 'gmail' && activeMenu !== 'calendar' && key.escape) {
       handleBack();
       return;
     }
@@ -107,7 +110,16 @@ export function MasterLayout({ deps }: MasterLayoutProps) {
           </Box>
         )}
 
-        {activeMenu !== null && activeMenu !== 'workspace' && activeMenu !== 'gmail' && (
+        {activeMenu === 'calendar' && (
+          <Box flexDirection="column" width="100%">
+             <CalendarRouter
+               deps={deps.calendarDeps}
+               onCancel={handleBack}
+             />
+          </Box>
+        )}
+
+        {activeMenu !== null && activeMenu !== 'workspace' && activeMenu !== 'gmail' && activeMenu !== 'calendar' && (
           <Box justifyContent="center" alignItems="center" flexGrow={1}>
             <Text color="yellow">Module '{activeMenu}' coming soon...</Text>
             <Box marginTop={2}><Text color="gray">Press ESC to return</Text></Box>
