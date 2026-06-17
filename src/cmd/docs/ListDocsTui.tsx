@@ -1,19 +1,17 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Box, Text, useInput } from 'ink';
-import SelectInput from 'ink-select-input';
-import {
-  DEFAULT_TUI_PAGE_SIZE,
-  mergeNextPageToken,
-  hasNextTokenPage,
-  shouldHandlePaginationKey,
-} from '../tui/pagination.js';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useInput } from 'ink';
+import { DEFAULT_TUI_PAGE_SIZE } from '../tui/pagination.js';
 import { filterItemsByQuery } from '../tui/search.js';
 import { TuiSearchControls } from '../tui/TuiSearchControls.js';
-import { TuiListFooter } from '../tui/TuiListFooter.js';
 import { TuiDetailPanel } from '../tui/TuiDetailPanel.js';
 import type { TuiDetailAction } from '../tui/TuiDetailPanel.js';
+import { TuiListScreen } from '../tui/TuiListScreen.js';
 import { textToDetailLines } from '../tui/detail.js';
 import { resolveNamedExportPath } from '../tui/download.js';
+import { usePaginatedList } from '../tui/hooks/usePaginatedList.js';
+import { useDetailView } from '../tui/hooks/useDetailView.js';
+import { useDetailActions } from '../tui/hooks/useDetailActions.js';
+import { useTuiNavigation } from '../tui/TuiNavigationContext.js';
 import { formatDocsReadResult } from './commands.js';
 import type { DocsCommandDeps, DocsSummary } from './commands.js';
 
@@ -29,135 +27,101 @@ function formatDocLabel(doc: DocsSummary): string {
 }
 
 export function ListDocsTui({ docsDeps, onCancel }: ListDocsTuiProps) {
+  const { setBreadcrumbs, setHelpLines } = useTuiNavigation();
+
   const [searchDraft, setSearchDraft] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
   const [isEditingSearch, setIsEditingSearch] = useState(false);
-
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [pageHistory, setPageHistory] = useState<(string | undefined)[]>([undefined]);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [pageCache, setPageCache] = useState<Record<number, DocsSummary[]>>({});
-
-  const [detailTitle, setDetailTitle] = useState<string | null>(null);
-  const [detailLines, setDetailLines] = useState<string[]>([]);
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [detailError, setDetailError] = useState<string | null>(null);
   const [detailDocId, setDetailDocId] = useState<string | null>(null);
-  const [actionStatus, setActionStatus] = useState<string | null>(null);
-  const [actionBusy, setActionBusy] = useState(false);
 
-  const clearDetail = useCallback(() => {
-    setDetailTitle(null);
-    setDetailLines([]);
-    setDetailLoading(false);
-    setDetailError(null);
-    setDetailDocId(null);
-    setActionStatus(null);
-    setActionBusy(false);
-  }, []);
+  const fetchPage = useCallback(
+    async (pageToken: string | undefined) =>
+      docsDeps.listDocs({
+        pageSize: DEFAULT_TUI_PAGE_SIZE,
+        ...(pageToken !== undefined ? { pageToken } : {}),
+      }),
+    [docsDeps],
+  );
+
+  const {
+    items: currentDocs,
+    currentIndex,
+    setCurrentIndex,
+    hasNextPage,
+    loading,
+    error,
+    refresh,
+  } = usePaginatedList({
+    fetchPage,
+    queryKey: 'docs-list',
+  });
+
+  const detail = useDetailView();
+  const actions = useDetailActions();
+
+  useEffect(() => {
+    setBreadcrumbs(['Docs', 'Documents']);
+    setHelpLines([
+      '/ or s — filter current page',
+      'r — refresh list',
+      'Enter — read document',
+      '←/→ or Space — paginate',
+      'ESC — back',
+    ]);
+  }, [setBreadcrumbs, setHelpLines]);
 
   const applySearch = useCallback(() => {
     setAppliedSearch(searchDraft.trim());
     setIsEditingSearch(false);
   }, [searchDraft]);
 
-  useEffect(() => {
-    if (pageCache[currentIndex]) {
-      setLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-
-    const fetchPage = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const currentToken = pageHistory[currentIndex];
-        const result = await docsDeps.listDocs({
-          pageSize: DEFAULT_TUI_PAGE_SIZE,
-          ...(currentToken !== undefined ? { pageToken: currentToken } : {}),
-        });
-
-        if (cancelled) return;
-
-        setPageCache((prev) => ({ ...prev, [currentIndex]: result.items }));
-        setPageHistory((prev) => mergeNextPageToken(prev, currentIndex, result.nextPageToken));
-      } catch (err: unknown) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Failed to fetch documents');
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-
-    void fetchPage();
-    return () => { cancelled = true; };
-  }, [currentIndex, docsDeps, pageCache, pageHistory]);
-
-  const localHasNextPage = hasNextTokenPage(pageHistory, currentIndex);
-  const currentDocs = pageCache[currentIndex] ?? [];
   const visibleDocs = filterItemsByQuery(
     currentDocs,
     appliedSearch,
     (doc) => [doc.name, doc.id],
   );
 
-  const handleSelectDoc = useCallback(async (item: { value: string }) => {
-    const summary = visibleDocs.find((d) => d.id === item.value);
-    setDetailTitle(summary?.name || 'Document');
-    setDetailLines([]);
-    setDetailError(null);
-    setDetailDocId(item.value);
-    setActionStatus(null);
-    setDetailLoading(true);
+  const clearDetail = useCallback(() => {
+    detail.clear();
+    actions.resetStatus();
+    setDetailDocId(null);
+  }, [detail, actions]);
 
-    try {
-      const result = await docsDeps.readDoc(item.value);
-      setDetailLines(textToDetailLines(formatDocsReadResult(result, 'human')));
-    } catch (err: unknown) {
-      setDetailError(err instanceof Error ? err.message : 'Failed to read document');
-    } finally {
-      setDetailLoading(false);
-    }
-  }, [docsDeps, visibleDocs]);
+  const handleSelectDoc = useCallback(async (id: string) => {
+    const summary = visibleDocs.find((d) => d.id === id);
+    actions.resetStatus();
+    setDetailDocId(id);
 
-  const runDetailAction = useCallback(async (action: () => Promise<string>) => {
-    setActionBusy(true);
-    setActionStatus(null);
-    try {
-      const message = await action();
-      setActionStatus(message);
-    } catch (err: unknown) {
-      setActionStatus(`Error: ${err instanceof Error ? err.message : 'Export failed'}`);
-    } finally {
-      setActionBusy(false);
-    }
-  }, []);
+    await detail.open({
+      title: summary?.name || 'Document',
+      load: async () => {
+        const result = await docsDeps.readDoc(id);
+        return textToDetailLines(formatDocsReadResult(result, 'human'));
+      },
+    });
+  }, [actions, detail, docsDeps, visibleDocs]);
 
   const detailActions = useMemo((): TuiDetailAction[] => {
-    if (!detailDocId || !detailTitle) return [];
+    if (!detailDocId || !detail.title) return [];
 
     return [{
       key: 'd',
       label: `export as ${DEFAULT_DOC_EXPORT_FORMAT}`,
-      onAction: () => runDetailAction(async () => {
-        const outputPath = resolveNamedExportPath(detailTitle, DEFAULT_DOC_EXPORT_FORMAT);
+      onAction: () => actions.runAction(async () => {
+        const outputPath = resolveNamedExportPath(detail.title!, DEFAULT_DOC_EXPORT_FORMAT);
         const result = await docsDeps.exportDoc(detailDocId, DEFAULT_DOC_EXPORT_FORMAT, outputPath);
         if (!result.exported) {
-          throw new Error(`Export failed for ${detailTitle}`);
+          throw new Error(`Export failed for ${detail.title}`);
         }
         return `Exported to ${result.path}`;
       }),
     }];
-  }, [detailDocId, detailTitle, docsDeps, runDetailAction]);
+  }, [actions, detail.title, detailDocId, docsDeps]);
 
-  const inDetail = detailTitle !== null || detailLoading || detailError !== null;
+  const blocked = isEditingSearch || detail.isOpen;
 
   useInput((input, key) => {
-    if (inDetail) return;
+    if (detail.isOpen) return;
 
     if (isEditingSearch) {
       if (key.escape) {
@@ -174,79 +138,56 @@ export function ListDocsTui({ docsDeps, onCancel }: ListDocsTuiProps) {
 
     if (input === '/' || input === 's') {
       setIsEditingSearch(true);
-      return;
     }
-
-    if (loading) return;
-
-    const action = shouldHandlePaginationKey(input, key, false);
-    if (action === 'next' && localHasNextPage) setCurrentIndex((i) => i + 1);
-    if (action === 'prev' && currentIndex > 0) setCurrentIndex((i) => i - 1);
   });
 
-  if (inDetail) {
+  if (detail.isOpen) {
     return (
       <TuiDetailPanel
-        title={detailTitle ?? 'Document'}
-        lines={detailLines}
-        loading={detailLoading}
-        error={detailError}
+        title={detail.title ?? 'Document'}
+        lines={detail.lines}
+        loading={detail.loading}
+        error={detail.error}
         onBack={clearDetail}
         actions={detailActions}
-        actionStatus={actionStatus}
-        actionBusy={actionBusy}
+        actionStatus={actions.actionStatus}
+        actionBusy={actions.actionBusy}
       />
     );
   }
 
+  const emptyMessage = visibleDocs.length === 0 && currentDocs.length > 0 && appliedSearch
+    ? `No documents match "${appliedSearch}" on this page. Try Next → or clear search.`
+    : 'No documents found on this page.';
+
   return (
-    <Box flexDirection="column" padding={1} borderStyle="round" borderColor="blue">
-      <Box marginBottom={1}>
-        <Text bold color="cyan">Docs (Page {currentIndex + 1})</Text>
-      </Box>
-
-      <TuiSearchControls
-        appliedSearch={appliedSearch}
-        searchDraft={searchDraft}
-        isEditing={isEditingSearch}
-        onDraftChange={setSearchDraft}
-        onSubmit={applySearch}
-      />
-
-      {error && (
-        <Box marginBottom={1}><Text color="red">Error: {error}</Text></Box>
-      )}
-
-      {loading && currentDocs.length === 0 ? (
-        <Text color="yellow">Loading documents...</Text>
-      ) : currentDocs.length === 0 ? (
-        <Text color="gray">No documents found on this page.</Text>
-      ) : visibleDocs.length === 0 ? (
-        <Text color="gray">
-          {appliedSearch
-            ? `No documents match "${appliedSearch}" on this page. Try Next → or clear search.`
-            : 'No documents found on this page.'}
-        </Text>
-      ) : (
-        <Box flexDirection="column" marginBottom={1}>
-          <SelectInput
-            items={visibleDocs.map((doc) => ({
-              label: formatDocLabel(doc),
-              value: doc.id,
-            }))}
-            onSelect={handleSelectDoc}
-          />
-        </Box>
-      )}
-
-      <Box marginTop={1}>
-        <TuiListFooter
-          currentIndex={currentIndex}
-          hasNextPage={localHasNextPage}
-          loading={loading}
-          backHint="ESC to return"
+    <TuiListScreen
+      title="Docs"
+      pageLabel={`Page ${currentIndex + 1}`}
+      items={visibleDocs}
+      loading={loading}
+      error={error}
+      hasNextPage={hasNextPage}
+      currentIndex={currentIndex}
+      onSelect={handleSelectDoc}
+      formatLabel={formatDocLabel}
+      getId={(doc) => doc.id}
+      filterSlot={(
+        <TuiSearchControls
+          appliedSearch={appliedSearch}
+          searchDraft={searchDraft}
+          isEditing={isEditingSearch}
+          onDraftChange={setSearchDraft}
+          onSubmit={applySearch}
         />
-      </Box>
-    </Box>
+      )}
+      emptyMessage={emptyMessage}
+      onPagination={(action) => {
+        if (action === 'next' && hasNextPage) setCurrentIndex((i) => i + 1);
+        if (action === 'prev' && currentIndex > 0) setCurrentIndex((i) => i - 1);
+      }}
+      onRefresh={refresh}
+      blocked={blocked}
+    />
   );
 }

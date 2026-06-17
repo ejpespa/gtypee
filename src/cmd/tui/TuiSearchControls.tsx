@@ -17,7 +17,7 @@ export function TuiSearchControls({
   isEditing,
   onDraftChange,
   onSubmit,
-  hint = 'press / or s to edit · Enter to apply',
+  hint = 'Filter this page · / or s to edit · Enter to apply',
 }: TuiSearchControlsProps) {
   return (
     <Box marginBottom={1}>

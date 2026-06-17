@@ -81,6 +81,7 @@ export function registerTuiCommand(root: Command): void {
 
       const { waitUntilExit } = render(
         React.createElement(MasterLayout, {
+          accountEmail: resolved.email,
           deps: {
             reportDeps,
             userDeps,
