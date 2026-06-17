@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  adminDeviceUrl,
   adminGroupUrl,
   adminUserUrl,
   driveFileUrl,
@@ -34,6 +35,12 @@ describe('resourceLinks', () => {
   it('builds Admin group URL', () => {
     expect(adminGroupUrl('group@example.com')).toBe(
       'https://admin.google.com/ac/groups/group%40example.com',
+    );
+  });
+
+  it('builds Admin device URL', () => {
+    expect(adminDeviceUrl('device-123')).toBe(
+      'https://admin.google.com/ac/devices/details?deviceId=device-123',
     );
   });
 });

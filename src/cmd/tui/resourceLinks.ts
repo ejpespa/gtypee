@@ -37,3 +37,7 @@ export function adminUserUrl(userKey: string): string {
 export function adminGroupUrl(groupEmail: string): string {
   return `https://admin.google.com/ac/groups/${encodeURIComponent(groupEmail)}`;
 }
+
+export function adminDeviceUrl(deviceId: string): string {
+  return `https://admin.google.com/ac/devices/details?deviceId=${encodeURIComponent(deviceId)}`;
+}

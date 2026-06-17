@@ -5,19 +5,20 @@ import type { WorkspaceDeviceCommandDeps, DeviceActionResult } from './commands.
 
 export interface WipeDeviceWizardProps {
   deviceDeps: WorkspaceDeviceCommandDeps;
+  prefillDeviceId?: string;
   onCancel?: () => void;
 }
 
 type Step = 'DEVICE_ID' | 'CONFIRM' | 'WIPING' | 'DONE';
 
-export function WipeDeviceWizard({ deviceDeps, onCancel }: WipeDeviceWizardProps) {
-  const [step, setStep] = useState<Step>('DEVICE_ID');
+export function WipeDeviceWizard({ deviceDeps, prefillDeviceId, onCancel }: WipeDeviceWizardProps) {
+  const [step, setStep] = useState<Step>(prefillDeviceId ? 'CONFIRM' : 'DEVICE_ID');
 
   // Confirmed values
-  const [deviceId, setDeviceId] = useState('');
+  const [deviceId, setDeviceId] = useState(prefillDeviceId ?? '');
 
   // Input values (live typing)
-  const [deviceIdInput, setDeviceIdInput] = useState('');
+  const [deviceIdInput, setDeviceIdInput] = useState(prefillDeviceId ?? '');
   const [confirmInput, setConfirmInput] = useState('');
 
   const [validationError, setValidationError] = useState<string | null>(null);
