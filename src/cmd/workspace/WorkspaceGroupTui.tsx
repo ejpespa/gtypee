@@ -1,6 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import SelectInput from 'ink-select-input';
+import { useTuiNavigation } from '../tui/TuiNavigationContext.js';
+import { TuiScreenShell } from '../tui/TuiScreenShell.js';
+import { TuiKeybar } from '../tui/TuiKeybar.js';
 import TextInput from 'ink-text-input';
 import type { WorkspaceGroupCommandDeps, CreateGroupResult } from './commands.js';
 import { ListGroupsTui } from './ListGroupsTui.js';
@@ -197,7 +200,15 @@ export interface WorkspaceGroupTuiProps {
 }
 
 export function WorkspaceGroupTui({ groupDeps, onCancel }: WorkspaceGroupTuiProps) {
+  const { setBreadcrumbs, setHelpLines } = useTuiNavigation();
   const [activeView, setActiveView] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (activeView === null) {
+      setBreadcrumbs(['Workspace', 'Groups']);
+      setHelpLines(['↑/↓ select · Enter open · ? help · ESC back']);
+    }
+  }, [activeView, setBreadcrumbs, setHelpLines]);
 
   const items = [
     { label: 'Create New Group', value: 'create-group' },
@@ -247,14 +258,9 @@ export function WorkspaceGroupTui({ groupDeps, onCancel }: WorkspaceGroupTuiProp
   }
 
   return (
-    <Box flexDirection="column" padding={1} borderStyle="round" borderColor="blue">
-      <Box marginBottom={1}>
-        <Text bold color="cyan">Workspace Group Management</Text>
-      </Box>
+    <TuiScreenShell title="Group Management">
       <SelectInput items={items} onSelect={handleSelect} />
-      <Box marginTop={1}>
-        <Text color="gray">Press ESC to return</Text>
-      </Box>
-    </Box>
+      <TuiKeybar detailEnabled={false} refreshEnabled={false} />
+    </TuiScreenShell>
   );
 }

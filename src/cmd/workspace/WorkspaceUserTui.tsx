@@ -1,6 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import SelectInput from 'ink-select-input';
+import { useTuiNavigation } from '../tui/TuiNavigationContext.js';
+import { TuiScreenShell } from '../tui/TuiScreenShell.js';
+import { TuiKeybar } from '../tui/TuiKeybar.js';
 import { CreateUserWizard } from './CreateUserWizard.js';
 import { DeletedUsersTui } from './DeletedUsersTui.js';
 import { InactiveUsersTui } from './InactiveUsersTui.js';
@@ -15,7 +18,15 @@ export interface WorkspaceUserTuiProps {
 }
 
 export function WorkspaceUserTui({ userDeps, reportDeps, onCancel }: WorkspaceUserTuiProps) {
+  const { setBreadcrumbs, setHelpLines } = useTuiNavigation();
   const [activeView, setActiveView] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (activeView === null) {
+      setBreadcrumbs(['Workspace', 'Users']);
+      setHelpLines(['↑/↓ select · Enter open · ? help · ESC back']);
+    }
+  }, [activeView, setBreadcrumbs, setHelpLines]);
 
   const items = [
     { label: 'List Users by Org Unit', value: 'list-users' },
@@ -97,14 +108,9 @@ export function WorkspaceUserTui({ userDeps, reportDeps, onCancel }: WorkspaceUs
   }
 
   return (
-    <Box flexDirection="column" flexGrow={1}>
-      <Box marginBottom={1}>
-        <Text bold color="cyan">Workspace User Management</Text>
-      </Box>
+    <TuiScreenShell title="User Management">
       <SelectInput items={items} onSelect={handleSelect} />
-      <Box marginTop={1}>
-        <Text color="gray">Press ESC to return</Text>
-      </Box>
-    </Box>
+      <TuiKeybar detailEnabled={false} refreshEnabled={false} />
+    </TuiScreenShell>
   );
 }

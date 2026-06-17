@@ -1,6 +1,9 @@
-import React, { useState } from 'react';
-import { Box, Text, useInput } from 'ink';
+import React, { useEffect, useState } from 'react';
+import { useInput } from 'ink';
 import SelectInput from 'ink-select-input';
+import { useTuiNavigation } from './TuiNavigationContext.js';
+import { TuiScreenShell } from './TuiScreenShell.js';
+import { TuiKeybar } from './TuiKeybar.js';
 import { WorkspaceReportTui } from '../workspace/WorkspaceReportTui.js';
 import { WorkspaceUserTui } from '../workspace/WorkspaceUserTui.js';
 import { WorkspaceDeviceTui } from '../workspace/WorkspaceDeviceTui.js';
@@ -15,7 +18,15 @@ interface WorkspaceRouterProps {
 }
 
 export function WorkspaceRouter({ deps, onCancel }: WorkspaceRouterProps) {
+  const { setBreadcrumbs, setHelpLines } = useTuiNavigation();
   const [activeSubMenu, setActiveSubMenu] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (activeSubMenu === null) {
+      setBreadcrumbs(['Workspace']);
+      setHelpLines(['↑/↓ select · Enter open · ? help · ESC back']);
+    }
+  }, [activeSubMenu, setBreadcrumbs, setHelpLines]);
 
   const items = [
     { label: 'Reports', value: 'reports' },
@@ -83,14 +94,9 @@ export function WorkspaceRouter({ deps, onCancel }: WorkspaceRouterProps) {
   }
 
   return (
-    <Box flexDirection="column" padding={1} borderStyle="round" borderColor="blue">
-      <Box marginBottom={1}>
-        <Text bold color="cyan">Workspace Admin</Text>
-      </Box>
+    <TuiScreenShell title="Workspace Admin">
       <SelectInput items={items} onSelect={handleSelect} />
-      <Box marginTop={1}>
-        <Text color="gray">Press ESC to return to services</Text>
-      </Box>
-    </Box>
+      <TuiKeybar detailEnabled={false} refreshEnabled={false} />
+    </TuiScreenShell>
   );
 }

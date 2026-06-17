@@ -1,6 +1,9 @@
-import React, { useState } from 'react';
-import { Box, Text, useInput } from 'ink';
+import React, { useEffect, useState } from 'react';
+import { useInput } from 'ink';
 import SelectInput from 'ink-select-input';
+import { useTuiNavigation } from '../tui/TuiNavigationContext.js';
+import { TuiScreenShell } from '../tui/TuiScreenShell.js';
+import { TuiKeybar } from '../tui/TuiKeybar.js';
 import { WipeDeviceWizard } from './WipeDeviceWizard.js';
 import { ListDevicesTui } from './ListDevicesTui.js';
 import type { WorkspaceDeviceCommandDeps } from './commands.js';
@@ -11,7 +14,15 @@ export interface WorkspaceDeviceTuiProps {
 }
 
 export function WorkspaceDeviceTui({ deviceDeps, onCancel }: WorkspaceDeviceTuiProps) {
+  const { setBreadcrumbs, setHelpLines } = useTuiNavigation();
   const [activeView, setActiveView] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (activeView === null) {
+      setBreadcrumbs(['Workspace', 'Devices']);
+      setHelpLines(['↑/↓ select · Enter open · ? help · ESC back']);
+    }
+  }, [activeView, setBreadcrumbs, setHelpLines]);
 
   const items = [
     { label: 'List ChromeOS Devices', value: 'list-chromeos' },
@@ -63,14 +74,9 @@ export function WorkspaceDeviceTui({ deviceDeps, onCancel }: WorkspaceDeviceTuiP
   }
 
   return (
-    <Box flexDirection="column" padding={1} borderStyle="round" borderColor="blue">
-      <Box marginBottom={1}>
-        <Text bold color="cyan">Workspace Device Management</Text>
-      </Box>
+    <TuiScreenShell title="Device Management">
       <SelectInput items={items} onSelect={handleSelect} />
-      <Box marginTop={1}>
-        <Text color="gray">Press ESC to return</Text>
-      </Box>
-    </Box>
+      <TuiKeybar detailEnabled={false} refreshEnabled={false} />
+    </TuiScreenShell>
   );
 }

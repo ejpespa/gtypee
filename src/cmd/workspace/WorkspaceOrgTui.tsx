@@ -1,6 +1,9 @@
-import React, { useState } from 'react';
-import { Box, Text, useInput } from 'ink';
+import React, { useEffect, useState } from 'react';
+import { useInput } from 'ink';
 import SelectInput from 'ink-select-input';
+import { useTuiNavigation } from '../tui/TuiNavigationContext.js';
+import { TuiScreenShell } from '../tui/TuiScreenShell.js';
+import { TuiKeybar } from '../tui/TuiKeybar.js';
 import { CreateOrgWizard } from './CreateOrgWizard.js';
 import { ListOrgsTui } from './ListOrgsTui.js';
 import type { WorkspaceOrgUnitCommandDeps } from './commands.js';
@@ -11,7 +14,15 @@ export interface WorkspaceOrgTuiProps {
 }
 
 export function WorkspaceOrgTui({ orgDeps, onCancel }: WorkspaceOrgTuiProps) {
+  const { setBreadcrumbs, setHelpLines } = useTuiNavigation();
   const [activeView, setActiveView] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (activeView === null) {
+      setBreadcrumbs(['Workspace', 'Orgs']);
+      setHelpLines(['↑/↓ select · Enter open · ? help · ESC back']);
+    }
+  }, [activeView, setBreadcrumbs, setHelpLines]);
 
   const items = [
     { label: 'List Org Units', value: 'list-orgs' },
@@ -55,14 +66,9 @@ export function WorkspaceOrgTui({ orgDeps, onCancel }: WorkspaceOrgTuiProps) {
   }
 
   return (
-    <Box flexDirection="column" padding={1} borderStyle="round" borderColor="blue">
-      <Box marginBottom={1}>
-        <Text bold color="cyan">Workspace Org Unit Management</Text>
-      </Box>
+    <TuiScreenShell title="Org Unit Management">
       <SelectInput items={items} onSelect={handleSelect} />
-      <Box marginTop={1}>
-        <Text color="gray">Press ESC to return</Text>
-      </Box>
-    </Box>
+      <TuiKeybar detailEnabled={false} refreshEnabled={false} />
+    </TuiScreenShell>
   );
 }
