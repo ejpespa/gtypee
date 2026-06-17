@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Box, Text, useInput, useApp } from 'ink';
 import SelectInput from 'ink-select-input';
 import {
@@ -7,6 +7,9 @@ import {
   hasNextTokenPage,
   shouldHandlePaginationKey,
 } from '../tui/pagination.js';
+import { filterItemsByQuery } from '../tui/search.js';
+import { TuiSearchControls } from '../tui/TuiSearchControls.js';
+import { TuiListFooter } from '../tui/TuiListFooter.js';
 import type { WorkspaceGroupCommandDeps, GroupInfo } from './commands.js';
 
 export interface ListGroupsTuiProps {
@@ -16,11 +19,23 @@ export interface ListGroupsTuiProps {
 
 export function ListGroupsTui({ groupDeps, onCancel }: ListGroupsTuiProps) {
   const { exit } = useApp();
+  const [searchDraft, setSearchDraft] = useState('');
+  const [appliedSearch, setAppliedSearch] = useState('');
+  const [isEditingSearch, setIsEditingSearch] = useState(false);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pageHistory, setPageHistory] = useState<(string | undefined)[]>([undefined]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [pageCache, setPageCache] = useState<{ [page: number]: GroupInfo[] }>({});
+
+  const applySearch = useCallback(() => {
+    setAppliedSearch(searchDraft.trim());
+    setPageHistory([undefined]);
+    setCurrentIndex(0);
+    setPageCache({});
+    setIsEditingSearch(false);
+  }, [searchDraft]);
 
   useEffect(() => {
     if (pageCache[currentIndex]) return;
@@ -57,13 +72,32 @@ export function ListGroupsTui({ groupDeps, onCancel }: ListGroupsTuiProps) {
 
   const localHasNextPage = hasNextTokenPage(pageHistory, currentIndex);
   const currentGroups = pageCache[currentIndex] ?? [];
+  const visibleGroups = filterItemsByQuery(
+    currentGroups,
+    appliedSearch,
+    (g) => [g.email, g.name],
+  );
 
   useInput((input, key) => {
+    if (isEditingSearch) {
+      if (key.escape) {
+        setSearchDraft(appliedSearch);
+        setIsEditingSearch(false);
+      }
+      return;
+    }
+
     if (input === 'q' || key.escape) {
       if (onCancel) return onCancel();
       exit();
       return;
     }
+
+    if (input === '/' || input === 's') {
+      setIsEditingSearch(true);
+      return;
+    }
+
     if (loading) return;
 
     const action = shouldHandlePaginationKey(input, key, false);
@@ -77,6 +111,14 @@ export function ListGroupsTui({ groupDeps, onCancel }: ListGroupsTuiProps) {
         <Text bold color="cyan">Workspace Admin: Groups (Page {currentIndex + 1})</Text>
       </Box>
 
+      <TuiSearchControls
+        appliedSearch={appliedSearch}
+        searchDraft={searchDraft}
+        isEditing={isEditingSearch}
+        onDraftChange={setSearchDraft}
+        onSubmit={applySearch}
+      />
+
       {error && (
         <Box marginBottom={1}><Text color="red">Error: {error}</Text></Box>
       )}
@@ -85,10 +127,16 @@ export function ListGroupsTui({ groupDeps, onCancel }: ListGroupsTuiProps) {
         <Text color="yellow">Loading groups from Google Workspace API...</Text>
       ) : currentGroups.length === 0 ? (
         <Text color="gray">No groups found on this page.</Text>
+      ) : visibleGroups.length === 0 ? (
+        <Text color="gray">
+          {appliedSearch
+            ? `No groups match "${appliedSearch}" on this page. Try Next → or clear search.`
+            : 'No groups found on this page.'}
+        </Text>
       ) : (
         <Box flexDirection="column" marginBottom={1}>
           <SelectInput
-            items={currentGroups.map((g) => ({
+            items={visibleGroups.map((g) => ({
               label: `${g.name} <${g.email}>`,
               value: g.id,
             }))}
@@ -98,11 +146,12 @@ export function ListGroupsTui({ groupDeps, onCancel }: ListGroupsTuiProps) {
       )}
 
       <Box marginTop={1}>
-        <Text color="gray">Navigation: </Text>
-        <Text color={currentIndex > 0 && !loading ? 'green' : 'gray'}>[← Prev]</Text>
-        <Text color="gray">  </Text>
-        <Text color={localHasNextPage && !loading ? 'green' : 'gray'}>[Next →]</Text>
-        <Text color="gray"> | press 'q' or ESC to return{loading ? ' | Loading...' : ''}</Text>
+        <TuiListFooter
+          currentIndex={currentIndex}
+          hasNextPage={localHasNextPage}
+          loading={loading}
+          backHint="press 'q' or ESC to return"
+        />
       </Box>
     </Box>
   );
