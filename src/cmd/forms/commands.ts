@@ -2,6 +2,7 @@ import type { Command } from "commander";
 
 import type { OutputMode } from "../../outfmt/outfmt.js";
 import { toCliApiErrorMessage } from "../../googleapi/errors.js";
+import type { PaginatedResult, PaginationOptions } from "../../types/pagination.js";
 import { buildExecutionContext, type RootOptions } from "../execution-context.js";
 
 export type FormInfo = {
@@ -9,13 +10,20 @@ export type FormInfo = {
   title: string;
 };
 
+export type FormSummary = {
+  id: string;
+  title: string;
+};
+
 export type FormsCommandDeps = {
+  listForms?: (options?: PaginationOptions) => Promise<PaginatedResult<FormSummary>>;
   createForm?: (title: string) => Promise<FormInfo & { created: boolean }>;
   getForm?: (id: string) => Promise<FormInfo>;
   listResponses?: (id: string) => Promise<Array<{ id: string; submittedAt: string }>>;
 };
 
 const defaultDeps: Required<FormsCommandDeps> = {
+  listForms: async () => ({ items: [] }),
   createForm: async (title) => ({ id: "", title, created: false }),
   getForm: async (id) => ({ id, title: "" }),
   listResponses: async () => [],

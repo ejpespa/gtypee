@@ -30,10 +30,12 @@ export function buildKeepCommandDeps(options: ServiceRuntimeOptions): Required<K
       const keep = google.keep({ version: "v1", auth });
 
       const response = await keep.notes.get({ name: id });
+      const body = response.data.body?.text?.text ?? "";
 
       return {
         id: response.data.name ?? "",
         title: response.data.title ?? "",
+        body,
       };
     },
 

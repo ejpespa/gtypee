@@ -2,10 +2,36 @@ import { google } from "googleapis";
 
 import type { ServiceRuntime } from "../../googleapi/auth-factory.js";
 import { scopes } from "../../googleauth/service.js";
-import type { FormInfo, FormsCommandDeps } from "./commands.js";
+import type { PaginatedResult, PaginationOptions } from "../../types/pagination.js";
+import type { FormInfo, FormSummary, FormsCommandDeps } from "./commands.js";
 
 export function buildFormsCommandDeps(runtime: ServiceRuntime): Required<FormsCommandDeps> {
   return {
+    listForms: async (options?: PaginationOptions): Promise<PaginatedResult<FormSummary>> => {
+      const auth = await runtime.getClient(scopes("drive"));
+      const drive = google.drive({ version: "v3", auth });
+      const params: { q: string; pageSize: number; pageToken?: string; fields: string } = {
+        q: "mimeType='application/vnd.google-apps.form'",
+        pageSize: options?.pageSize ?? 100,
+        fields: "nextPageToken,files(id,name)",
+      };
+      if (options?.pageToken !== undefined) {
+        params.pageToken = options.pageToken;
+      }
+      const res = await drive.files.list(params);
+      const files = res.data.files ?? [];
+      const result: PaginatedResult<FormSummary> = {
+        items: files.map((f) => ({
+          id: f.id ?? "",
+          title: f.name ?? "",
+        })),
+      };
+      if (res.data.nextPageToken) {
+        result.nextPageToken = res.data.nextPageToken;
+      }
+      return result;
+    },
+
     createForm: async (title: string): Promise<FormInfo & { created: boolean }> => {
       const auth = await runtime.getClient(scopes("forms"));
       const forms = google.forms({ version: "v1", auth });

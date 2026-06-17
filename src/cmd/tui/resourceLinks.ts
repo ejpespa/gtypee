@@ -18,6 +18,14 @@ export function googleSheetUrl(sheetId: string): string {
   return `https://docs.google.com/spreadsheets/d/${sheetId}/edit`;
 }
 
+export function googleSlidesUrl(presentationId: string): string {
+  return `https://docs.google.com/presentation/d/${presentationId}/edit`;
+}
+
+export function googleFormUrl(formId: string): string {
+  return `https://docs.google.com/forms/d/${formId}/edit`;
+}
+
 export function calendarEventUrl(eventId: string): string {
   return `https://calendar.google.com/calendar/event?eid=${encodeURIComponent(eventId)}`;
 }

@@ -14,6 +14,12 @@ import { SheetsRouter } from './SheetsRouter.js';
 import { TasksRouter } from './TasksRouter.js';
 import { ContactsRouter } from './ContactsRouter.js';
 import { ChatRouter } from './ChatRouter.js';
+import { SlidesRouter } from './SlidesRouter.js';
+import { FormsRouter } from './FormsRouter.js';
+import { KeepRouter } from './KeepRouter.js';
+import { MeetRouter } from './MeetRouter.js';
+import { PeopleRouter } from './PeopleRouter.js';
+import { ClassroomRouter } from './ClassroomRouter.js';
 import type { WorkspaceDeviceCommandDeps, WorkspaceReportCommandDeps, WorkspaceUserCommandDeps, WorkspaceGroupCommandDeps, WorkspaceOrgUnitCommandDeps } from '../workspace/commands.js';
 import type { GmailAttachmentDeps, GmailCommandDeps, GmailDraftDeps, GmailThreadDeps } from '../gmail/commands.js';
 import type { CalendarCommandDeps } from '../calendar/commands.js';
@@ -23,6 +29,11 @@ import type { SheetsCommandDeps } from '../sheets/commands.js';
 import type { TasksCommandDeps } from '../tasks/commands.js';
 import type { ContactsCommandDeps } from '../contacts/commands.js';
 import type { ChatCommandDeps } from '../chat/commands.js';
+import type { SlidesCommandDeps } from '../slides/commands.js';
+import type { FormsCommandDeps } from '../forms/commands.js';
+import type { KeepCommandDeps } from '../keep/commands.js';
+import type { PeopleCommandDeps } from '../people/commands.js';
+import type { ClassroomCommandDeps } from '../classroom/commands.js';
 
 export interface TuiConfigDeps {
   reportDeps: Required<WorkspaceReportCommandDeps>;
@@ -43,6 +54,11 @@ export interface TuiConfigDeps {
   tasksDeps: Required<TasksCommandDeps>;
   contactsDeps: Required<ContactsCommandDeps>;
   chatDeps: Required<ChatCommandDeps>;
+  slidesDeps: Required<SlidesCommandDeps>;
+  formsDeps: Required<FormsCommandDeps>;
+  keepDeps: Required<KeepCommandDeps>;
+  peopleDeps: Required<PeopleCommandDeps>;
+  classroomDeps: Required<ClassroomCommandDeps>;
 }
 
 interface MasterLayoutProps {
@@ -142,6 +158,42 @@ function MasterContentPane({
         </Box>
       )}
 
+      {activeMenu === 'slides' && (
+        <Box flexDirection="column" width="100%">
+          <SlidesRouter deps={deps.slidesDeps} onCancel={handleBack} />
+        </Box>
+      )}
+
+      {activeMenu === 'forms' && (
+        <Box flexDirection="column" width="100%">
+          <FormsRouter deps={deps.formsDeps} onCancel={handleBack} />
+        </Box>
+      )}
+
+      {activeMenu === 'keep' && (
+        <Box flexDirection="column" width="100%">
+          <KeepRouter deps={deps.keepDeps} onCancel={handleBack} />
+        </Box>
+      )}
+
+      {activeMenu === 'meet' && (
+        <Box flexDirection="column" width="100%">
+          <MeetRouter calendarDeps={deps.calendarDeps} onCancel={handleBack} />
+        </Box>
+      )}
+
+      {activeMenu === 'people' && (
+        <Box flexDirection="column" width="100%">
+          <PeopleRouter deps={deps.peopleDeps} onCancel={handleBack} />
+        </Box>
+      )}
+
+      {activeMenu === 'classroom' && (
+        <Box flexDirection="column" width="100%">
+          <ClassroomRouter deps={deps.classroomDeps} onCancel={handleBack} />
+        </Box>
+      )}
+
       {activeMenu !== null && !wiredMenus.has(activeMenu) && (
         <Box justifyContent="center" alignItems="center" flexGrow={1}>
           <Text color="yellow">Module '{activeMenu}' coming soon...</Text>
@@ -162,6 +214,12 @@ const items = [
   { label: 'Tasks', value: 'tasks' },
   { label: 'Contacts', value: 'contacts' },
   { label: 'Chat', value: 'chat' },
+  { label: 'Slides', value: 'slides' },
+  { label: 'Forms', value: 'forms' },
+  { label: 'Keep', value: 'keep' },
+  { label: 'Meet', value: 'meet' },
+  { label: 'People', value: 'people' },
+  { label: 'Classroom', value: 'classroom' },
 ];
 
 const wiredMenus = new Set([
@@ -174,6 +232,12 @@ const wiredMenus = new Set([
   'tasks',
   'contacts',
   'chat',
+  'slides',
+  'forms',
+  'keep',
+  'meet',
+  'people',
+  'classroom',
 ]);
 
 export function MasterLayout({ deps, accountEmail }: MasterLayoutProps) {

@@ -2,7 +2,14 @@ import type { Command } from "commander";
 
 import type { OutputMode } from "../../outfmt/outfmt.js";
 import { toCliApiErrorMessage } from "../../googleapi/errors.js";
+import type { PaginatedResult, PaginationOptions } from "../../types/pagination.js";
 import { buildExecutionContext, type RootOptions } from "../execution-context.js";
+
+export type PresentationSummary = {
+  id: string;
+  name: string;
+  mimeType: string;
+};
 
 export type SlideSummary = {
   index: number;
@@ -15,6 +22,7 @@ export type SlidesCreateResult = {
 };
 
 export type SlidesCommandDeps = {
+  listPresentations?: (options?: PaginationOptions) => Promise<PaginatedResult<PresentationSummary>>;
   createPresentation?: (title: string) => Promise<SlidesCreateResult>;
   listSlides?: (presentationId: string) => Promise<SlideSummary[]>;
   readSlide?: (presentationId: string, index: number) => Promise<SlideSummary>;
@@ -22,6 +30,7 @@ export type SlidesCommandDeps = {
 };
 
 const defaultDeps: Required<SlidesCommandDeps> = {
+  listPresentations: async () => ({ items: [] }),
   createPresentation: async (title) => ({ id: "", title }),
   listSlides: async () => [],
   readSlide: async (presentationId, index) => ({ index, title: `Slide ${index} in ${presentationId}` }),

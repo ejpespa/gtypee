@@ -18,6 +18,11 @@ import { buildSheetsCommandDeps } from "../sheets/runtime.js";
 import { buildTasksCommandDeps } from "../tasks/runtime.js";
 import { buildContactsCommandDeps } from "../contacts/runtime.js";
 import { buildChatCommandDeps } from "../chat/runtime.js";
+import { buildSlidesCommandDeps } from "../slides/runtime.js";
+import { buildFormsCommandDeps } from "../forms/runtime.js";
+import { buildKeepCommandDeps } from "../keep/runtime.js";
+import { buildPeopleCommandDeps } from "../people/runtime.js";
+import { buildClassroomCommandDeps } from "../classroom/runtime.js";
 import { ServiceRuntime } from "../../googleapi/auth-factory.js";
 import { resolveDefaultAccount } from "../auth/commands.js";
 
@@ -84,6 +89,11 @@ export function registerTuiCommand(root: Command): void {
       const tasksDeps = buildTasksCommandDeps(runtime);
       const contactsDeps = buildContactsCommandDeps(runtimeOptions);
       const chatDeps = buildChatCommandDeps(runtimeOptions);
+      const slidesDeps = buildSlidesCommandDeps(runtime);
+      const formsDeps = buildFormsCommandDeps(runtime);
+      const keepDeps = buildKeepCommandDeps(runtimeOptions);
+      const peopleDeps = buildPeopleCommandDeps(runtime);
+      const classroomDeps = buildClassroomCommandDeps(runtimeOptions);
 
       process.stdout.write("\x1b[2J\x1b[3J\x1b[H"); // clear the screen
 
@@ -109,6 +119,11 @@ export function registerTuiCommand(root: Command): void {
             tasksDeps,
             contactsDeps,
             chatDeps,
+            slidesDeps,
+            formsDeps,
+            keepDeps,
+            peopleDeps,
+            classroomDeps,
           },
         })
       );

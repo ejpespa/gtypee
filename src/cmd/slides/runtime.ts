@@ -5,7 +5,8 @@ import { google } from "googleapis";
 
 import { ServiceRuntime } from "../../googleapi/auth-factory.js";
 import { scopes } from "../../googleauth/service.js";
-import type { SlidesCommandDeps, SlidesCreateResult, SlideSummary } from "./commands.js";
+import type { PaginatedResult, PaginationOptions } from "../../types/pagination.js";
+import type { SlidesCommandDeps, SlidesCreateResult, SlideSummary, PresentationSummary } from "./commands.js";
 
 type SlidePageElement = {
   shape?: {
@@ -75,6 +76,32 @@ function formatToExtension(format: string): string {
 }
 
 export function buildSlidesCommandDeps(runtime: ServiceRuntime): Required<SlidesCommandDeps> {
+  const listPresentations = async (options?: PaginationOptions): Promise<PaginatedResult<PresentationSummary>> => {
+    const auth = await runtime.getClient(scopes("drive"));
+    const drive = google.drive({ version: "v3", auth });
+    const params: { q: string; pageSize: number; pageToken?: string; fields: string } = {
+      q: "mimeType='application/vnd.google-apps.presentation'",
+      pageSize: options?.pageSize ?? 100,
+      fields: "nextPageToken,files(id,name,mimeType)",
+    };
+    if (options?.pageToken !== undefined) {
+      params.pageToken = options.pageToken;
+    }
+    const res = await drive.files.list(params);
+    const files = res.data.files ?? [];
+    const result: PaginatedResult<PresentationSummary> = {
+      items: files.map((f) => ({
+        id: f.id ?? "",
+        name: f.name ?? "",
+        mimeType: f.mimeType ?? "",
+      })),
+    };
+    if (res.data.nextPageToken) {
+      result.nextPageToken = res.data.nextPageToken;
+    }
+    return result;
+  };
+
   const createPresentation = async (title: string): Promise<SlidesCreateResult> => {
     const auth = await runtime.getClient(scopes("slides"));
     const slides = google.slides({ version: "v1", auth });
@@ -124,5 +151,5 @@ export function buildSlidesCommandDeps(runtime: ServiceRuntime): Required<Slides
     return { id: presentationId, format, path: outputPath, exported: true };
   };
 
-  return { createPresentation, listSlides, readSlide, exportSlides };
+  return { listPresentations, createPresentation, listSlides, readSlide, exportSlides };
 }

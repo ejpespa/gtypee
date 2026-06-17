@@ -7,6 +7,7 @@ import { buildExecutionContext, type RootOptions } from "../execution-context.js
 export type KeepNote = {
   id: string;
   title: string;
+  body?: string;
 };
 
 export type KeepCommandDeps = {
