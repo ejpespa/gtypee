@@ -10,7 +10,7 @@ import {
   buildWorkspaceReportCommandDeps,
   buildWorkspaceUserCommandDeps,
 } from "../workspace/runtime.js";
-import { buildGmailCommandDeps } from "../gmail/runtime.js";
+import { buildGmailCommandDeps, buildGmailAttachmentDeps } from "../gmail/runtime.js";
 import { buildCalendarCommandDeps } from "../calendar/runtime.js";
 import { buildDriveCommandDeps } from "../drive/runtime.js";
 import { buildDocsCommandDeps } from "../docs/runtime.js";
@@ -58,6 +58,9 @@ export function registerTuiCommand(root: Command): void {
       const gmailDeps = buildGmailCommandDeps({
         resolveAccount: async () => resolved,
       });
+      const gmailAttachmentDeps = buildGmailAttachmentDeps({
+        resolveAccount: async () => resolved,
+      });
 
       const calendarDeps = buildCalendarCommandDeps({
         resolveAccount: async () => resolved,
@@ -85,6 +88,7 @@ export function registerTuiCommand(root: Command): void {
             groupDeps,
             orgDeps,
             gmailDeps,
+            gmailAttachmentDeps,
             calendarDeps,
             driveDeps,
             docsDeps,

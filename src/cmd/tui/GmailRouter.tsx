@@ -2,14 +2,15 @@ import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import SelectInput from 'ink-select-input';
 import { ListMessagesTui } from '../gmail/ListMessagesTui.js';
-import type { GmailCommandDeps } from '../gmail/commands.js';
+import type { GmailAttachmentDeps, GmailCommandDeps } from '../gmail/commands.js';
 
 interface GmailRouterProps {
   deps: Required<GmailCommandDeps>;
+  attachmentDeps: Required<GmailAttachmentDeps>;
   onCancel: () => void;
 }
 
-export function GmailRouter({ deps, onCancel }: GmailRouterProps) {
+export function GmailRouter({ deps, attachmentDeps, onCancel }: GmailRouterProps) {
   const [activeSubMenu, setActiveSubMenu] = useState<string | null>(null);
 
   const items = [
@@ -31,6 +32,7 @@ export function GmailRouter({ deps, onCancel }: GmailRouterProps) {
     return (
       <ListMessagesTui
         gmailDeps={deps}
+        gmailAttachmentDeps={attachmentDeps}
         title="Inbox Messages"
         defaultQuery="in:inbox"
         onCancel={() => setActiveSubMenu(null)}
@@ -42,6 +44,7 @@ export function GmailRouter({ deps, onCancel }: GmailRouterProps) {
     return (
       <ListMessagesTui
         gmailDeps={deps}
+        gmailAttachmentDeps={attachmentDeps}
         title="Search Messages"
         defaultQuery=""
         onCancel={() => setActiveSubMenu(null)}

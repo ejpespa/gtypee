@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Box, Text, useInput } from 'ink';
 import SelectInput from 'ink-select-input';
 import TextInput from 'ink-text-input';
@@ -12,10 +12,17 @@ import { filterItemsByQuery } from '../tui/search.js';
 import { TuiSearchControls } from '../tui/TuiSearchControls.js';
 import { TuiListFooter } from '../tui/TuiListFooter.js';
 import { TuiDetailPanel } from '../tui/TuiDetailPanel.js';
+import type { TuiDetailAction } from '../tui/TuiDetailPanel.js';
 import { textToDetailLines } from '../tui/detail.js';
+import {
+  isGoogleAppsFile,
+  resolveDefaultDriveExportFormat,
+  resolveNamedExportPath,
+  sanitizeFilename,
+} from '../tui/download.js';
 import { normalizeDriveSearchQuery } from '../../googleapi/drive.js';
 import { formatDriveFileInfo } from './commands.js';
-import type { DriveCommandDeps, DriveFileSummary } from './commands.js';
+import type { DriveCommandDeps, DriveFileInfo, DriveFileSummary } from './commands.js';
 
 export interface ListFilesTuiProps {
   driveDeps: Required<DriveCommandDeps>;
@@ -57,12 +64,18 @@ export function ListFilesTui({
   const [detailLines, setDetailLines] = useState<string[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const [detailFile, setDetailFile] = useState<DriveFileInfo | null>(null);
+  const [actionStatus, setActionStatus] = useState<string | null>(null);
+  const [actionBusy, setActionBusy] = useState(false);
 
   const clearDetail = useCallback(() => {
     setDetailTitle(null);
     setDetailLines([]);
     setDetailLoading(false);
     setDetailError(null);
+    setDetailFile(null);
+    setActionStatus(null);
+    setActionBusy(false);
   }, []);
 
   const applyApiQuery = useCallback(() => {
@@ -136,10 +149,13 @@ export function ListFilesTui({
     setDetailTitle(summary?.name || 'File');
     setDetailLines([]);
     setDetailError(null);
+    setDetailFile(null);
+    setActionStatus(null);
     setDetailLoading(true);
 
     try {
       const info = await driveDeps.getFileInfo(item.value);
+      setDetailFile(info);
       setDetailLines(textToDetailLines(formatDriveFileInfo(info, 'human')));
     } catch (err: unknown) {
       setDetailError(err instanceof Error ? err.message : 'Failed to load file info');
@@ -147,6 +163,52 @@ export function ListFilesTui({
       setDetailLoading(false);
     }
   }, [driveDeps, visibleFiles]);
+
+  const runDetailAction = useCallback(async (action: () => Promise<string>) => {
+    setActionBusy(true);
+    setActionStatus(null);
+    try {
+      const message = await action();
+      setActionStatus(message);
+    } catch (err: unknown) {
+      setActionStatus(`Error: ${err instanceof Error ? err.message : 'Download failed'}`);
+    } finally {
+      setActionBusy(false);
+    }
+  }, []);
+
+  const detailActions = useMemo((): TuiDetailAction[] => {
+    if (!detailFile) return [];
+
+    const isWorkspaceFile = isGoogleAppsFile(detailFile.mimeType);
+    const isFolder = detailFile.mimeType === 'application/vnd.google-apps.folder';
+    if (isFolder) return [];
+
+    const exportFormat = resolveDefaultDriveExportFormat(detailFile.mimeType);
+    const label = isWorkspaceFile ? `export as ${exportFormat}` : 'download';
+
+    return [{
+      key: 'd',
+      label,
+      onAction: () => runDetailAction(async () => {
+        if (isWorkspaceFile) {
+          const outputPath = resolveNamedExportPath(detailFile.name, exportFormat);
+          const result = await driveDeps.exportFile(detailFile.id, exportFormat, outputPath);
+          if (!result.exported) {
+            throw new Error(`Export failed for ${detailFile.name}`);
+          }
+          return `Exported to ${result.path}`;
+        }
+
+        const outputPath = sanitizeFilename(detailFile.name);
+        const result = await driveDeps.downloadFile(detailFile.id, outputPath);
+        if (!result.downloaded) {
+          throw new Error(`Download failed for ${detailFile.name}`);
+        }
+        return `Saved to ${result.path}`;
+      }),
+    }];
+  }, [detailFile, driveDeps, runDetailAction]);
 
   const inDetail = detailTitle !== null || detailLoading || detailError !== null;
 
@@ -199,6 +261,9 @@ export function ListFilesTui({
         loading={detailLoading}
         error={detailError}
         onBack={clearDetail}
+        actions={detailActions}
+        actionStatus={actionStatus}
+        actionBusy={actionBusy}
       />
     );
   }

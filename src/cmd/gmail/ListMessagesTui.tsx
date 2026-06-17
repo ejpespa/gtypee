@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Box, Text, useInput } from 'ink';
 import SelectInput from 'ink-select-input';
 import TextInput from 'ink-text-input';
@@ -10,12 +10,19 @@ import {
 } from '../tui/pagination.js';
 import { TuiListFooter } from '../tui/TuiListFooter.js';
 import { TuiDetailPanel } from '../tui/TuiDetailPanel.js';
+import type { TuiDetailAction } from '../tui/TuiDetailPanel.js';
 import { textToDetailLines } from '../tui/detail.js';
 import { formatGmailMessageDetail } from './commands.js';
-import type { GmailCommandDeps, GmailMessageSummary } from './commands.js';
+import type {
+  GmailAttachmentDeps,
+  GmailCommandDeps,
+  GmailMessageDetail,
+  GmailMessageSummary,
+} from './commands.js';
 
 export interface ListMessagesTuiProps {
   gmailDeps: Required<GmailCommandDeps>;
+  gmailAttachmentDeps: Required<GmailAttachmentDeps>;
   title: string;
   defaultQuery?: string;
   onCancel?: () => void;
@@ -37,6 +44,7 @@ function formatMessageLabel(message: GmailMessageSummary): string {
 
 export function ListMessagesTui({
   gmailDeps,
+  gmailAttachmentDeps,
   title,
   defaultQuery = '',
   onCancel,
@@ -55,12 +63,18 @@ export function ListMessagesTui({
   const [detailLines, setDetailLines] = useState<string[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const [detailMessage, setDetailMessage] = useState<GmailMessageDetail | null>(null);
+  const [actionStatus, setActionStatus] = useState<string | null>(null);
+  const [actionBusy, setActionBusy] = useState(false);
 
   const clearDetail = useCallback(() => {
     setDetailTitle(null);
     setDetailLines([]);
     setDetailLoading(false);
     setDetailError(null);
+    setDetailMessage(null);
+    setActionStatus(null);
+    setActionBusy(false);
   }, []);
 
   const applyQuery = useCallback(() => {
@@ -112,6 +126,8 @@ export function ListMessagesTui({
     setDetailTitle(summary?.subject || 'Message');
     setDetailLines([]);
     setDetailError(null);
+    setDetailMessage(null);
+    setActionStatus(null);
     setDetailLoading(true);
 
     try {
@@ -119,6 +135,7 @@ export function ListMessagesTui({
         throw new Error('getMessage dependency function is not provided.');
       }
       const message = await gmailDeps.getMessage(item.value);
+      setDetailMessage(message);
       setDetailLines(textToDetailLines(formatGmailMessageDetail(message, 'human')));
     } catch (err: unknown) {
       setDetailError(err instanceof Error ? err.message : 'Failed to load message');
@@ -126,6 +143,73 @@ export function ListMessagesTui({
       setDetailLoading(false);
     }
   }, [gmailDeps, currentMessages]);
+
+  const runDetailAction = useCallback(async (action: () => Promise<string>) => {
+    setActionBusy(true);
+    setActionStatus(null);
+    try {
+      const message = await action();
+      setActionStatus(message);
+    } catch (err: unknown) {
+      setActionStatus(`Error: ${err instanceof Error ? err.message : 'Download failed'}`);
+    } finally {
+      setActionBusy(false);
+    }
+  }, []);
+
+  const detailActions = useMemo((): TuiDetailAction[] => {
+    const attachmentCount = detailMessage?.attachments.length ?? 0;
+    if (attachmentCount === 0) return [];
+
+    const actions: TuiDetailAction[] = [];
+    if (attachmentCount === 1 && detailMessage) {
+      const attachment = detailMessage.attachments[0]!;
+      actions.push({
+        key: 'd',
+        label: 'download attachment',
+        onAction: () => runDetailAction(async () => {
+          const result = await gmailAttachmentDeps.downloadAttachment(
+            detailMessage.id,
+            attachment.attachmentId,
+            attachment.filename,
+          );
+          if (!result.saved) {
+            throw new Error(`Failed to save ${attachment.filename}`);
+          }
+          return `Saved ${attachment.filename} (${result.size} bytes)`;
+        }),
+      });
+    } else if (detailMessage) {
+      actions.push({
+        key: 'd',
+        label: 'download first attachment',
+        onAction: () => runDetailAction(async () => {
+          const attachment = detailMessage.attachments[0]!;
+          const result = await gmailAttachmentDeps.downloadAttachment(
+            detailMessage.id,
+            attachment.attachmentId,
+            attachment.filename,
+          );
+          if (!result.saved) {
+            throw new Error(`Failed to save ${attachment.filename}`);
+          }
+          return `Saved ${attachment.filename} (${result.size} bytes)`;
+        }),
+      });
+      actions.push({
+        key: 'a',
+        label: 'download all attachments',
+        onAction: () => runDetailAction(async () => {
+          const result = await gmailAttachmentDeps.downloadAllAttachments(detailMessage.id);
+          if (result.downloaded === 0) {
+            throw new Error('No attachments were saved');
+          }
+          return `Saved ${result.downloaded} attachment(s)${result.failed > 0 ? `, ${result.failed} failed` : ''}`;
+        }),
+      });
+    }
+    return actions;
+  }, [detailMessage, gmailAttachmentDeps, runDetailAction]);
 
   const inDetail = detailTitle !== null || detailLoading || detailError !== null;
 
@@ -165,6 +249,9 @@ export function ListMessagesTui({
         loading={detailLoading}
         error={detailError}
         onBack={clearDetail}
+        actions={detailActions}
+        actionStatus={actionStatus}
+        actionBusy={actionBusy}
       />
     );
   }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Box, Text, useInput } from 'ink';
 import SelectInput from 'ink-select-input';
 import {
@@ -11,11 +11,14 @@ import { filterItemsByQuery } from '../tui/search.js';
 import { TuiSearchControls } from '../tui/TuiSearchControls.js';
 import { TuiListFooter } from '../tui/TuiListFooter.js';
 import { TuiDetailPanel } from '../tui/TuiDetailPanel.js';
+import type { TuiDetailAction } from '../tui/TuiDetailPanel.js';
 import { textToDetailLines } from '../tui/detail.js';
+import { resolveNamedExportPath } from '../tui/download.js';
 import { formatSheetsRead } from './commands.js';
 import type { SheetsCommandDeps, SheetsSummary } from './commands.js';
 
 const DEFAULT_PREVIEW_RANGE = 'A1:J20';
+const DEFAULT_SHEET_EXPORT_FORMAT = 'xlsx';
 
 export interface ListSheetsTuiProps {
   sheetsDeps: Required<SheetsCommandDeps>;
@@ -41,12 +44,18 @@ export function ListSheetsTui({ sheetsDeps, onCancel }: ListSheetsTuiProps) {
   const [detailLines, setDetailLines] = useState<string[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const [detailSheetId, setDetailSheetId] = useState<string | null>(null);
+  const [actionStatus, setActionStatus] = useState<string | null>(null);
+  const [actionBusy, setActionBusy] = useState(false);
 
   const clearDetail = useCallback(() => {
     setDetailTitle(null);
     setDetailLines([]);
     setDetailLoading(false);
     setDetailError(null);
+    setDetailSheetId(null);
+    setActionStatus(null);
+    setActionBusy(false);
   }, []);
 
   const applySearch = useCallback(() => {
@@ -102,6 +111,8 @@ export function ListSheetsTui({ sheetsDeps, onCancel }: ListSheetsTuiProps) {
     setDetailTitle(summary?.name || 'Spreadsheet');
     setDetailLines([]);
     setDetailError(null);
+    setDetailSheetId(item.value);
+    setActionStatus(null);
     setDetailLoading(true);
 
     try {
@@ -113,6 +124,36 @@ export function ListSheetsTui({ sheetsDeps, onCancel }: ListSheetsTuiProps) {
       setDetailLoading(false);
     }
   }, [sheetsDeps, visibleSheets]);
+
+  const runDetailAction = useCallback(async (action: () => Promise<string>) => {
+    setActionBusy(true);
+    setActionStatus(null);
+    try {
+      const message = await action();
+      setActionStatus(message);
+    } catch (err: unknown) {
+      setActionStatus(`Error: ${err instanceof Error ? err.message : 'Export failed'}`);
+    } finally {
+      setActionBusy(false);
+    }
+  }, []);
+
+  const detailActions = useMemo((): TuiDetailAction[] => {
+    if (!detailSheetId || !detailTitle) return [];
+
+    return [{
+      key: 'd',
+      label: `export as ${DEFAULT_SHEET_EXPORT_FORMAT}`,
+      onAction: () => runDetailAction(async () => {
+        const outputPath = resolveNamedExportPath(detailTitle, DEFAULT_SHEET_EXPORT_FORMAT);
+        const result = await sheetsDeps.exportSheet(detailSheetId, DEFAULT_SHEET_EXPORT_FORMAT, outputPath);
+        if (!result.exported) {
+          throw new Error(`Export failed for ${detailTitle}`);
+        }
+        return `Exported to ${result.path}`;
+      }),
+    }];
+  }, [detailSheetId, detailTitle, sheetsDeps, runDetailAction]);
 
   const inDetail = detailTitle !== null || detailLoading || detailError !== null;
 
@@ -152,6 +193,9 @@ export function ListSheetsTui({ sheetsDeps, onCancel }: ListSheetsTuiProps) {
         loading={detailLoading}
         error={detailError}
         onBack={clearDetail}
+        actions={detailActions}
+        actionStatus={actionStatus}
+        actionBusy={actionBusy}
       />
     );
   }

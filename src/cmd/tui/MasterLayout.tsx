@@ -11,7 +11,7 @@ import { TasksRouter } from './TasksRouter.js';
 import { ContactsRouter } from './ContactsRouter.js';
 import { ChatRouter } from './ChatRouter.js';
 import type { WorkspaceDeviceCommandDeps, WorkspaceReportCommandDeps, WorkspaceUserCommandDeps, WorkspaceGroupCommandDeps, WorkspaceOrgUnitCommandDeps } from '../workspace/commands.js';
-import type { GmailCommandDeps } from '../gmail/commands.js';
+import type { GmailAttachmentDeps, GmailCommandDeps } from '../gmail/commands.js';
 import type { CalendarCommandDeps } from '../calendar/commands.js';
 import type { DriveCommandDeps } from '../drive/commands.js';
 import type { DocsCommandDeps } from '../docs/commands.js';
@@ -27,6 +27,7 @@ export interface TuiConfigDeps {
   groupDeps: Required<WorkspaceGroupCommandDeps>;
   orgDeps: Required<WorkspaceOrgUnitCommandDeps>;
   gmailDeps: Required<GmailCommandDeps>;
+  gmailAttachmentDeps: Required<GmailAttachmentDeps>;
   calendarDeps: Required<CalendarCommandDeps>;
   driveDeps: Required<DriveCommandDeps>;
   docsDeps: Required<DocsCommandDeps>;
@@ -137,6 +138,7 @@ export function MasterLayout({ deps }: MasterLayoutProps) {
           <Box flexDirection="column" width="100%">
              <GmailRouter
                deps={deps.gmailDeps}
+               attachmentDeps={deps.gmailAttachmentDeps}
                onCancel={handleBack}
              />
           </Box>

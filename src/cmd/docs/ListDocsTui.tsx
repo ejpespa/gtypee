@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Box, Text, useInput } from 'ink';
 import SelectInput from 'ink-select-input';
 import {
@@ -11,9 +11,13 @@ import { filterItemsByQuery } from '../tui/search.js';
 import { TuiSearchControls } from '../tui/TuiSearchControls.js';
 import { TuiListFooter } from '../tui/TuiListFooter.js';
 import { TuiDetailPanel } from '../tui/TuiDetailPanel.js';
+import type { TuiDetailAction } from '../tui/TuiDetailPanel.js';
 import { textToDetailLines } from '../tui/detail.js';
+import { resolveNamedExportPath } from '../tui/download.js';
 import { formatDocsReadResult } from './commands.js';
 import type { DocsCommandDeps, DocsSummary } from './commands.js';
+
+const DEFAULT_DOC_EXPORT_FORMAT = 'pdf';
 
 export interface ListDocsTuiProps {
   docsDeps: Required<DocsCommandDeps>;
@@ -39,12 +43,18 @@ export function ListDocsTui({ docsDeps, onCancel }: ListDocsTuiProps) {
   const [detailLines, setDetailLines] = useState<string[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const [detailDocId, setDetailDocId] = useState<string | null>(null);
+  const [actionStatus, setActionStatus] = useState<string | null>(null);
+  const [actionBusy, setActionBusy] = useState(false);
 
   const clearDetail = useCallback(() => {
     setDetailTitle(null);
     setDetailLines([]);
     setDetailLoading(false);
     setDetailError(null);
+    setDetailDocId(null);
+    setActionStatus(null);
+    setActionBusy(false);
   }, []);
 
   const applySearch = useCallback(() => {
@@ -100,6 +110,8 @@ export function ListDocsTui({ docsDeps, onCancel }: ListDocsTuiProps) {
     setDetailTitle(summary?.name || 'Document');
     setDetailLines([]);
     setDetailError(null);
+    setDetailDocId(item.value);
+    setActionStatus(null);
     setDetailLoading(true);
 
     try {
@@ -111,6 +123,36 @@ export function ListDocsTui({ docsDeps, onCancel }: ListDocsTuiProps) {
       setDetailLoading(false);
     }
   }, [docsDeps, visibleDocs]);
+
+  const runDetailAction = useCallback(async (action: () => Promise<string>) => {
+    setActionBusy(true);
+    setActionStatus(null);
+    try {
+      const message = await action();
+      setActionStatus(message);
+    } catch (err: unknown) {
+      setActionStatus(`Error: ${err instanceof Error ? err.message : 'Export failed'}`);
+    } finally {
+      setActionBusy(false);
+    }
+  }, []);
+
+  const detailActions = useMemo((): TuiDetailAction[] => {
+    if (!detailDocId || !detailTitle) return [];
+
+    return [{
+      key: 'd',
+      label: `export as ${DEFAULT_DOC_EXPORT_FORMAT}`,
+      onAction: () => runDetailAction(async () => {
+        const outputPath = resolveNamedExportPath(detailTitle, DEFAULT_DOC_EXPORT_FORMAT);
+        const result = await docsDeps.exportDoc(detailDocId, DEFAULT_DOC_EXPORT_FORMAT, outputPath);
+        if (!result.exported) {
+          throw new Error(`Export failed for ${detailTitle}`);
+        }
+        return `Exported to ${result.path}`;
+      }),
+    }];
+  }, [detailDocId, detailTitle, docsDeps, runDetailAction]);
 
   const inDetail = detailTitle !== null || detailLoading || detailError !== null;
 
@@ -150,6 +192,9 @@ export function ListDocsTui({ docsDeps, onCancel }: ListDocsTuiProps) {
         loading={detailLoading}
         error={detailError}
         onBack={clearDetail}
+        actions={detailActions}
+        actionStatus={actionStatus}
+        actionBusy={actionBusy}
       />
     );
   }

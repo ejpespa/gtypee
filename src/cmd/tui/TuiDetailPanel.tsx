@@ -2,12 +2,22 @@ import React, { useState, useMemo } from 'react';
 import { Box, Text, useInput, useStdout } from 'ink';
 import { flattenDetailLines } from './detail.js';
 
+export interface TuiDetailAction {
+  key: string;
+  label: string;
+  onAction: () => void | Promise<void>;
+  disabled?: boolean;
+}
+
 export interface TuiDetailPanelProps {
   title: string;
   lines: string[];
   loading?: boolean;
   error?: string | null;
   onBack: () => void;
+  actions?: TuiDetailAction[];
+  actionStatus?: string | null;
+  actionBusy?: boolean;
 }
 
 export function TuiDetailPanel({
@@ -16,6 +26,9 @@ export function TuiDetailPanel({
   loading = false,
   error = null,
   onBack,
+  actions = [],
+  actionStatus = null,
+  actionBusy = false,
 }: TuiDetailPanelProps) {
   const { stdout } = useStdout();
   const terminalWidth = stdout.columns > 0 ? stdout.columns : 80;
@@ -34,13 +47,21 @@ export function TuiDetailPanel({
   const clampedOffset = Math.min(scrollOffset, maxScroll);
   const visibleLines = flatLines.slice(clampedOffset, clampedOffset + maxVisibleLines);
 
-  useInput((_input, key) => {
+  const enabledActions = actions.filter((action) => !action.disabled);
+
+  useInput(async (input, key) => {
     if (key.escape) {
       onBack();
       return;
     }
 
-    if (loading) return;
+    if (loading || actionBusy) return;
+
+    const matchedAction = enabledActions.find((action) => action.key === input);
+    if (matchedAction) {
+      await matchedAction.onAction();
+      return;
+    }
 
     if (key.upArrow) {
       setScrollOffset((o) => Math.max(0, o - 1));
@@ -87,10 +108,19 @@ export function TuiDetailPanel({
         </Box>
       )}
 
+      {actionStatus && (
+        <Box marginTop={1}>
+          <Text color={actionStatus.startsWith('Error:') ? 'red' : 'green'}>{actionStatus}</Text>
+        </Box>
+      )}
+
       <Box marginTop={1}>
         <Text color="gray">
           {flatLines.length > maxVisibleLines
             ? `Lines ${clampedOffset + 1}-${Math.min(clampedOffset + maxVisibleLines, flatLines.length)} of ${flatLines.length} · `
+            : ''}
+          {enabledActions.length > 0
+            ? `${enabledActions.map((action) => `${action.key} ${action.label}`).join(' · ')} · `
             : ''}
           ↑/↓ scroll · ESC back
         </Text>
