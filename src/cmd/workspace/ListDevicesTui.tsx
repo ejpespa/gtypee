@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput, useApp } from 'ink';
 import SelectInput from 'ink-select-input';
+import {
+  DEFAULT_TUI_PAGE_SIZE,
+  mergeNextPageToken,
+  hasNextTokenPage,
+  shouldHandlePaginationKey,
+} from '../tui/pagination.js';
 import type { WorkspaceDeviceCommandDeps, Device } from './commands.js';
 
 export interface ListDevicesTuiProps {
@@ -21,7 +27,7 @@ export function ListDevicesTui({ deviceDeps, type, onCancel }: ListDevicesTuiPro
   // Cache results internally logic buffering allFetchedDevices chunks natively.
   const [allFetchedDevices, setAllFetchedDevices] = useState<{ [page: number]: Device[] }>({});
 
-  const pageSize = 20;
+  const pageSize = DEFAULT_TUI_PAGE_SIZE;
 
   useEffect(() => {
     let isCancelled = false;
@@ -58,21 +64,9 @@ export function ListDevicesTui({ deviceDeps, type, onCancel }: ListDevicesTuiPro
             [currentIndex]: result.items,
           }));
 
-          if (result.nextPageToken) {
-            setPageHistory(prev => {
-              const next = [...prev];
-              next[currentIndex + 1] = result.nextPageToken;
-              return next;
-            });
-          } else {
-            setPageHistory(prev => {
-              const next = [...prev];
-              if (next.length > currentIndex + 1) {
-                next[currentIndex + 1] = undefined;
-              }
-              return next;
-            });
-          }
+          setPageHistory((prev) =>
+            mergeNextPageToken(prev, currentIndex, result.nextPageToken),
+          );
         }
       } catch (err: any) {
         if (!isCancelled) {
@@ -91,7 +85,7 @@ export function ListDevicesTui({ deviceDeps, type, onCancel }: ListDevicesTuiPro
     };
   }, [currentIndex, type, deviceDeps]);
 
-  const localHasNextPage = pageHistory[currentIndex + 1] !== undefined;
+  const localHasNextPage = hasNextTokenPage(pageHistory, currentIndex);
   const currentDevices = allFetchedDevices[currentIndex] || [];
 
   useInput((input, key) => {
@@ -103,14 +97,11 @@ export function ListDevicesTui({ deviceDeps, type, onCancel }: ListDevicesTuiPro
       return;
     }
 
-    if (!loading) {
-      if ((key.rightArrow || input === ' ') && localHasNextPage) {
-        setCurrentIndex(prev => prev + 1);
-      }
-      if (key.leftArrow && currentIndex > 0) {
-        setCurrentIndex(prev => prev - 1);
-      }
-    }
+    if (loading) return;
+
+    const action = shouldHandlePaginationKey(input, key, false);
+    if (action === 'next' && localHasNextPage) setCurrentIndex((i) => i + 1);
+    if (action === 'prev' && currentIndex > 0) setCurrentIndex((i) => i - 1);
   });
 
   const titleType = type === 'chromebook' ? 'ChromeOS' : 'Mobile';

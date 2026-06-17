@@ -1,5 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput, useApp } from 'ink';
+import SelectInput from 'ink-select-input';
+import TextInput from 'ink-text-input';
+import {
+  DEFAULT_TUI_PAGE_SIZE,
+  mergeNextPageToken,
+  hasNextTokenPage,
+  shouldHandlePaginationKey,
+} from '../tui/pagination.js';
 import type { WorkspaceReportCommandDeps, DeletedUser, DeletedUserOptions, WorkspaceUserCommandDeps } from './commands.js';
 
 export interface DeletedUsersTuiProps {
@@ -22,7 +30,12 @@ export function DeletedUsersTui({ reportDeps, userDeps, days, searchOpts, onCanc
   
   // Only caching the CURRENT page of exactly 20 users so it's super lean!
   const [currentViewUsers, setCurrentViewUsers] = useState<DeletedUser[]>([]);
-  const pageSize = searchOpts.pageSize || 20;
+    const [selectedUserToRecover, setSelectedUserToRecover] = useState<string | null>(null);
+  const [isRecovering, setIsRecovering] = useState(false);
+  const [recoveryStatus, setRecoveryStatus] = useState<string | null>(null);
+  const [confirmInput, setConfirmInput] = useState('');
+
+  const pageSize = searchOpts.pageSize || DEFAULT_TUI_PAGE_SIZE;
 
   useEffect(() => {
     let isCancelled = false;
@@ -41,22 +54,9 @@ export function DeletedUsersTui({ reportDeps, userDeps, days, searchOpts, onCanc
         if (!isCancelled) {
           setCurrentViewUsers(result.items);
           
-          if (result.nextPageToken) {
-            setPageHistory(prev => {
-              const next = [...prev];
-              next[currentIndex + 1] = result.nextPageToken;
-              return next;
-            });
-          } else {
-             // Wipe any forward tokens ensuring it terminates cleanly
-             setPageHistory(prev => {
-               const next = [...prev];
-               if (next.length > currentIndex + 1) {
-                 next[currentIndex + 1] = undefined;
-               }
-               return next;
-             });
-          }
+          setPageHistory((prev) =>
+            mergeNextPageToken(prev, currentIndex, result.nextPageToken),
+          );
         }
       } catch (err: any) {
         if (!isCancelled) setError(err.message || "Failed to fetch users");
@@ -70,23 +70,53 @@ export function DeletedUsersTui({ reportDeps, userDeps, days, searchOpts, onCanc
   }, [currentIndex, days, reportDeps]);
 
   // If there's a valid token queued in history for the next page, we can go right!
-  const localHasNextPage = pageHistory[currentIndex + 1] !== undefined;
+  const localHasNextPage = hasNextTokenPage(pageHistory, currentIndex);
+
+    const handleSelectUser = (item: any) => {
+    setSelectedUserToRecover(item.value);
+    setRecoveryStatus(null);
+    setConfirmInput(''); // reset input on selection display
+  };
+
+  const handleRecoveryConfirm = async (val: string) => {
+    if (val.trim().toLowerCase() === 'y' && selectedUserToRecover) {
+      setIsRecovering(true);
+      try {
+        const result = await userDeps.recoverUser(selectedUserToRecover);
+        setRecoveryStatus(result.applied ? "Successfully recovered!" : "Failed to recover user.");
+      } catch (e: any) {
+        setRecoveryStatus(`Error: ${e.message}`);
+      }
+      setIsRecovering(false);
+    } else if (val.trim().toLowerCase() !== 'y') {
+      // If they type anything else and hit enter, abort gracefully
+      setSelectedUserToRecover(null);
+      setConfirmInput('');
+    }
+  };
 
   useInput((input, key) => {
-    if (input === 'q' || key.escape) {
+    if (selectedUserToRecover !== null) {
+      if (key.escape) {
+        setSelectedUserToRecover(null);
+        setRecoveryStatus(null);
+        setConfirmInput('');
+      }
+    } else if (input === 'q' || key.escape) {
       if (onCancel) return onCancel();
       exit();
       return;
     }
-    
-    if (!loading) {
-      if ((key.rightArrow || input === ' ') && localHasNextPage) {
-        setCurrentIndex(prev => prev + 1);
-      }
-      if (key.leftArrow && currentIndex > 0) {
-        setCurrentIndex(prev => prev - 1);
-      }
-    }
+
+    if (loading) return;
+
+    const action = shouldHandlePaginationKey(
+      input,
+      key,
+      selectedUserToRecover !== null,
+    );
+    if (action === 'next' && localHasNextPage) setCurrentIndex((i) => i + 1);
+    if (action === 'prev' && currentIndex > 0) setCurrentIndex((i) => i - 1);
   });
 
   return (
@@ -99,23 +129,36 @@ export function DeletedUsersTui({ reportDeps, userDeps, days, searchOpts, onCanc
         <Box marginBottom={1}><Text color="red">Error: {error}</Text></Box>
       )}
       
-      {loading && currentViewUsers.length === 0 ? (
+      {selectedUserToRecover !== null ? (
+        <Box flexDirection="column" marginBottom={1} padding={1} borderStyle="round" borderColor="yellow">
+           <Text bold color="yellow">Confirm Action: Recover User Account</Text>
+           <Text>Are you sure you want to recover account: <Text bold>{selectedUserToRecover}</Text>?</Text>
+           <Text color="gray">[y/Enter] to Confirm | [ESC] to Cancel</Text>
+           
+           {isRecovering && <Box marginTop={1}><Text color="cyan">Recovering user via Google Admin API...</Text></Box>}
+           {recoveryStatus && <Box marginTop={1}><Text color={recoveryStatus.includes('Error') || recoveryStatus.includes('Failed') ? 'red' : 'green'}>{recoveryStatus}</Text></Box>}
+           
+           {!isRecovering && !recoveryStatus && (
+              <Box marginTop={1}>
+                 <Text>Confirm: </Text>
+                 <TextInput value={confirmInput} onChange={setConfirmInput} onSubmit={handleRecoveryConfirm} />
+              </Box>
+           )}
+        </Box>
+      ) : loading && currentViewUsers.length === 0 ? (
         <Text color="yellow">Loading records from Google Workspace API...</Text>
       ) : currentViewUsers.length === 0 ? (
         <Text color="gray">No deleted users found on this page.</Text>
       ) : (
         <Box flexDirection="column" marginBottom={1}>
-          {currentViewUsers.map((user: DeletedUser, i: number) => {
-            const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ");
-            const namePart = fullName ? ` (${fullName})` : "";
-            return (
-              <Text key={user.userEmail + i}>
-                <Text color="white">{user.userEmail}</Text>
-                <Text color="green">{namePart}</Text>
-                <Text color="gray"> - deleted {user.deletionTime}</Text>
-              </Text>
-            );
-          })}
+           <SelectInput 
+              items={currentViewUsers.map(u => {
+                 const fullName = [u.firstName, u.lastName].filter(Boolean).join(" ");
+                 const label = `${u.userEmail} ${fullName ? `(${fullName})` : ''} - deleted ${u.deletionTime}`;
+                 return { label, value: u.userEmail };
+              })} 
+              onSelect={handleSelectUser} 
+           />
         </Box>
       )}
 
