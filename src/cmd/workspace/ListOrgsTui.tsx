@@ -1,10 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Box, Text, useInput } from 'ink';
 import {
-  DEFAULT_TUI_PAGE_SIZE,
+  ORG_UNITS_TUI_PAGE_SIZE,
   sliceLocalPage,
   shouldHandlePaginationKey,
 } from '../tui/pagination.js';
+import { filterItemsByQuery } from '../tui/search.js';
+import { TuiSearchControls } from '../tui/TuiSearchControls.js';
+import { TuiListFooter } from '../tui/TuiListFooter.js';
 import type { WorkspaceOrgUnitCommandDeps, OrgUnit } from './commands.js';
 
 export interface ListOrgsTuiProps {
@@ -12,11 +15,31 @@ export interface ListOrgsTuiProps {
   onCancel?: () => void;
 }
 
+function orgUnitDetailLine(ou: OrgUnit): string | null {
+  const name = ou.name?.trim();
+  const description = ou.description?.trim();
+  if (name && description && name !== description) {
+    return `${name} — ${description}`;
+  }
+  if (name) return name;
+  if (description) return description;
+  return null;
+}
+
 export function ListOrgsTui({ orgDeps, onCancel }: ListOrgsTuiProps) {
   const [orgUnits, setOrgUnits] = useState<OrgUnit[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
+
+  const [searchDraft, setSearchDraft] = useState('');
+  const [appliedSearch, setAppliedSearch] = useState('');
+  const [isEditingSearch, setIsEditingSearch] = useState(false);
+
+  const applySearch = useCallback(() => {
+    setAppliedSearch(searchDraft.trim());
+    setIsEditingSearch(false);
+  }, [searchDraft]);
 
   useEffect(() => {
     let active = true;
@@ -39,13 +62,37 @@ export function ListOrgsTui({ orgDeps, onCancel }: ListOrgsTuiProps) {
     return () => { active = false; };
   }, [orgDeps]);
 
-  const { slice: currentViewOrgs, hasNextPage } = sliceLocalPage(orgUnits, currentIndex, DEFAULT_TUI_PAGE_SIZE);
+  const { slice: currentViewOrgs, hasNextPage } = sliceLocalPage(
+    orgUnits,
+    currentIndex,
+    ORG_UNITS_TUI_PAGE_SIZE,
+  );
+  const visibleOrgs = filterItemsByQuery(
+    currentViewOrgs,
+    appliedSearch,
+    (ou) => [ou.orgUnitPath ?? '', ou.name ?? '', ou.description ?? ''],
+  );
+  const totalPages = Math.max(1, Math.ceil(orgUnits.length / ORG_UNITS_TUI_PAGE_SIZE));
 
   useInput((input, key) => {
+    if (isEditingSearch) {
+      if (key.escape) {
+        setSearchDraft(appliedSearch);
+        setIsEditingSearch(false);
+      }
+      return;
+    }
+
     if (key.escape) {
       onCancel?.();
       return;
     }
+
+    if (input === '/' || input === 's') {
+      setIsEditingSearch(true);
+      return;
+    }
+
     if (loading) return;
 
     const action = shouldHandlePaginationKey(input, key, false);
@@ -54,37 +101,64 @@ export function ListOrgsTui({ orgDeps, onCancel }: ListOrgsTuiProps) {
   });
 
   return (
-    <Box flexDirection="column" padding={1} borderStyle="round" borderColor="blue">
-      <Box marginBottom={1}>
-        <Text bold color="cyan">Organizational Units</Text>
+    <Box flexDirection="column" flexGrow={1}>
+      <Box flexShrink={0} marginBottom={1}>
+        <Text bold color="cyan">
+          Organizational Units
+          {!loading && orgUnits.length > 0
+            ? ` (${orgUnits.length} total · page ${currentIndex + 1}/${totalPages})`
+            : ''}
+        </Text>
       </Box>
-      {loading ? (
-        <Text color="yellow">Loading organizational units...</Text>
-      ) : error ? (
-        <Text color="red">Error: {error}</Text>
-      ) : orgUnits.length === 0 ? (
-        <Text color="gray">No organizational units found.</Text>
-      ) : (
-        <Box flexDirection="column" marginBottom={1}>
-          {currentViewOrgs.map((ou) => (
-            <Box key={ou.orgUnitId} flexDirection="column">
-              <Text>
-                Path: <Text color="green">{ou.orgUnitPath}</Text> (Name: <Text color="white">{ou.name}</Text>)
-              </Text>
-              {ou.description && (
-                <Text color="gray">  Description: {ou.description}</Text>
-              )}
-            </Box>
-          ))}
-        </Box>
-      )}
-      <Box marginTop={1}>
-        <Text color="gray">Navigation: </Text>
-        <Text color={currentIndex > 0 && !loading ? 'green' : 'gray'}>[← Prev]</Text>
-        <Text color="gray">  </Text>
-        <Text color={hasNextPage && !loading ? 'green' : 'gray'}>[Next →]</Text>
-        <Text color="gray"> | press ESC to return (Page {currentIndex + 1})</Text>
+
+      <Box flexShrink={0}>
+        <TuiSearchControls
+          appliedSearch={appliedSearch}
+          searchDraft={searchDraft}
+          isEditing={isEditingSearch}
+          onDraftChange={setSearchDraft}
+          onSubmit={applySearch}
+          hint="press / or s to edit · Enter to apply · ESC to cancel · filters current page"
+        />
       </Box>
+
+      <Box flexDirection="column" flexGrow={1} marginBottom={1}>
+        {loading ? (
+          <Text color="yellow">Loading organizational units...</Text>
+        ) : error ? (
+          <Text color="red">Error: {error}</Text>
+        ) : orgUnits.length === 0 ? (
+          <Text color="gray">No organizational units found.</Text>
+        ) : currentViewOrgs.length === 0 ? (
+          <Text color="gray">No organizational units on this page.</Text>
+        ) : visibleOrgs.length === 0 ? (
+          <Text color="gray">
+            {appliedSearch
+              ? `No org units match "${appliedSearch}" on this page. Try Next → or clear search.`
+              : 'No organizational units on this page.'}
+          </Text>
+        ) : (
+          visibleOrgs.map((ou) => {
+            const detail = orgUnitDetailLine(ou);
+            return (
+              <Box key={ou.orgUnitId} flexDirection="column" marginBottom={1}>
+                <Text wrap="wrap">
+                  <Text color="green" bold>{ou.orgUnitPath || '(no path)'}</Text>
+                </Text>
+                {detail ? (
+                  <Text color="gray" wrap="wrap">{detail}</Text>
+                ) : null}
+              </Box>
+            );
+          })
+        )}
+      </Box>
+
+      <TuiListFooter
+        currentIndex={currentIndex}
+        hasNextPage={hasNextPage}
+        loading={loading}
+      />
     </Box>
   );
 }
