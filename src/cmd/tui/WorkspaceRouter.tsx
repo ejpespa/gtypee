@@ -4,6 +4,7 @@ import SelectInput from 'ink-select-input';
 import { DeletedUsersTui } from '../workspace/DeletedUsersTui.js';
 import { CreateUserWizard as WorkspaceUserTui } from '../workspace/CreateUserWizard.js';
 import { WorkspaceDeviceTui } from '../workspace/WorkspaceDeviceTui.js';
+// Router for Workspace Admin TUI components. Depend on TuiConfigDeps.
 import type { TuiConfigDeps } from './MasterLayout.js';
 
 interface WorkspaceRouterProps {
