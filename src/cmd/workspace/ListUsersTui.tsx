@@ -7,7 +7,7 @@ import { TuiSearchControls } from '../tui/TuiSearchControls.js';
 import { TuiDetailPanel } from '../tui/TuiDetailPanel.js';
 import type { TuiDetailAction } from '../tui/TuiDetailPanel.js';
 import { TuiListScreen } from '../tui/TuiListScreen.js';
-import { adminUserUrl } from '../tui/resourceLinks.js';
+import { adminUserSecurityUrl, adminUserUrl } from '../tui/resourceLinks.js';
 import { copyToClipboard, openInBrowser } from '../tui/systemActions.js';
 import { usePaginatedList } from '../tui/hooks/usePaginatedList.js';
 import { useDetailView } from '../tui/hooks/useDetailView.js';
@@ -167,6 +167,15 @@ export function ListUsersTui({
         onAction: () => actions.runAction(async () => {
           openUserActions(selectedUser.primaryEmail);
           return `Opening actions for ${selectedUser.primaryEmail}`;
+        }),
+      },
+      {
+        key: 'l',
+        label: 'login challenge (10 min)',
+        onAction: () => actions.runAction(async () => {
+          const userKey = selectedUser.id || selectedUser.primaryEmail;
+          await openInBrowser(adminUserSecurityUrl(userKey));
+          return `Opened Security for ${selectedUser.primaryEmail}. Click Login challenge → Turn Off For 10 Minutes.`;
         }),
       },
     ];

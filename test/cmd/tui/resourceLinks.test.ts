@@ -3,6 +3,7 @@ import {
   adminDeviceUrl,
   adminGroupUrl,
   adminUserUrl,
+  adminUserSecurityUrl,
   driveFileUrl,
   gmailMessageUrl,
   googleDocUrl,
@@ -29,6 +30,12 @@ describe('resourceLinks', () => {
   it('builds Admin user URL', () => {
     expect(adminUserUrl('user@example.com')).toBe(
       'https://admin.google.com/ac/users/user%40example.com',
+    );
+  });
+
+  it('builds Admin user security URL', () => {
+    expect(adminUserSecurityUrl('user@example.com')).toBe(
+      'https://admin.google.com/ac/users/user%40example.com/security',
     );
   });
 

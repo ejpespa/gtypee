@@ -17,6 +17,9 @@ import { DeleteAliasWizard } from './DeleteAliasWizard.js';
 import { GrantAdminWizard } from './GrantAdminWizard.js';
 import { RevokeAdminWizard } from './RevokeAdminWizard.js';
 import { DeletePhotoWizard } from './DeletePhotoWizard.js';
+import { TurnOffLoginChallengeWizard } from './TurnOffLoginChallengeWizard.js';
+import { adminUserSecurityUrl } from '../tui/resourceLinks.js';
+import { openInBrowser } from '../tui/systemActions.js';
 import type { WorkspaceUserCommandDeps } from './commands.js';
 
 export interface UserActionsTuiProps {
@@ -111,6 +114,7 @@ export function UserActionsTui({ userDeps, prefillEmail, onCancel }: UserActions
   const items = [
     { label: 'Reset Password', value: 'reset-password' },
     { label: 'Generate Backup Codes', value: 'generate-backup-codes' },
+    { label: 'Turn Off Login Challenge (10 min)', value: 'turn-off-login-challenge' },
     { label: 'Suspend User', value: 'suspend-user' },
     { label: 'Unsuspend User', value: 'unsuspend-user' },
     { label: 'Grant Admin', value: 'grant-admin' },
@@ -154,6 +158,32 @@ export function UserActionsTui({ userDeps, prefillEmail, onCancel }: UserActions
       <GenerateBackupCodesWizard
         userDeps={userDeps}
         {...wizardPrefill}
+        onCancel={backToMenu}
+      />
+    );
+  }
+
+  if (activeView === 'turn-off-login-challenge') {
+    if (prefillEmail) {
+      return (
+        <PrefillConfirmAction
+          title="Turn Off Login Challenge (10 min)"
+          message={[
+            `Open login challenge settings for ${prefillEmail}?`,
+            '',
+            'Google has no public API for this. Admin Console will open on Security.',
+            'Click Login challenge → Turn Off For 10 Minutes.',
+          ].join('\n')}
+          onCancel={backToMenu}
+          onAction={async () => {
+            await openInBrowser(adminUserSecurityUrl(prefillEmail));
+            return `Opened Security for ${prefillEmail}. Click Login challenge → Turn Off For 10 Minutes.`;
+          }}
+        />
+      );
+    }
+    return (
+      <TurnOffLoginChallengeWizard
         onCancel={backToMenu}
       />
     );

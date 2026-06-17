@@ -34,6 +34,11 @@ export function adminUserUrl(userKey: string): string {
   return `https://admin.google.com/ac/users/${encodeURIComponent(userKey)}`;
 }
 
+/** Admin Console → user → Security (login challenge lives here). */
+export function adminUserSecurityUrl(userKey: string): string {
+  return `https://admin.google.com/ac/users/${encodeURIComponent(userKey)}/security`;
+}
+
 export function adminGroupUrl(groupEmail: string): string {
   return `https://admin.google.com/ac/groups/${encodeURIComponent(groupEmail)}`;
 }
