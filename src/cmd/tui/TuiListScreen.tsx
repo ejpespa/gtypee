@@ -79,6 +79,15 @@ export function TuiListScreen<T>({
         <Text color="yellow">Loading...</Text>
       ) : items.length === 0 ? (
         <Text color="gray">{emptyMessage}</Text>
+      ) : blocked ? (
+        <Box flexDirection="column" marginBottom={1} flexGrow={1}>
+          <Text color="gray">Editing filters — Enter applies · ESC cancels</Text>
+          {items.map((item) => (
+            <Text key={getId(item)} color="gray" dimColor>
+              {formatLabel(item)}
+            </Text>
+          ))}
+        </Box>
       ) : (
         <Box flexDirection="column" marginBottom={1} flexGrow={1}>
           <SelectInput

@@ -93,8 +93,9 @@ export function ListUsersTui({
     setLastOrgUnitPath(normalized);
     setAppliedOrgPath(normalized);
     setAppliedSearch(searchDraft.trim());
+    setCurrentIndex(0);
     setActiveField(null);
-  }, [orgUnitDraft, searchDraft]);
+  }, [orgUnitDraft, searchDraft, setCurrentIndex]);
 
   const visibleUsers = filterWorkspaceUsersByQuery(rawUsers, appliedSearch);
 
