@@ -15,7 +15,7 @@ export function WorkspaceDeviceTui({ deviceDeps, onCancel }: WorkspaceDeviceTuiP
   const items = [
     { label: 'List ChromeOS Devices', value: 'list-chromeos' },
     { label: 'List Mobile Devices', value: 'list-mobile' },
-    { label: 'Wipe Mobile Device', value: 'wipe-device' },
+    { label: 'Wipe Device', value: 'wipe-device' },
   ];
 
   const handleSelect = (item: { value: string }) => {
