@@ -5,6 +5,7 @@ import { DeletedUsersTui } from '../workspace/DeletedUsersTui.js';
 import { CreateUserWizard as WorkspaceUserTui } from '../workspace/CreateUserWizard.js';
 import { WorkspaceDeviceTui } from '../workspace/WorkspaceDeviceTui.js';
 import { WorkspaceGroupTui } from '../workspace/WorkspaceGroupTui.js';
+import { WorkspaceOrgTui } from '../workspace/WorkspaceOrgTui.js';
 // Router for Workspace Admin TUI components. Depend on TuiConfigDeps.
 import type { TuiConfigDeps } from './MasterLayout.js';
 
@@ -20,7 +21,8 @@ export function WorkspaceRouter({ deps, onCancel }: WorkspaceRouterProps) {
     { label: 'Deleted Users', value: 'deleted-users' },
     { label: 'Create User Wizard', value: 'users' },
     { label: 'Device Management', value: 'devices' },
-    { label: 'Group Management', value: 'groups' }
+    { label: 'Group Management', value: 'groups' },
+    { label: 'Org Unit Management', value: 'orgs' }
   ];
 
   const handleSelect = (item: { value: string }) => {
@@ -67,6 +69,15 @@ export function WorkspaceRouter({ deps, onCancel }: WorkspaceRouterProps) {
     return (
       <WorkspaceGroupTui
         groupDeps={deps.groupDeps}
+        onCancel={() => setActiveSubMenu(null)}
+      />
+    );
+  }
+
+  if (activeSubMenu === 'orgs') {
+    return (
+      <WorkspaceOrgTui
+        orgDeps={deps.orgDeps}
         onCancel={() => setActiveSubMenu(null)}
       />
     );
