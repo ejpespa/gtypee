@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import SelectInput from 'ink-select-input';
-import { DeletedUsersTui } from '../workspace/DeletedUsersTui.js';
-import { CreateUserWizard as WorkspaceUserTui } from '../workspace/CreateUserWizard.js';
+import { WorkspaceReportTui } from '../workspace/WorkspaceReportTui.js';
+import { WorkspaceUserTui } from '../workspace/WorkspaceUserTui.js';
 import { WorkspaceDeviceTui } from '../workspace/WorkspaceDeviceTui.js';
 import { WorkspaceGroupTui } from '../workspace/WorkspaceGroupTui.js';
 import { WorkspaceOrgTui } from '../workspace/WorkspaceOrgTui.js';
@@ -18,8 +18,8 @@ export function WorkspaceRouter({ deps, onCancel }: WorkspaceRouterProps) {
   const [activeSubMenu, setActiveSubMenu] = useState<string | null>(null);
 
   const items = [
-    { label: 'Deleted Users', value: 'deleted-users' },
-    { label: 'Create User Wizard', value: 'users' },
+    { label: 'Reports', value: 'reports' },
+    { label: 'User Management', value: 'users' },
     { label: 'Device Management', value: 'devices' },
     { label: 'Group Management', value: 'groups' },
     { label: 'Org Unit Management', value: 'orgs' }
@@ -35,13 +35,11 @@ export function WorkspaceRouter({ deps, onCancel }: WorkspaceRouterProps) {
     }
   });
 
-  if (activeSubMenu === 'deleted-users') {
+  if (activeSubMenu === 'reports') {
     return (
-      <DeletedUsersTui
+      <WorkspaceReportTui
         reportDeps={deps.reportDeps}
         userDeps={deps.userDeps}
-        days={30}
-        searchOpts={{}}
         onCancel={() => setActiveSubMenu(null)}
       />
     );
