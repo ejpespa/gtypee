@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import TextInput from 'ink-text-input';
+import { copyToClipboard } from './systemActions.js';
 import { translateApiError } from './translateApiError.js';
 
 export type TuiWizardField = {
@@ -16,9 +17,11 @@ export type TuiWizardProps = {
   title: string;
   fields: TuiWizardField[];
   destructive?: boolean;
+  sensitiveResult?: boolean;
   summary?: (values: Record<string, string>) => string;
   onCancel: () => void;
   onSubmit: (values: Record<string, string>) => Promise<string>;
+  onSensitiveCopy?: (value: string) => Promise<void>;
 };
 
 type WizardPhase = 'fields' | 'confirm' | 'running' | 'result';
@@ -33,9 +36,11 @@ export function TuiWizard({
   title,
   fields,
   destructive = false,
+  sensitiveResult = false,
   summary,
   onCancel,
   onSubmit,
+  onSensitiveCopy,
 }: TuiWizardProps) {
   const [phase, setPhase] = useState<WizardPhase>('fields');
   const [fieldIndex, setFieldIndex] = useState(0);
@@ -98,6 +103,10 @@ export function TuiWizard({
     if (phase === 'running') return;
 
     if (phase === 'result') {
+      if (sensitiveResult && input === 'c') {
+        const copy = onSensitiveCopy ?? copyToClipboard;
+        void copy(resultMessage);
+      }
       if (key.escape) onCancel();
       return;
     }
@@ -154,9 +163,13 @@ export function TuiWizard({
     return (
       <Box flexDirection="column" padding={1} borderStyle="round" borderColor="green">
         <Text bold color="cyan">{title}</Text>
-        <Text color="green">{resultMessage}</Text>
+        <Text color={sensitiveResult ? 'yellow' : 'green'}>{resultMessage}</Text>
         <Box marginTop={1}>
-          <Text color="gray">ESC to close</Text>
+          {sensitiveResult ? (
+            <Text color="gray">Save now — will not be shown again · c copy · ESC close</Text>
+          ) : (
+            <Text color="gray">ESC to close</Text>
+          )}
         </Box>
       </Box>
     );
