@@ -1,3 +1,26 @@
+# [1.19.0](https://github.com/ejpespa/gtypee/compare/v1.18.0...v1.19.0) (2026-06-17)
+
+
+### Features
+
+* **tui:** add shared pagination helpers for workspace list views ([1935455](https://github.com/ejpespa/gtypee/commit/1935455de42681b11d06d67a6e1c0849db1b75e4))
+* **tui:** attach devices terminal sub-dashboard to nested workspace router ([b54d42a](https://github.com/ejpespa/gtypee/commit/b54d42adea86c3360605d73b4a2ad48229f6e79b))
+* **tui:** connect user wizard dashboard components to root routing ([bcb38c5](https://github.com/ejpespa/gtypee/commit/bcb38c51f8789e60328449763f355589acc2bc0c))
+* **tui:** distribute userDeps into deleted users dashboard for recovery actions ([6a61a8a](https://github.com/ejpespa/gtypee/commit/6a61a8a2d645277160eef517c2be4caab397ab92))
+* **tui:** expand layout dependencies to include device deps ([ed8f99b](https://github.com/ejpespa/gtypee/commit/ed8f99bcebaf85dcc6574595ee3530f30c367c0a))
+* **tui:** expand layout dependencies to include group and org deps ([dade789](https://github.com/ejpespa/gtypee/commit/dade789b01f64125dd247f5944006d7ce000a89f))
+* **tui:** register master dashboard execution loop globally ([93c2db9](https://github.com/ejpespa/gtypee/commit/93c2db9752dc71f7089eb9dafbe0c14f220bb7b8))
+* **workspace:** add device wiping wizard ([2ced3a7](https://github.com/ejpespa/gtypee/commit/2ced3a74f29d78bd17879deb7dcb2fb4fca3d248))
+* **workspace:** add org unit path parameter to user creation wizard ([f1dc58f](https://github.com/ejpespa/gtypee/commit/f1dc58f73c38a60ef397c697c998944bc5785dbf))
+* **workspace:** add org unit wizard ([d742a6e](https://github.com/ejpespa/gtypee/commit/d742a6e75efffc13991edc724d5e3a6bc4d9ede4))
+* **workspace:** build interactive device management tui navigation ([135906a](https://github.com/ejpespa/gtypee/commit/135906a228096be557f7f9215d631b0007adee81))
+* **workspace:** build protective interactive device wiping confirmation wizard ([e2a910a](https://github.com/ejpespa/gtypee/commit/e2a910a4cc70e96d67109e481f5ce4991fedfdce))
+* **workspace:** create interactive group creation wizard ([6a94792](https://github.com/ejpespa/gtypee/commit/6a94792ab846c5f591cf9d2bb56b539657c12ad4))
+* **workspace:** engineer step-by-step user creation wizard ([435dbb2](https://github.com/ejpespa/gtypee/commit/435dbb21910d6ac3fecef4737400106f04b30592))
+* **workspace:** establish groups dashboard router ([21759d6](https://github.com/ejpespa/gtypee/commit/21759d683c4d58a73c0a622825216bf6b9f00a55))
+* **workspace:** implement tokenized interactive pagination for devices list ([5973bcc](https://github.com/ejpespa/gtypee/commit/5973bcc82ee68a21738f8beaa6790dfff9d2f16b))
+* **workspace:** implement tokenized interactive pagination for groups list ([23bc537](https://github.com/ejpespa/gtypee/commit/23bc537f0c41133b22c85d59cdd54847a1ad170f))
+
 # [1.18.0](https://github.com/ejpespa/gtypee/compare/v1.17.0...v1.18.0) (2026-06-15)
 
 
