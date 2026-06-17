@@ -1,17 +1,17 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
-import SelectInput from 'ink-select-input';
 import TextInput from 'ink-text-input';
-import {
-  DEFAULT_TUI_PAGE_SIZE,
-  sliceLocalPage,
-  shouldHandlePaginationKey,
-} from '../tui/pagination.js';
+import { DEFAULT_TUI_PAGE_SIZE, sliceLocalPage } from '../tui/pagination.js';
 import { filterItemsByQuery } from '../tui/search.js';
 import { TuiSearchControls } from '../tui/TuiSearchControls.js';
-import { TuiListFooter } from '../tui/TuiListFooter.js';
 import { TuiDetailPanel } from '../tui/TuiDetailPanel.js';
+import { TuiListScreen } from '../tui/TuiListScreen.js';
 import { textToDetailLines } from '../tui/detail.js';
+import { mergeDetailActions } from '../tui/detailActions.js';
+import { useLocalPaginatedList } from '../tui/hooks/useLocalPaginatedList.js';
+import { useDetailView } from '../tui/hooks/useDetailView.js';
+import { useDetailActions } from '../tui/hooks/useDetailActions.js';
+import { useTuiNavigation } from '../tui/TuiNavigationContext.js';
 import type { ChatCommandDeps, ChatMessage } from './commands.js';
 
 export interface ListMessagesTuiProps {
@@ -30,31 +30,54 @@ function formatMessageLabel(message: ChatMessage): string {
 }
 
 export function ListMessagesTui({ chatDeps, onCancel }: ListMessagesTuiProps) {
+  const { setBreadcrumbs, setHelpLines } = useTuiNavigation();
+
   const [spaceDraft, setSpaceDraft] = useState('');
   const [appliedSpace, setAppliedSpace] = useState('');
   const [isEditingSpace, setIsEditingSpace] = useState(false);
-
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [currentIndex, setCurrentIndex] = useState(0);
 
   const [searchDraft, setSearchDraft] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
   const [isEditingSearch, setIsEditingSearch] = useState(false);
 
-  const [detailTitle, setDetailTitle] = useState<string | null>(null);
-  const [detailLines, setDetailLines] = useState<string[]>([]);
+  const [detailMessage, setDetailMessage] = useState<ChatMessage | null>(null);
 
-  const clearDetail = useCallback(() => {
-    setDetailTitle(null);
-    setDetailLines([]);
-  }, []);
+  const fetchAll = useCallback(async () => {
+    await chatDeps.ensureWorkspace();
+    return chatDeps.listMessages(appliedSpace);
+  }, [chatDeps, appliedSpace]);
+
+  const {
+    allItems,
+    currentIndex,
+    setCurrentIndex,
+    loading,
+    error,
+    refresh,
+  } = useLocalPaginatedList({
+    fetchAll,
+    queryKey: appliedSpace,
+    enabled: !!appliedSpace,
+  });
+
+  const detail = useDetailView();
+  const actions = useDetailActions();
+
+  useEffect(() => {
+    setBreadcrumbs(['Chat', 'Messages']);
+    setHelpLines([
+      'p — set space id',
+      '/ or s — filter messages',
+      'r — refresh list',
+      'Enter — view message',
+      '←/→ or Space — paginate',
+      'ESC — back',
+    ]);
+  }, [setBreadcrumbs, setHelpLines]);
 
   const applySpace = useCallback(() => {
     const trimmed = spaceDraft.trim();
     setAppliedSpace(trimmed);
-    setCurrentIndex(0);
     setIsEditingSpace(false);
   }, [spaceDraft]);
 
@@ -62,39 +85,10 @@ export function ListMessagesTui({ chatDeps, onCancel }: ListMessagesTuiProps) {
     setAppliedSearch(searchDraft.trim());
     setCurrentIndex(0);
     setIsEditingSearch(false);
-  }, [searchDraft]);
-
-  useEffect(() => {
-    if (!appliedSpace) {
-      setMessages([]);
-      setLoading(false);
-      setError(null);
-      return;
-    }
-
-    let active = true;
-    setLoading(true);
-    setError(null);
-    setCurrentIndex(0);
-
-    void chatDeps.ensureWorkspace()
-      .then(() => chatDeps.listMessages(appliedSpace))
-      .then((items) => {
-        if (!active) return;
-        setMessages(items);
-        setLoading(false);
-      })
-      .catch((err: unknown) => {
-        if (!active) return;
-        setError(err instanceof Error ? err.message : 'Failed to fetch messages');
-        setLoading(false);
-      });
-
-    return () => { active = false; };
-  }, [chatDeps, appliedSpace]);
+  }, [searchDraft, setCurrentIndex]);
 
   const filteredMessages = filterItemsByQuery(
-    messages,
+    allItems,
     appliedSearch,
     (message) => [message.text, message.id],
   );
@@ -105,24 +99,45 @@ export function ListMessagesTui({ chatDeps, onCancel }: ListMessagesTuiProps) {
     DEFAULT_TUI_PAGE_SIZE,
   );
 
-  const handleSelectMessage = useCallback((item: { value: string }) => {
-    const message = visibleMessages.find((m) => m.id === item.value);
-    if (!message) return;
-    setDetailTitle(truncateText(message.text || message.id, 40));
-    setDetailLines(textToDetailLines([
-      `ID: ${message.id}`,
-      `Space: ${appliedSpace}`,
-      '',
-      message.text || '(empty message)',
-    ].join('\n')));
-  }, [visibleMessages, appliedSpace]);
+  const clearDetail = useCallback(() => {
+    detail.clear();
+    actions.resetStatus();
+    setDetailMessage(null);
+  }, [detail, actions]);
 
-  const inDetail = detailTitle !== null;
+  const handleSelectMessage = useCallback(async (id: string) => {
+    const message = filteredMessages.find((m) => m.id === id);
+    if (!message) return;
+
+    actions.resetStatus();
+    setDetailMessage(message);
+
+    await detail.open({
+      title: truncateText(message.text || message.id, 40),
+      load: async () => textToDetailLines([
+        `ID: ${message.id}`,
+        `Space: ${appliedSpace}`,
+        `Text: ${message.text || '(empty message)'}`,
+        '',
+        message.text || '(empty message)',
+      ].join('\n')),
+    });
+  }, [actions, appliedSpace, detail, filteredMessages]);
+
+  const detailActions = useMemo(() => {
+    if (!detailMessage) return [];
+    return mergeDetailActions(actions.runAction, {
+      resourceId: detailMessage.id,
+    });
+  }, [actions.runAction, detailMessage]);
+
+  const editing = isEditingSpace || isEditingSearch;
+  const blocked = editing || detail.isOpen;
 
   useInput((input, key) => {
-    if (inDetail) return;
+    if (detail.isOpen) return;
 
-    if (isEditingSpace || isEditingSearch) {
+    if (editing) {
       if (key.escape) {
         if (isEditingSpace) {
           setSpaceDraft(appliedSpace);
@@ -136,8 +151,8 @@ export function ListMessagesTui({ chatDeps, onCancel }: ListMessagesTuiProps) {
       return;
     }
 
-    if (key.escape && onCancel) {
-      onCancel();
+    if (key.escape) {
+      if (onCancel) onCancel();
       return;
     }
 
@@ -148,44 +163,37 @@ export function ListMessagesTui({ chatDeps, onCancel }: ListMessagesTuiProps) {
 
     if (input === '/' || input === 's') {
       setIsEditingSearch(true);
-      return;
     }
-
-    if (loading) return;
-
-    const action = shouldHandlePaginationKey(input, key, false);
-    if (action === 'next' && hasNextPage) setCurrentIndex((i) => i + 1);
-    if (action === 'prev' && currentIndex > 0) setCurrentIndex((i) => i - 1);
   });
 
-  if (inDetail) {
+  if (detail.isOpen) {
     return (
       <TuiDetailPanel
-        title={detailTitle ?? 'Message'}
-        lines={detailLines}
+        title={detail.title ?? 'Message'}
+        lines={detail.lines}
+        loading={detail.loading}
+        error={detail.error}
         onBack={clearDetail}
+        actions={detailActions}
+        actionStatus={actions.actionStatus}
+        actionBusy={actions.actionBusy}
       />
     );
   }
 
-  return (
-    <Box flexDirection="column" padding={1} borderStyle="round" borderColor="blue">
+  const filterSlot = (
+    <>
       <Box marginBottom={1}>
-        <Text bold color="cyan">Chat Messages (Page {currentIndex + 1})</Text>
-      </Box>
-
-      <Box marginBottom={1}>
-        <Text color="gray">Space: </Text>
+        <Text color={isEditingSpace ? 'cyan' : 'gray'}>Space: </Text>
         {isEditingSpace ? (
           <TextInput value={spaceDraft} onChange={setSpaceDraft} onSubmit={applySpace} />
         ) : (
-          <Text>
-            {appliedSpace || '(not set)'}
-            <Text color="gray"> (press p to set)</Text>
-          </Text>
+          <>
+            <Text color="green">{appliedSpace || '(not set)'}</Text>
+            <Text color="gray"> · p to set · Enter to apply</Text>
+          </>
         )}
       </Box>
-
       <TuiSearchControls
         appliedSearch={appliedSearch}
         searchDraft={searchDraft}
@@ -193,43 +201,35 @@ export function ListMessagesTui({ chatDeps, onCancel }: ListMessagesTuiProps) {
         onDraftChange={setSearchDraft}
         onSubmit={applySearch}
       />
+    </>
+  );
 
-      {error && (
-        <Box marginBottom={1}><Text color="red">Error: {error}</Text></Box>
-      )}
+  const emptyMessage = !appliedSpace
+    ? 'Enter a space id (e.g. spaces/ABC123) and press Enter.'
+    : visibleMessages.length === 0 && filteredMessages.length > 0 && appliedSearch
+      ? `No messages match "${appliedSearch}".`
+      : 'No messages found in this space.';
 
-      {!appliedSpace ? (
-        <Text color="gray">Enter a space id (e.g. spaces/ABC123) and press Enter.</Text>
-      ) : loading ? (
-        <Text color="yellow">Loading messages...</Text>
-      ) : messages.length === 0 ? (
-        <Text color="gray">No messages found in this space.</Text>
-      ) : visibleMessages.length === 0 ? (
-        <Text color="gray">
-          {appliedSearch
-            ? `No messages match "${appliedSearch}".`
-            : 'No messages found.'}
-        </Text>
-      ) : (
-        <Box flexDirection="column" marginBottom={1}>
-          <SelectInput
-            items={visibleMessages.map((message) => ({
-              label: formatMessageLabel(message),
-              value: message.id,
-            }))}
-            onSelect={handleSelectMessage}
-          />
-        </Box>
-      )}
-
-      <Box marginTop={1}>
-        <TuiListFooter
-          currentIndex={currentIndex}
-          hasNextPage={hasNextPage}
-          loading={loading}
-          backHint="ESC to return"
-        />
-      </Box>
-    </Box>
+  return (
+    <TuiListScreen
+      title="Chat Messages"
+      pageLabel={`Page ${currentIndex + 1}`}
+      items={visibleMessages}
+      loading={loading}
+      error={error}
+      hasNextPage={hasNextPage}
+      currentIndex={currentIndex}
+      onSelect={handleSelectMessage}
+      formatLabel={formatMessageLabel}
+      getId={(message) => message.id}
+      filterSlot={filterSlot}
+      emptyMessage={emptyMessage}
+      onPagination={(action) => {
+        if (action === 'next' && hasNextPage) setCurrentIndex((i) => i + 1);
+        if (action === 'prev' && currentIndex > 0) setCurrentIndex((i) => i - 1);
+      }}
+      onRefresh={refresh}
+      blocked={blocked}
+    />
   );
 }

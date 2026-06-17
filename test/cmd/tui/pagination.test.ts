@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   DEFAULT_TUI_PAGE_SIZE,
+  ORG_UNITS_TUI_PAGE_SIZE,
   mergeNextPageToken,
   hasNextTokenPage,
   sliceLocalPage,
@@ -43,6 +44,12 @@ describe("sliceLocalPage", () => {
     const { slice, hasNextPage } = sliceLocalPage(items, 1);
     expect(slice).toEqual([20, 21, 22, 23, 24]);
     expect(hasNextPage).toBe(false);
+  });
+
+  it("supports smaller page sizes for multi-line TUI lists", () => {
+    const { slice, hasNextPage } = sliceLocalPage(items, 0, ORG_UNITS_TUI_PAGE_SIZE);
+    expect(slice).toHaveLength(ORG_UNITS_TUI_PAGE_SIZE);
+    expect(hasNextPage).toBe(true);
   });
 });
 

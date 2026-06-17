@@ -1,13 +1,14 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import {
   ORG_UNITS_TUI_PAGE_SIZE,
-  sliceLocalPage,
   shouldHandlePaginationKey,
 } from '../tui/pagination.js';
 import { filterItemsByQuery } from '../tui/search.js';
 import { TuiSearchControls } from '../tui/TuiSearchControls.js';
 import { TuiListFooter } from '../tui/TuiListFooter.js';
+import { useLocalPaginatedList } from '../tui/hooks/useLocalPaginatedList.js';
+import { useTuiNavigation } from '../tui/TuiNavigationContext.js';
 import type { WorkspaceOrgUnitCommandDeps, OrgUnit } from './commands.js';
 
 export interface ListOrgsTuiProps {
@@ -27,51 +28,55 @@ function orgUnitDetailLine(ou: OrgUnit): string | null {
 }
 
 export function ListOrgsTui({ orgDeps, onCancel }: ListOrgsTuiProps) {
-  const [orgUnits, setOrgUnits] = useState<OrgUnit[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const { setBreadcrumbs, setHelpLines } = useTuiNavigation();
 
   const [searchDraft, setSearchDraft] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
   const [isEditingSearch, setIsEditingSearch] = useState(false);
+
+  const fetchAll = useCallback(async () => {
+    if (!orgDeps.listOrgUnits) {
+      throw new Error('listOrgUnits dependency function is not provided.');
+    }
+    return orgDeps.listOrgUnits();
+  }, [orgDeps]);
+
+  const {
+    items: currentViewOrgs,
+    allItems: orgUnits,
+    currentIndex,
+    setCurrentIndex,
+    hasNextPage,
+    loading,
+    error,
+    refresh,
+  } = useLocalPaginatedList({
+    fetchAll,
+    queryKey: 'workspace-orgs',
+    pageSize: ORG_UNITS_TUI_PAGE_SIZE,
+  });
+
+  useEffect(() => {
+    setBreadcrumbs(['Workspace', 'Organizational Units']);
+    setHelpLines([
+      '/ or s — filter current page',
+      'r — refresh list',
+      '←/→ or Space — paginate',
+      'ESC — back',
+    ]);
+  }, [setBreadcrumbs, setHelpLines]);
 
   const applySearch = useCallback(() => {
     setAppliedSearch(searchDraft.trim());
     setIsEditingSearch(false);
   }, [searchDraft]);
 
-  useEffect(() => {
-    let active = true;
-    setLoading(true);
-    setError(null);
-    setCurrentIndex(0);
-
-    orgDeps.listOrgUnits?.()
-      .then((units) => {
-        if (!active) return;
-        setOrgUnits(units);
-        setLoading(false);
-      })
-      .catch((err: unknown) => {
-        if (!active) return;
-        setError(err instanceof Error ? err.message : 'Failed to retrieve org units');
-        setLoading(false);
-      });
-
-    return () => { active = false; };
-  }, [orgDeps]);
-
-  const { slice: currentViewOrgs, hasNextPage } = sliceLocalPage(
-    orgUnits,
-    currentIndex,
-    ORG_UNITS_TUI_PAGE_SIZE,
-  );
   const visibleOrgs = filterItemsByQuery(
     currentViewOrgs,
     appliedSearch,
     (ou) => [ou.orgUnitPath ?? '', ou.name ?? '', ou.description ?? ''],
   );
+
   const totalPages = Math.max(1, Math.ceil(orgUnits.length / ORG_UNITS_TUI_PAGE_SIZE));
 
   useInput((input, key) => {
@@ -90,6 +95,11 @@ export function ListOrgsTui({ orgDeps, onCancel }: ListOrgsTuiProps) {
 
     if (input === '/' || input === 's') {
       setIsEditingSearch(true);
+      return;
+    }
+
+    if (input === 'r') {
+      refresh();
       return;
     }
 
@@ -158,6 +168,7 @@ export function ListOrgsTui({ orgDeps, onCancel }: ListOrgsTuiProps) {
         currentIndex={currentIndex}
         hasNextPage={hasNextPage}
         loading={loading}
+        backHint="r refresh · ESC to return"
       />
     </Box>
   );

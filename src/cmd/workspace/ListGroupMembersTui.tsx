@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import TextInput from 'ink-text-input';
 import {
@@ -9,7 +9,9 @@ import {
 import { filterItemsByQuery } from '../tui/search.js';
 import { TuiSearchControls } from '../tui/TuiSearchControls.js';
 import { TuiListFooter } from '../tui/TuiListFooter.js';
-import type { WorkspaceGroupCommandDeps, GroupMember } from './commands.js';
+import { useLocalPaginatedList } from '../tui/hooks/useLocalPaginatedList.js';
+import { useTuiNavigation } from '../tui/TuiNavigationContext.js';
+import type { WorkspaceGroupCommandDeps } from './commands.js';
 
 export interface ListGroupMembersTuiProps {
   groupDeps: WorkspaceGroupCommandDeps;
@@ -19,25 +21,75 @@ export interface ListGroupMembersTuiProps {
 type ViewStep = 'PICK_GROUP' | 'MEMBERS';
 
 export function ListGroupMembersTui({ groupDeps, onCancel }: ListGroupMembersTuiProps) {
+  const { setBreadcrumbs, setHelpLines } = useTuiNavigation();
+
   const [step, setStep] = useState<ViewStep>('PICK_GROUP');
   const [groupEmailInput, setGroupEmailInput] = useState('');
   const [groupEmail, setGroupEmail] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);
 
-  const [members, setMembers] = useState<GroupMember[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [currentIndex, setCurrentIndex] = useState(0);
-
   const [searchDraft, setSearchDraft] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
   const [isEditingSearch, setIsEditingSearch] = useState(false);
+
+  const fetchAll = useCallback(async () => {
+    if (!groupDeps.listGroupMembers) {
+      throw new Error('listGroupMembers dependency function is not provided.');
+    }
+    return groupDeps.listGroupMembers(groupEmail);
+  }, [groupDeps, groupEmail]);
+
+  const {
+    allItems: members,
+    currentIndex,
+    setCurrentIndex,
+    loading,
+    error,
+    refresh,
+  } = useLocalPaginatedList({
+    fetchAll,
+    queryKey: groupEmail,
+    enabled: step === 'MEMBERS' && groupEmail.length > 0,
+    pageSize: DEFAULT_TUI_PAGE_SIZE,
+  });
+
+  useEffect(() => {
+    if (step === 'PICK_GROUP') {
+      setBreadcrumbs(['Workspace', 'Group Members']);
+      setHelpLines([
+        'Enter group email and press Enter',
+        'ESC — back',
+      ]);
+      return;
+    }
+
+    setBreadcrumbs(['Workspace', 'Group Members', groupEmail]);
+    setHelpLines([
+      '/ or s — filter results',
+      'r — refresh members',
+      '←/→ or Space — paginate',
+      'ESC — back',
+    ]);
+  }, [groupEmail, setBreadcrumbs, setHelpLines, step]);
 
   const applySearch = useCallback(() => {
     setAppliedSearch(searchDraft.trim());
     setCurrentIndex(0);
     setIsEditingSearch(false);
-  }, [searchDraft]);
+  }, [searchDraft, setCurrentIndex]);
+
+  const filteredMembers = filterItemsByQuery(
+    members,
+    appliedSearch,
+    (member) => [member.email, member.role, member.status],
+  );
+
+  const { slice: pagedMembers, hasNextPage: filteredHasNextPage } = sliceLocalPage(
+    filteredMembers,
+    currentIndex,
+    DEFAULT_TUI_PAGE_SIZE,
+  );
+  const totalPages = Math.max(1, Math.ceil(filteredMembers.length / DEFAULT_TUI_PAGE_SIZE));
 
   const handleGroupEmailSubmit = async (value: string) => {
     const trimmed = value.trim();
@@ -52,41 +104,11 @@ export function ListGroupMembersTui({ groupDeps, onCancel }: ListGroupMembersTui
 
     setValidationError(null);
     setGroupEmail(trimmed);
-    setLoading(true);
-    setError(null);
-    setMembers([]);
-    setCurrentIndex(0);
     setAppliedSearch('');
     setSearchDraft('');
     setIsEditingSearch(false);
     setStep('MEMBERS');
-
-    try {
-      if (!groupDeps.listGroupMembers) {
-        throw new Error('listGroupMembers dependency function is not provided.');
-      }
-      const result = await groupDeps.listGroupMembers(trimmed);
-      setMembers(result);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch group members');
-    } finally {
-      setLoading(false);
-    }
   };
-
-  const filteredMembers = filterItemsByQuery(
-    members,
-    appliedSearch,
-    (member) => [member.email, member.role, member.status],
-  );
-
-  const { slice: visibleMembers, hasNextPage } = sliceLocalPage(
-    filteredMembers,
-    currentIndex,
-    DEFAULT_TUI_PAGE_SIZE,
-  );
-
-  const totalPages = Math.max(1, Math.ceil(filteredMembers.length / DEFAULT_TUI_PAGE_SIZE));
 
   useInput((input, key) => {
     if (step === 'PICK_GROUP') {
@@ -114,10 +136,15 @@ export function ListGroupMembersTui({ groupDeps, onCancel }: ListGroupMembersTui
       return;
     }
 
+    if (input === 'r') {
+      refresh();
+      return;
+    }
+
     if (loading) return;
 
     const action = shouldHandlePaginationKey(input, key, false);
-    if (action === 'next' && hasNextPage) setCurrentIndex((i) => i + 1);
+    if (action === 'next' && filteredHasNextPage) setCurrentIndex((i) => i + 1);
     if (action === 'prev' && currentIndex > 0) setCurrentIndex((i) => i - 1);
   });
 
@@ -189,7 +216,7 @@ export function ListGroupMembersTui({ groupDeps, onCancel }: ListGroupMembersTui
               : 'No members found.'}
           </Text>
         ) : (
-          visibleMembers.map((member, index) => (
+          pagedMembers.map((member, index) => (
             <Box key={`${member.email}-${member.role}-${index}`} marginBottom={0}>
               <Text wrap="wrap">
                 <Text color="green">{member.email}</Text>
@@ -202,8 +229,9 @@ export function ListGroupMembersTui({ groupDeps, onCancel }: ListGroupMembersTui
 
       <TuiListFooter
         currentIndex={currentIndex}
-        hasNextPage={hasNextPage}
+        hasNextPage={filteredHasNextPage}
         loading={loading}
+        backHint="r refresh · ESC to return"
       />
     </Box>
   );

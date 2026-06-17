@@ -7,10 +7,12 @@ import type { TuiDetailAction } from '../tui/TuiDetailPanel.js';
 import { TuiListScreen } from '../tui/TuiListScreen.js';
 import { textToDetailLines } from '../tui/detail.js';
 import { buildGmailListQuery } from '../tui/gmail-query.js';
+import { mergeDetailActions } from '../tui/detailActions.js';
 import { usePaginatedList } from '../tui/hooks/usePaginatedList.js';
 import { useDetailView } from '../tui/hooks/useDetailView.js';
 import { useDetailActions } from '../tui/hooks/useDetailActions.js';
 import { useTuiNavigation } from '../tui/TuiNavigationContext.js';
+import { gmailMessageUrl } from '../tui/resourceLinks.js';
 import { formatGmailMessageDetail } from './commands.js';
 import type {
   GmailAttachmentDeps,
@@ -141,13 +143,14 @@ export function ListMessagesTui({
   }, [actions, currentMessages, detail, gmailDeps]);
 
   const detailActions = useMemo((): TuiDetailAction[] => {
-    const attachmentCount = detailMessage?.attachments.length ?? 0;
-    if (attachmentCount === 0) return [];
+    if (!detailMessage) return [];
 
-    const result: TuiDetailAction[] = [];
-    if (attachmentCount === 1 && detailMessage) {
+    const attachmentCount = detailMessage.attachments.length;
+    const attachmentActions: TuiDetailAction[] = [];
+
+    if (attachmentCount === 1) {
       const attachment = detailMessage.attachments[0]!;
-      result.push({
+      attachmentActions.push({
         key: 'd',
         label: 'download attachment',
         onAction: () => actions.runAction(async () => {
@@ -162,8 +165,8 @@ export function ListMessagesTui({
           return `Saved ${attachment.filename} (${download.size} bytes)`;
         }),
       });
-    } else if (detailMessage) {
-      result.push({
+    } else if (attachmentCount > 1) {
+      attachmentActions.push({
         key: 'd',
         label: 'download first attachment',
         onAction: () => actions.runAction(async () => {
@@ -179,7 +182,7 @@ export function ListMessagesTui({
           return `Saved ${attachment.filename} (${download.size} bytes)`;
         }),
       });
-      result.push({
+      attachmentActions.push({
         key: 'a',
         label: 'download all attachments',
         onAction: () => actions.runAction(async () => {
@@ -191,7 +194,12 @@ export function ListMessagesTui({
         }),
       });
     }
-    return result;
+
+    return mergeDetailActions(actions.runAction, {
+      resourceId: detailMessage.id,
+      openUrl: gmailMessageUrl(detailMessage.id),
+      actions: attachmentActions,
+    });
   }, [actions, detailMessage, gmailAttachmentDeps]);
 
   const editing = isEditingQuery || isEditingFrom;

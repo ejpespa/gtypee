@@ -1,17 +1,18 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
-import SelectInput from 'ink-select-input';
 import TextInput from 'ink-text-input';
-import {
-  DEFAULT_TUI_PAGE_SIZE,
-  mergeNextPageToken,
-  hasNextTokenPage,
-  shouldHandlePaginationKey,
-} from '../tui/pagination.js';
+import { DEFAULT_TUI_PAGE_SIZE } from '../tui/pagination.js';
 import { filterItemsByQuery } from '../tui/search.js';
 import { TuiSearchControls } from '../tui/TuiSearchControls.js';
-import { TuiListFooter } from '../tui/TuiListFooter.js';
 import { TuiDetailPanel } from '../tui/TuiDetailPanel.js';
+import type { TuiDetailAction } from '../tui/TuiDetailPanel.js';
+import { TuiListScreen } from '../tui/TuiListScreen.js';
+import { mergeDetailActions } from '../tui/detailActions.js';
+import { calendarEventUrl } from '../tui/resourceLinks.js';
+import { usePaginatedList } from '../tui/hooks/usePaginatedList.js';
+import { useDetailView } from '../tui/hooks/useDetailView.js';
+import { useDetailActions } from '../tui/hooks/useDetailActions.js';
+import { useTuiNavigation } from '../tui/TuiNavigationContext.js';
 import type { CalendarCommandDeps, CalendarEventSummary } from './commands.js';
 
 export interface ListEventsTuiProps {
@@ -26,6 +27,8 @@ function formatEventLabel(event: CalendarEventSummary): string {
 }
 
 export function ListEventsTui({ calendarDeps, onCancel }: ListEventsTuiProps) {
+  const { setBreadcrumbs, setHelpLines } = useTuiNavigation();
+
   const [fromDraft, setFromDraft] = useState('');
   const [toDraft, setToDraft] = useState('');
   const [searchDraft, setSearchDraft] = useState('');
@@ -33,122 +36,121 @@ export function ListEventsTui({ calendarDeps, onCancel }: ListEventsTuiProps) {
   const [appliedTo, setAppliedTo] = useState<string | undefined>(undefined);
   const [appliedSearch, setAppliedSearch] = useState('');
   const [activeField, setActiveField] = useState<'from' | 'to' | 'search' | null>(null);
+  const [detailEventId, setDetailEventId] = useState<string | null>(null);
 
-  const [detailTitle, setDetailTitle] = useState<string | null>(null);
-  const [detailLines, setDetailLines] = useState<string[]>([]);
+  const dateQueryKey = useMemo(
+    () => `${appliedFrom ?? ''}|${appliedTo ?? ''}`,
+    [appliedFrom, appliedTo],
+  );
 
-  const clearDetail = useCallback(() => {
-    setDetailTitle(null);
-    setDetailLines([]);
-  }, []);
+  const fetchPage = useCallback(
+    async (pageToken: string | undefined) => {
+      if (!calendarDeps.listEvents) {
+        throw new Error('listEvents dependency function is not provided.');
+      }
 
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [pageHistory, setPageHistory] = useState<(string | undefined)[]>([undefined]);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [pageCache, setPageCache] = useState<Record<number, CalendarEventSummary[]>>({});
+      const query: { from?: string; to?: string } = {};
+      if (appliedFrom !== undefined) query.from = appliedFrom;
+      if (appliedTo !== undefined) query.to = appliedTo;
 
-  const resetPagination = useCallback(() => {
-    setPageHistory([undefined]);
-    setCurrentIndex(0);
-    setPageCache({});
-  }, []);
+      return calendarDeps.listEvents(query, {
+        pageSize: DEFAULT_TUI_PAGE_SIZE,
+        ...(pageToken !== undefined ? { pageToken } : {}),
+      });
+    },
+    [calendarDeps, appliedFrom, appliedTo],
+  );
+
+  const {
+    items: currentEvents,
+    currentIndex,
+    setCurrentIndex,
+    hasNextPage,
+    loading,
+    error,
+    refresh,
+  } = usePaginatedList({
+    fetchPage,
+    queryKey: dateQueryKey,
+  });
+
+  const detail = useDetailView();
+  const actions = useDetailActions();
+
+  useEffect(() => {
+    setBreadcrumbs(['Calendar', 'Events']);
+    setHelpLines([
+      'f — filter from date',
+      't — filter to date',
+      '/ or s — filter current page',
+      'r — refresh list',
+      'Enter — view event',
+      '←/→ or Space — paginate',
+      'ESC — back',
+    ]);
+  }, [setBreadcrumbs, setHelpLines]);
 
   const applyFrom = useCallback(() => {
     const trimmed = fromDraft.trim();
-    const newFrom = trimmed || undefined;
-    if (newFrom !== appliedFrom) {
-      setAppliedFrom(newFrom);
-      resetPagination();
-    }
+    setAppliedFrom(trimmed || undefined);
     setActiveField(null);
-  }, [fromDraft, appliedFrom, resetPagination]);
+  }, [fromDraft]);
 
   const applyTo = useCallback(() => {
     const trimmed = toDraft.trim();
-    const newTo = trimmed || undefined;
-    if (newTo !== appliedTo) {
-      setAppliedTo(newTo);
-      resetPagination();
-    }
+    setAppliedTo(trimmed || undefined);
     setActiveField(null);
-  }, [toDraft, appliedTo, resetPagination]);
+  }, [toDraft]);
 
   const applySearch = useCallback(() => {
     setAppliedSearch(searchDraft.trim());
     setActiveField(null);
   }, [searchDraft]);
 
-  useEffect(() => {
-    if (pageCache[currentIndex]) {
-      setLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-
-    const fetchPage = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        if (!calendarDeps.listEvents) {
-          throw new Error('listEvents dependency function is not provided.');
-        }
-
-        const currentToken = pageHistory[currentIndex];
-        const query: { from?: string; to?: string } = {};
-        if (appliedFrom !== undefined) query.from = appliedFrom;
-        if (appliedTo !== undefined) query.to = appliedTo;
-
-        const result = await calendarDeps.listEvents(query, {
-          pageSize: DEFAULT_TUI_PAGE_SIZE,
-          ...(currentToken !== undefined ? { pageToken: currentToken } : {}),
-        });
-
-        if (cancelled) return;
-
-        setPageCache((prev) => ({ ...prev, [currentIndex]: result.items }));
-        setPageHistory((prev) => mergeNextPageToken(prev, currentIndex, result.nextPageToken));
-      } catch (err: unknown) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Failed to fetch calendar events');
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-
-    void fetchPage();
-    return () => {
-      cancelled = true;
-    };
-  }, [currentIndex, calendarDeps, pageCache, pageHistory, appliedFrom, appliedTo]);
-
-  const localHasNextPage = hasNextTokenPage(pageHistory, currentIndex);
-  const currentEvents = pageCache[currentIndex] ?? [];
   const visibleEvents = filterItemsByQuery(
     currentEvents,
     appliedSearch,
     (event) => [event.summary, event.id, event.start],
   );
 
-  const handleSelectEvent = useCallback((item: { value: string }) => {
-    const event = visibleEvents.find((e) => e.id === item.value);
-    if (!event) return;
-    setDetailTitle(event.summary || 'Event');
-    setDetailLines([
-      `ID: ${event.id}`,
-      `Summary: ${event.summary || '(no title)'}`,
-      `Start: ${event.start || 'unknown'}`,
-    ]);
-  }, [visibleEvents]);
+  const clearDetail = useCallback(() => {
+    detail.clear();
+    actions.resetStatus();
+    setDetailEventId(null);
+  }, [detail, actions]);
 
-  const inDetail = detailTitle !== null;
+  const handleSelectEvent = useCallback(async (id: string) => {
+    const event = visibleEvents.find((e) => e.id === id);
+    if (!event) return;
+    actions.resetStatus();
+    setDetailEventId(id);
+
+    await detail.open({
+      title: event.summary || 'Event',
+      load: async () => [
+        `ID: ${event.id}`,
+        `Summary: ${event.summary || '(no title)'}`,
+        `Start: ${event.start || 'unknown'}`,
+      ],
+    });
+  }, [actions, detail, visibleEvents]);
+
+  const detailActions = useMemo((): TuiDetailAction[] => {
+    if (!detailEventId) return [];
+
+    return mergeDetailActions(actions.runAction, {
+      resourceId: detailEventId,
+      openUrl: calendarEventUrl(detailEventId),
+    });
+  }, [actions.runAction, detailEventId]);
+
+  const editing = activeField !== null;
+  const blocked = editing || detail.isOpen;
 
   useInput((input, key) => {
-    if (inDetail) return;
+    if (detail.isOpen) return;
 
-    if (activeField !== null) {
+    if (editing) {
       if (key.escape) {
         if (activeField === 'from') setFromDraft(appliedFrom ?? '');
         if (activeField === 'to') setToDraft(appliedTo ?? '');
@@ -173,34 +175,26 @@ export function ListEventsTui({ calendarDeps, onCancel }: ListEventsTuiProps) {
     }
     if (input === '/' || input === 's') {
       setActiveField('search');
-      return;
     }
-
-    if (loading) return;
-
-    const action = shouldHandlePaginationKey(input, key, false);
-    if (action === 'next' && localHasNextPage) setCurrentIndex((i) => i + 1);
-    if (action === 'prev' && currentIndex > 0) setCurrentIndex((i) => i - 1);
   });
 
-  if (inDetail) {
+  if (detail.isOpen) {
     return (
       <TuiDetailPanel
-        title={detailTitle ?? 'Event'}
-        lines={detailLines}
+        title={detail.title ?? 'Event'}
+        lines={detail.lines}
+        loading={detail.loading}
+        error={detail.error}
         onBack={clearDetail}
+        actions={detailActions}
+        actionStatus={actions.actionStatus}
+        actionBusy={actions.actionBusy}
       />
     );
   }
 
-  return (
-    <Box flexDirection="column" flexGrow={1}>
-      <Box marginBottom={1} flexDirection="column">
-        <Text bold color="cyan">
-          Calendar Events (Page {currentIndex + 1})
-        </Text>
-      </Box>
-
+  const filterSlot = (
+    <>
       <Box marginBottom={1}>
         <Text color={activeField === 'from' ? 'cyan' : 'gray'}>From: </Text>
         {activeField === 'from' ? (
@@ -229,43 +223,33 @@ export function ListEventsTui({ calendarDeps, onCancel }: ListEventsTuiProps) {
         onSubmit={applySearch}
         hint="press / or s to edit · Enter to apply · filters current page"
       />
+    </>
+  );
 
-      {error && (
-        <Box marginBottom={1}>
-          <Text color="red">Error: {error}</Text>
-        </Box>
-      )}
+  const emptyMessage = visibleEvents.length === 0 && currentEvents.length > 0 && appliedSearch
+    ? `No events match "${appliedSearch}" on this page. Try Next → or clear search.`
+    : 'No events found for this date range on this page.';
 
-      {loading && currentEvents.length === 0 ? (
-        <Text color="yellow">Loading events from Calendar API...</Text>
-      ) : currentEvents.length === 0 ? (
-        <Text color="gray">No events found for this date range on this page.</Text>
-      ) : visibleEvents.length === 0 ? (
-        <Text color="gray">
-          {appliedSearch
-            ? `No events match "${appliedSearch}" on this page. Try Next → or clear search.`
-            : 'No events found on this page.'}
-        </Text>
-      ) : (
-        <Box flexDirection="column" marginBottom={1} flexGrow={1}>
-          <SelectInput
-            items={visibleEvents.map((event) => ({
-              label: formatEventLabel(event),
-              value: event.id,
-            }))}
-            onSelect={handleSelectEvent}
-          />
-        </Box>
-      )}
-
-      <Box marginTop={1}>
-        <TuiListFooter
-          currentIndex={currentIndex}
-          hasNextPage={localHasNextPage}
-          loading={loading}
-          backHint="ESC to return"
-        />
-      </Box>
-    </Box>
+  return (
+    <TuiListScreen
+      title="Calendar Events"
+      pageLabel={`Page ${currentIndex + 1}`}
+      items={visibleEvents}
+      loading={loading}
+      error={error}
+      hasNextPage={hasNextPage}
+      currentIndex={currentIndex}
+      onSelect={handleSelectEvent}
+      formatLabel={formatEventLabel}
+      getId={(event) => event.id}
+      filterSlot={filterSlot}
+      emptyMessage={emptyMessage}
+      onPagination={(action) => {
+        if (action === 'next' && hasNextPage) setCurrentIndex((i) => i + 1);
+        if (action === 'prev' && currentIndex > 0) setCurrentIndex((i) => i - 1);
+      }}
+      onRefresh={refresh}
+      blocked={blocked}
+    />
   );
 }

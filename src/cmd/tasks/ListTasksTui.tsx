@@ -1,16 +1,17 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
-import SelectInput from 'ink-select-input';
 import TextInput from 'ink-text-input';
-import {
-  DEFAULT_TUI_PAGE_SIZE,
-  sliceLocalPage,
-  shouldHandlePaginationKey,
-} from '../tui/pagination.js';
+import { DEFAULT_TUI_PAGE_SIZE, sliceLocalPage } from '../tui/pagination.js';
 import { filterItemsByQuery } from '../tui/search.js';
 import { TuiSearchControls } from '../tui/TuiSearchControls.js';
-import { TuiListFooter } from '../tui/TuiListFooter.js';
 import { TuiDetailPanel } from '../tui/TuiDetailPanel.js';
+import { TuiListScreen } from '../tui/TuiListScreen.js';
+import { textToDetailLines } from '../tui/detail.js';
+import { mergeDetailActions } from '../tui/detailActions.js';
+import { useLocalPaginatedList } from '../tui/hooks/useLocalPaginatedList.js';
+import { useDetailView } from '../tui/hooks/useDetailView.js';
+import { useDetailActions } from '../tui/hooks/useDetailActions.js';
+import { useTuiNavigation } from '../tui/TuiNavigationContext.js';
 import type { TasksCommandDeps, TaskItem } from './commands.js';
 
 export interface ListTasksTuiProps {
@@ -23,27 +24,60 @@ function formatTaskLabel(task: TaskItem): string {
   return `${status} ${task.title}`;
 }
 
+function formatTaskDetailLines(task: TaskItem, listId: string | undefined): string[] {
+  return textToDetailLines([
+    `ID: ${task.id}`,
+    `Title: ${task.title}`,
+    `Done: ${task.done ? 'yes' : 'no'}`,
+    `Status: ${task.done ? 'completed' : 'open'}`,
+    `List: ${listId ?? '@default'}`,
+  ].join('\n'));
+}
+
 export function ListTasksTui({ tasksDeps, onCancel }: ListTasksTuiProps) {
+  const { setBreadcrumbs, setHelpLines } = useTuiNavigation();
+
   const [listIdDraft, setListIdDraft] = useState('');
   const [appliedListId, setAppliedListId] = useState<string | undefined>(undefined);
   const [isEditingListId, setIsEditingListId] = useState(false);
-
-  const [tasks, setTasks] = useState<TaskItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [currentIndex, setCurrentIndex] = useState(0);
 
   const [searchDraft, setSearchDraft] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
   const [isEditingSearch, setIsEditingSearch] = useState(false);
 
-  const [detailTitle, setDetailTitle] = useState<string | null>(null);
-  const [detailLines, setDetailLines] = useState<string[]>([]);
+  const [detailTask, setDetailTask] = useState<TaskItem | null>(null);
 
-  const clearDetail = useCallback(() => {
-    setDetailTitle(null);
-    setDetailLines([]);
-  }, []);
+  const fetchAll = useCallback(
+    () => tasksDeps.listTasks(appliedListId),
+    [tasksDeps, appliedListId],
+  );
+
+  const {
+    allItems,
+    currentIndex,
+    setCurrentIndex,
+    loading,
+    error,
+    refresh,
+  } = useLocalPaginatedList({
+    fetchAll,
+    queryKey: appliedListId ?? '@default',
+  });
+
+  const detail = useDetailView();
+  const actions = useDetailActions();
+
+  useEffect(() => {
+    setBreadcrumbs(['Tasks', 'Tasks']);
+    setHelpLines([
+      'l — edit task list id',
+      '/ or s — filter tasks',
+      'r — refresh list',
+      'Enter — view task',
+      '←/→ or Space — paginate',
+      'ESC — back',
+    ]);
+  }, [setBreadcrumbs, setHelpLines]);
 
   const applyListId = useCallback(() => {
     const trimmed = listIdDraft.trim();
@@ -55,31 +89,10 @@ export function ListTasksTui({ tasksDeps, onCancel }: ListTasksTuiProps) {
     setAppliedSearch(searchDraft.trim());
     setCurrentIndex(0);
     setIsEditingSearch(false);
-  }, [searchDraft]);
-
-  useEffect(() => {
-    let active = true;
-    setLoading(true);
-    setError(null);
-    setCurrentIndex(0);
-
-    tasksDeps.listTasks(appliedListId)
-      .then((items) => {
-        if (!active) return;
-        setTasks(items);
-        setLoading(false);
-      })
-      .catch((err: unknown) => {
-        if (!active) return;
-        setError(err instanceof Error ? err.message : 'Failed to fetch tasks');
-        setLoading(false);
-      });
-
-    return () => { active = false; };
-  }, [tasksDeps, appliedListId]);
+  }, [searchDraft, setCurrentIndex]);
 
   const filteredTasks = filterItemsByQuery(
-    tasks,
+    allItems,
     appliedSearch,
     (task) => [task.title, task.id],
   );
@@ -90,24 +103,40 @@ export function ListTasksTui({ tasksDeps, onCancel }: ListTasksTuiProps) {
     DEFAULT_TUI_PAGE_SIZE,
   );
 
-  const handleSelectTask = useCallback((item: { value: string }) => {
-    const task = visibleTasks.find((t) => t.id === item.value);
-    if (!task) return;
-    setDetailTitle(task.title || 'Task');
-    setDetailLines([
-      `ID: ${task.id}`,
-      `Title: ${task.title}`,
-      `Status: ${task.done ? 'completed' : 'open'}`,
-      `List: ${appliedListId ?? '@default'}`,
-    ]);
-  }, [visibleTasks, appliedListId]);
+  const clearDetail = useCallback(() => {
+    detail.clear();
+    actions.resetStatus();
+    setDetailTask(null);
+  }, [detail, actions]);
 
-  const inDetail = detailTitle !== null;
+  const handleSelectTask = useCallback(async (id: string) => {
+    const task = filteredTasks.find((t) => t.id === id);
+    if (!task) return;
+
+    actions.resetStatus();
+    setDetailTask(task);
+
+    await detail.open({
+      title: task.title || 'Task',
+      load: async () => formatTaskDetailLines(task, appliedListId),
+    });
+  }, [actions, appliedListId, detail, filteredTasks]);
+
+  const detailActions = useMemo(() => {
+    if (!detailTask) return [];
+    return mergeDetailActions(actions.runAction, {
+      resourceId: detailTask.id,
+    });
+  }, [actions.runAction, detailTask]);
+
+  const editing = isEditingListId || isEditingSearch;
+  const blocked = editing || detail.isOpen;
+  const listLabel = appliedListId ?? '@default';
 
   useInput((input, key) => {
-    if (inDetail) return;
+    if (detail.isOpen) return;
 
-    if (isEditingListId || isEditingSearch) {
+    if (editing) {
       if (key.escape) {
         if (isEditingListId) {
           setListIdDraft(appliedListId ?? '');
@@ -121,8 +150,8 @@ export function ListTasksTui({ tasksDeps, onCancel }: ListTasksTuiProps) {
       return;
     }
 
-    if (key.escape && onCancel) {
-      onCancel();
+    if (key.escape) {
+      if (onCancel) onCancel();
       return;
     }
 
@@ -133,46 +162,37 @@ export function ListTasksTui({ tasksDeps, onCancel }: ListTasksTuiProps) {
 
     if (input === '/' || input === 's') {
       setIsEditingSearch(true);
-      return;
     }
-
-    if (loading) return;
-
-    const action = shouldHandlePaginationKey(input, key, false);
-    if (action === 'next' && hasNextPage) setCurrentIndex((i) => i + 1);
-    if (action === 'prev' && currentIndex > 0) setCurrentIndex((i) => i - 1);
   });
 
-  const listLabel = appliedListId ?? '@default';
-
-  if (inDetail) {
+  if (detail.isOpen) {
     return (
       <TuiDetailPanel
-        title={detailTitle ?? 'Task'}
-        lines={detailLines}
+        title={detail.title ?? 'Task'}
+        lines={detail.lines}
+        loading={detail.loading}
+        error={detail.error}
         onBack={clearDetail}
+        actions={detailActions}
+        actionStatus={actions.actionStatus}
+        actionBusy={actions.actionBusy}
       />
     );
   }
 
-  return (
-    <Box flexDirection="column" padding={1} borderStyle="round" borderColor="blue">
+  const filterSlot = (
+    <>
       <Box marginBottom={1}>
-        <Text bold color="cyan">Tasks (Page {currentIndex + 1})</Text>
-      </Box>
-
-      <Box marginBottom={1}>
-        <Text color="gray">List: </Text>
+        <Text color={isEditingListId ? 'cyan' : 'gray'}>List: </Text>
         {isEditingListId ? (
           <TextInput value={listIdDraft} onChange={setListIdDraft} onSubmit={applyListId} />
         ) : (
-          <Text>
-            {listLabel}
-            <Text color="gray"> (press l to change)</Text>
-          </Text>
+          <>
+            <Text color="green">{listLabel}</Text>
+            <Text color="gray"> · l to edit · Enter to apply</Text>
+          </>
         )}
       </Box>
-
       <TuiSearchControls
         appliedSearch={appliedSearch}
         searchDraft={searchDraft}
@@ -180,41 +200,33 @@ export function ListTasksTui({ tasksDeps, onCancel }: ListTasksTuiProps) {
         onDraftChange={setSearchDraft}
         onSubmit={applySearch}
       />
+    </>
+  );
 
-      {error && (
-        <Box marginBottom={1}><Text color="red">Error: {error}</Text></Box>
-      )}
+  const emptyMessage = visibleTasks.length === 0 && filteredTasks.length > 0 && appliedSearch
+    ? `No tasks match "${appliedSearch}". Clear search or change list.`
+    : 'No tasks found.';
 
-      {loading ? (
-        <Text color="yellow">Loading tasks...</Text>
-      ) : tasks.length === 0 ? (
-        <Text color="gray">No tasks found.</Text>
-      ) : visibleTasks.length === 0 ? (
-        <Text color="gray">
-          {appliedSearch
-            ? `No tasks match "${appliedSearch}". Clear search or change list.`
-            : 'No tasks found.'}
-        </Text>
-      ) : (
-        <Box flexDirection="column" marginBottom={1}>
-          <SelectInput
-            items={visibleTasks.map((task) => ({
-              label: formatTaskLabel(task),
-              value: task.id,
-            }))}
-            onSelect={handleSelectTask}
-          />
-        </Box>
-      )}
-
-      <Box marginTop={1}>
-        <TuiListFooter
-          currentIndex={currentIndex}
-          hasNextPage={hasNextPage}
-          loading={loading}
-          backHint="ESC to return"
-        />
-      </Box>
-    </Box>
+  return (
+    <TuiListScreen
+      title="Tasks"
+      pageLabel={`Page ${currentIndex + 1}`}
+      items={visibleTasks}
+      loading={loading}
+      error={error}
+      hasNextPage={hasNextPage}
+      currentIndex={currentIndex}
+      onSelect={handleSelectTask}
+      formatLabel={formatTaskLabel}
+      getId={(task) => task.id}
+      filterSlot={filterSlot}
+      emptyMessage={emptyMessage}
+      onPagination={(action) => {
+        if (action === 'next' && hasNextPage) setCurrentIndex((i) => i + 1);
+        if (action === 'prev' && currentIndex > 0) setCurrentIndex((i) => i - 1);
+      }}
+      onRefresh={refresh}
+      blocked={blocked}
+    />
   );
 }

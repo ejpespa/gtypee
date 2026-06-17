@@ -10,9 +10,9 @@ import {
   buildWorkspaceReportCommandDeps,
   buildWorkspaceUserCommandDeps,
 } from "../workspace/runtime.js";
-import { buildGmailCommandDeps, buildGmailAttachmentDeps } from "../gmail/runtime.js";
+import { buildGmailCommandDeps, buildGmailAttachmentDeps, buildGmailDraftDeps, buildGmailThreadDeps } from "../gmail/runtime.js";
 import { buildCalendarCommandDeps } from "../calendar/runtime.js";
-import { buildDriveCommandDeps } from "../drive/runtime.js";
+import { buildDriveCommandDeps, buildDriveTrashDeps, buildDriveSharedDrivesDeps } from "../drive/runtime.js";
 import { buildDocsCommandDeps } from "../docs/runtime.js";
 import { buildSheetsCommandDeps } from "../sheets/runtime.js";
 import { buildTasksCommandDeps } from "../tasks/runtime.js";
@@ -61,6 +61,12 @@ export function registerTuiCommand(root: Command): void {
       const gmailAttachmentDeps = buildGmailAttachmentDeps({
         resolveAccount: async () => resolved,
       });
+      const gmailDraftDeps = buildGmailDraftDeps({
+        resolveAccount: async () => resolved,
+      });
+      const gmailThreadDeps = buildGmailThreadDeps({
+        resolveAccount: async () => resolved,
+      });
 
       const calendarDeps = buildCalendarCommandDeps({
         resolveAccount: async () => resolved,
@@ -71,6 +77,8 @@ export function registerTuiCommand(root: Command): void {
       };
       const runtime = new ServiceRuntime(runtimeOptions);
       const driveDeps = buildDriveCommandDeps(runtime);
+      const driveTrashDeps = buildDriveTrashDeps(runtime);
+      const driveSharedDrivesDeps = buildDriveSharedDrivesDeps(runtime);
       const docsDeps = buildDocsCommandDeps(runtime);
       const sheetsDeps = buildSheetsCommandDeps(runtime);
       const tasksDeps = buildTasksCommandDeps(runtime);
@@ -90,8 +98,12 @@ export function registerTuiCommand(root: Command): void {
             orgDeps,
             gmailDeps,
             gmailAttachmentDeps,
+            gmailDraftDeps,
+            gmailThreadDeps,
             calendarDeps,
             driveDeps,
+            driveTrashDeps,
+            driveSharedDrivesDeps,
             docsDeps,
             sheetsDeps,
             tasksDeps,

@@ -1,5 +1,8 @@
 export const DEFAULT_TUI_PAGE_SIZE = 20;
 
+/** Smaller page size for multi-line TUI rows (org units show path + metadata per item). */
+export const ORG_UNITS_TUI_PAGE_SIZE = 5;
+
 export function mergeNextPageToken(
   history: (string | undefined)[],
   currentIndex: number,

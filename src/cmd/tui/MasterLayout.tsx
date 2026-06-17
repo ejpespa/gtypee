@@ -15,9 +15,9 @@ import { TasksRouter } from './TasksRouter.js';
 import { ContactsRouter } from './ContactsRouter.js';
 import { ChatRouter } from './ChatRouter.js';
 import type { WorkspaceDeviceCommandDeps, WorkspaceReportCommandDeps, WorkspaceUserCommandDeps, WorkspaceGroupCommandDeps, WorkspaceOrgUnitCommandDeps } from '../workspace/commands.js';
-import type { GmailAttachmentDeps, GmailCommandDeps } from '../gmail/commands.js';
+import type { GmailAttachmentDeps, GmailCommandDeps, GmailDraftDeps, GmailThreadDeps } from '../gmail/commands.js';
 import type { CalendarCommandDeps } from '../calendar/commands.js';
-import type { DriveCommandDeps } from '../drive/commands.js';
+import type { DriveCommandDeps, DriveSharedDrivesDeps, DriveTrashDeps } from '../drive/commands.js';
 import type { DocsCommandDeps } from '../docs/commands.js';
 import type { SheetsCommandDeps } from '../sheets/commands.js';
 import type { TasksCommandDeps } from '../tasks/commands.js';
@@ -32,8 +32,12 @@ export interface TuiConfigDeps {
   orgDeps: Required<WorkspaceOrgUnitCommandDeps>;
   gmailDeps: Required<GmailCommandDeps>;
   gmailAttachmentDeps: Required<GmailAttachmentDeps>;
+  gmailDraftDeps: Required<GmailDraftDeps>;
+  gmailThreadDeps: Required<GmailThreadDeps>;
   calendarDeps: Required<CalendarCommandDeps>;
   driveDeps: Required<DriveCommandDeps>;
+  driveTrashDeps: Required<DriveTrashDeps>;
+  driveSharedDrivesDeps: Required<DriveSharedDrivesDeps>;
   docsDeps: Required<DocsCommandDeps>;
   sheetsDeps: Required<SheetsCommandDeps>;
   tasksDeps: Required<TasksCommandDeps>;
@@ -84,6 +88,8 @@ function MasterContentPane({
           <GmailRouter
             deps={deps.gmailDeps}
             attachmentDeps={deps.gmailAttachmentDeps}
+            draftDeps={deps.gmailDraftDeps}
+            threadDeps={deps.gmailThreadDeps}
             onCancel={handleBack}
           />
         </Box>
@@ -97,7 +103,12 @@ function MasterContentPane({
 
       {activeMenu === 'drive' && (
         <Box flexDirection="column" width="100%">
-          <DriveRouter deps={deps.driveDeps} onCancel={handleBack} />
+          <DriveRouter
+            deps={deps.driveDeps}
+            trashDeps={deps.driveTrashDeps}
+            sharedDrivesDeps={deps.driveSharedDrivesDeps}
+            onCancel={handleBack}
+          />
         </Box>
       )}
 

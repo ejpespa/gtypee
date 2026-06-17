@@ -1,15 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import TextInput from 'ink-text-input';
-import {
-  DEFAULT_TUI_PAGE_SIZE,
-  mergeNextPageToken,
-  hasNextTokenPage,
-  shouldHandlePaginationKey,
-} from '../tui/pagination.js';
+import { DEFAULT_TUI_PAGE_SIZE, shouldHandlePaginationKey } from '../tui/pagination.js';
 import { filterWorkspaceUsersByQuery, normalizeOrgUnitPath } from '../tui/search.js';
 import { TuiSearchControls } from '../tui/TuiSearchControls.js';
 import { TuiListFooter } from '../tui/TuiListFooter.js';
+import { usePaginatedList } from '../tui/hooks/usePaginatedList.js';
+import { useTuiNavigation } from '../tui/TuiNavigationContext.js';
 import type { WorkspaceUserCommandDeps, WorkspaceUser } from './commands.js';
 
 export interface ListUsersTuiProps {
@@ -23,67 +20,58 @@ export function ListUsersTui({
   defaultOrgUnitPath = '/Test',
   onCancel,
 }: ListUsersTuiProps) {
+  const { setBreadcrumbs, setHelpLines } = useTuiNavigation();
+
   const [orgUnitDraft, setOrgUnitDraft] = useState(defaultOrgUnitPath);
   const [searchDraft, setSearchDraft] = useState('');
   const [appliedOrgPath, setAppliedOrgPath] = useState(normalizeOrgUnitPath(defaultOrgUnitPath));
   const [appliedSearch, setAppliedSearch] = useState('');
-
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [pageHistory, setPageHistory] = useState<(string | undefined)[]>([undefined]);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [pageCache, setPageCache] = useState<Record<number, WorkspaceUser[]>>({});
   const [activeField, setActiveField] = useState<'org' | 'search' | null>(null);
+
+  const fetchPage = useCallback(
+    async (pageToken: string | undefined) => {
+      if (!userDeps.listUsers) {
+        throw new Error('listUsers dependency function is not provided.');
+      }
+      return userDeps.listUsers(appliedOrgPath, {
+        pageSize: DEFAULT_TUI_PAGE_SIZE,
+        ...(pageToken !== undefined ? { pageToken } : {}),
+      });
+    },
+    [appliedOrgPath, userDeps],
+  );
+
+  const {
+    items: rawUsers,
+    currentIndex,
+    setCurrentIndex,
+    hasNextPage,
+    loading,
+    error,
+    refresh,
+  } = usePaginatedList({
+    fetchPage,
+    queryKey: appliedOrgPath,
+  });
+
+  useEffect(() => {
+    setBreadcrumbs(['Workspace', 'Users']);
+    setHelpLines([
+      'f or / — edit org unit',
+      's — search current page',
+      'r — refresh list',
+      'Tab — switch field while editing',
+      '←/→ or Space — paginate',
+      'ESC — back',
+    ]);
+  }, [setBreadcrumbs, setHelpLines]);
 
   const applyFilters = useCallback(() => {
     setAppliedOrgPath(normalizeOrgUnitPath(orgUnitDraft));
     setAppliedSearch(searchDraft.trim());
-    setPageHistory([undefined]);
-    setCurrentIndex(0);
-    setPageCache({});
     setActiveField(null);
   }, [orgUnitDraft, searchDraft]);
 
-  useEffect(() => {
-    if (pageCache[currentIndex]) {
-      setLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-    const fetchPage = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        if (!userDeps.listUsers) {
-          throw new Error('listUsers dependency function is not provided.');
-        }
-
-        const currentToken = pageHistory[currentIndex];
-        const result = await userDeps.listUsers(appliedOrgPath, {
-          pageSize: DEFAULT_TUI_PAGE_SIZE,
-          ...(currentToken !== undefined ? { pageToken: currentToken } : {}),
-        });
-
-        if (cancelled) return;
-
-        setPageCache((prev) => ({ ...prev, [currentIndex]: result.items }));
-        setPageHistory((prev) => mergeNextPageToken(prev, currentIndex, result.nextPageToken));
-      } catch (err: unknown) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Failed to fetch users');
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-
-    void fetchPage();
-    return () => { cancelled = true; };
-  }, [currentIndex, appliedOrgPath, userDeps, pageCache, pageHistory]);
-
-  const localHasNextPage = hasNextTokenPage(pageHistory, currentIndex);
-  const rawUsers = pageCache[currentIndex] ?? [];
   const visibleUsers = filterWorkspaceUsersByQuery(rawUsers, appliedSearch);
 
   useInput((input, key) => {
@@ -103,6 +91,11 @@ export function ListUsersTui({
       return;
     }
 
+    if (input === 'r') {
+      refresh();
+      return;
+    }
+
     if (input === 'f' || input === '/') {
       setActiveField('org');
       return;
@@ -116,7 +109,7 @@ export function ListUsersTui({
     if (loading) return;
 
     const action = shouldHandlePaginationKey(input, key, false);
-    if (action === 'next' && localHasNextPage) setCurrentIndex((i) => i + 1);
+    if (action === 'next' && hasNextPage) setCurrentIndex((i) => i + 1);
     if (action === 'prev' && currentIndex > 0) setCurrentIndex((i) => i - 1);
   });
 
@@ -163,28 +156,34 @@ export function ListUsersTui({
             No users match &quot;{appliedSearch}&quot; on this page. Try Next → or clear search.
           </Text>
         ) : (
-          visibleUsers.map((user) => {
-            const adminTag = user.isAdmin ? ' [ADMIN]' : '';
-            const susTag = user.suspended ? ' [SUSPENDED]' : '';
-            const fullName = [user.name.givenName, user.name.familyName].filter(Boolean).join(' ');
-            return (
-              <Box key={user.id} marginBottom={0}>
-                <Text wrap="wrap">
-                  <Text color="green">{user.primaryEmail}</Text>
-                  {adminTag || susTag ? <Text color="yellow">{adminTag}{susTag}</Text> : null}
-                  {fullName ? <Text color="gray"> — {fullName}</Text> : null}
-                </Text>
-              </Box>
-            );
-          })
+          visibleUsers.map((user) => (
+            <UserRow key={user.id} user={user} />
+          ))
         )}
       </Box>
 
       <TuiListFooter
         currentIndex={currentIndex}
-        hasNextPage={localHasNextPage}
+        hasNextPage={hasNextPage}
         loading={loading}
+        backHint="r refresh · ESC to return"
       />
+    </Box>
+  );
+}
+
+function UserRow({ user }: { user: WorkspaceUser }) {
+  const adminTag = user.isAdmin ? ' [ADMIN]' : '';
+  const susTag = user.suspended ? ' [SUSPENDED]' : '';
+  const fullName = [user.name.givenName, user.name.familyName].filter(Boolean).join(' ');
+
+  return (
+    <Box marginBottom={0}>
+      <Text wrap="wrap">
+        <Text color="green">{user.primaryEmail}</Text>
+        {adminTag || susTag ? <Text color="yellow">{adminTag}{susTag}</Text> : null}
+        {fullName ? <Text color="gray"> — {fullName}</Text> : null}
+      </Text>
     </Box>
   );
 }

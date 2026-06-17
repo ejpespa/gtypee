@@ -14,10 +14,12 @@ import {
   resolveNamedExportPath,
   sanitizeFilename,
 } from '../tui/download.js';
+import { mergeDetailActions } from '../tui/detailActions.js';
 import { usePaginatedList } from '../tui/hooks/usePaginatedList.js';
 import { useDetailView } from '../tui/hooks/useDetailView.js';
 import { useDetailActions } from '../tui/hooks/useDetailActions.js';
 import { useTuiNavigation } from '../tui/TuiNavigationContext.js';
+import { driveFileUrl } from '../tui/resourceLinks.js';
 import { normalizeDriveSearchQuery } from '../../googleapi/drive.js';
 import { formatDriveFileInfo } from './commands.js';
 import type { DriveCommandDeps, DriveFileInfo, DriveFileSummary } from './commands.js';
@@ -143,32 +145,40 @@ export function ListFilesTui({
 
     const isWorkspaceFile = isGoogleAppsFile(detailFile.mimeType);
     const isFolder = detailFile.mimeType === 'application/vnd.google-apps.folder';
-    if (isFolder) return [];
 
-    const exportFormat = resolveDefaultDriveExportFormat(detailFile.mimeType);
-    const label = isWorkspaceFile ? `export as ${exportFormat}` : 'download';
+    const fileActions: TuiDetailAction[] = [];
+    if (!isFolder) {
+      const exportFormat = resolveDefaultDriveExportFormat(detailFile.mimeType);
+      const label = isWorkspaceFile ? `export as ${exportFormat}` : 'download';
 
-    return [{
-      key: 'd',
-      label,
-      onAction: () => actions.runAction(async () => {
-        if (isWorkspaceFile) {
-          const outputPath = resolveNamedExportPath(detailFile.name, exportFormat);
-          const result = await driveDeps.exportFile(detailFile.id, exportFormat, outputPath);
-          if (!result.exported) {
-            throw new Error(`Export failed for ${detailFile.name}`);
+      fileActions.push({
+        key: 'd',
+        label,
+        onAction: () => actions.runAction(async () => {
+          if (isWorkspaceFile) {
+            const outputPath = resolveNamedExportPath(detailFile.name, exportFormat);
+            const result = await driveDeps.exportFile(detailFile.id, exportFormat, outputPath);
+            if (!result.exported) {
+              throw new Error(`Export failed for ${detailFile.name}`);
+            }
+            return `Exported to ${result.path}`;
           }
-          return `Exported to ${result.path}`;
-        }
 
-        const outputPath = sanitizeFilename(detailFile.name);
-        const result = await driveDeps.downloadFile(detailFile.id, outputPath);
-        if (!result.downloaded) {
-          throw new Error(`Download failed for ${detailFile.name}`);
-        }
-        return `Saved to ${result.path}`;
-      }),
-    }];
+          const outputPath = sanitizeFilename(detailFile.name);
+          const result = await driveDeps.downloadFile(detailFile.id, outputPath);
+          if (!result.downloaded) {
+            throw new Error(`Download failed for ${detailFile.name}`);
+          }
+          return `Saved to ${result.path}`;
+        }),
+      });
+    }
+
+    return mergeDetailActions(actions.runAction, {
+      resourceId: detailFile.id,
+      openUrl: driveFileUrl(detailFile.id),
+      actions: fileActions,
+    });
   }, [actions, detailFile, driveDeps]);
 
   const editing = isEditingApiQuery || isEditingSearch;
