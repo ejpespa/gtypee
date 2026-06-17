@@ -2,6 +2,7 @@ import React from 'react';
 import { Box, Text, useInput } from 'ink';
 import SelectInput from 'ink-select-input';
 import { shouldHandlePaginationKey } from './pagination.js';
+import { TuiKeybar } from './TuiKeybar.js';
 import { TuiListFooter } from './TuiListFooter.js';
 
 export type TuiListScreenProps<T> = {
@@ -18,6 +19,8 @@ export type TuiListScreenProps<T> = {
   filterSlot?: React.ReactNode;
   headerSlot?: React.ReactNode;
   emptyMessage?: string;
+  detailEnabled?: boolean;
+  showKeybar?: boolean;
   onPagination: (action: 'prev' | 'next') => void;
   onRefresh?: () => void;
   blocked?: boolean;
@@ -36,7 +39,9 @@ export function TuiListScreen<T>({
   getId,
   filterSlot,
   headerSlot,
-  emptyMessage = 'No items found on this page.',
+  emptyMessage = 'No items on this page.',
+  detailEnabled = true,
+  showKeybar = false,
   onPagination,
   onRefresh,
   blocked = false,
@@ -86,13 +91,17 @@ export function TuiListScreen<T>({
         </Box>
       )}
 
-      <Box marginTop={1}>
+      <Box marginTop={1} flexDirection="column">
         <TuiListFooter
           currentIndex={currentIndex}
           hasNextPage={hasNextPage}
           loading={loading}
           backHint={onRefresh ? 'r refresh · ESC to return' : 'ESC to return'}
+          detailEnabled={detailEnabled}
         />
+        {showKeybar && (
+          <TuiKeybar detailEnabled={detailEnabled} refreshEnabled={!!onRefresh} />
+        )}
       </Box>
     </Box>
   );
