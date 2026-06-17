@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import TextInput from 'ink-text-input';
 import { DEFAULT_TUI_PAGE_SIZE } from '../tui/pagination.js';
-import { filterWorkspaceUsersByQuery, normalizeOrgUnitPath } from '../tui/search.js';
+import { normalizeOrgUnitPath } from '../tui/search.js';
 import { TuiSearchControls } from '../tui/TuiSearchControls.js';
 import { TuiDetailPanel } from '../tui/TuiDetailPanel.js';
 import type { TuiDetailAction } from '../tui/TuiDetailPanel.js';
@@ -53,10 +53,11 @@ export function ListUsersTui({
       }
       return userDeps.listUsers(appliedOrgPath, {
         pageSize: DEFAULT_TUI_PAGE_SIZE,
+        ...(appliedSearch ? { query: appliedSearch } : {}),
         ...(pageToken !== undefined ? { pageToken } : {}),
       });
     },
-    [appliedOrgPath, userDeps],
+    [appliedOrgPath, appliedSearch, userDeps],
   );
 
   const {
@@ -69,7 +70,7 @@ export function ListUsersTui({
     refresh,
   } = usePaginatedList({
     fetchPage,
-    queryKey: appliedOrgPath,
+    queryKey: `${appliedOrgPath}:${appliedSearch}`,
   });
 
   const detail = useDetailView();
@@ -79,7 +80,7 @@ export function ListUsersTui({
     setBreadcrumbs(['Workspace', 'Users']);
     setHelpLines([
       'f or / — edit org unit',
-      's — search current page',
+      's — search users (domain-wide)',
       'r — refresh list',
       'Enter — view user',
       'Tab — switch field while editing',
@@ -97,8 +98,6 @@ export function ListUsersTui({
     setActiveField(null);
   }, [orgUnitDraft, searchDraft, setCurrentIndex]);
 
-  const visibleUsers = filterWorkspaceUsersByQuery(rawUsers, appliedSearch);
-
   const clearDetail = useCallback(() => {
     detail.clear();
     actions.resetStatus();
@@ -111,7 +110,7 @@ export function ListUsersTui({
   }, [clearDetail]);
 
   const handleSelectUser = useCallback(async (userId: string) => {
-    const user = visibleUsers.find((u) => u.id === userId);
+    const user = rawUsers.find((u) => u.id === userId);
     if (!user) return;
 
     actions.resetStatus();
@@ -138,7 +137,7 @@ export function ListUsersTui({
         ];
       },
     });
-  }, [actions, detail, userDeps, visibleUsers]);
+  }, [actions, detail, rawUsers, userDeps]);
 
   const detailPanelActions = useMemo((): TuiDetailAction[] => {
     if (!selectedUser) return [];
@@ -250,20 +249,20 @@ export function ListUsersTui({
         isEditing={activeField === 'search'}
         onDraftChange={setSearchDraft}
         onSubmit={applyFilters}
-        hint="f or / = org unit · s = search · Enter applies · Tab switches field · ESC cancels edit · filters current page"
+        hint="f or / = org unit · s = search · Enter applies · Tab switches field · ESC cancels edit · searches whole domain"
       />
     </Box>
   );
 
-  const emptyMessage = visibleUsers.length === 0 && rawUsers.length > 0 && appliedSearch
-    ? `No users match "${appliedSearch}" on this page. Try Next → or clear search.`
-    : `No users found for ${appliedOrgPath} on this page.`;
+  const emptyMessage = appliedSearch
+    ? `No users match "${appliedSearch}" in ${appliedOrgPath}.`
+    : `No users found for ${appliedOrgPath}.`;
 
   return (
     <TuiListScreen
       title={`Users in org ${appliedOrgPath}`}
       pageLabel={`Page ${currentIndex + 1}`}
-      items={visibleUsers}
+      items={rawUsers}
       loading={loading}
       error={error}
       hasNextPage={hasNextPage}

@@ -1,5 +1,38 @@
 import type { WorkspaceUser } from '../workspace/commands.js';
 
+/** Escape single quotes for Google Admin Directory API query strings. */
+export function escapeAdminQueryValue(value: string): string {
+  return value.replace(/'/g, "\\'");
+}
+
+/**
+ * Build a Google Admin Directory API `users.list` query from org unit + free-text search.
+ * @see https://developers.google.com/workspace/admin/directory/v1/guides/search-users
+ */
+export function buildListUsersAdminQuery(orgUnitPath?: string, search?: string): string {
+  const parts: string[] = [];
+  const term = search?.trim();
+
+  if (orgUnitPath) {
+    parts.push(`orgUnitPath='${escapeAdminQueryValue(orgUnitPath)}'`);
+  } else if (!term) {
+    parts.push('isSuspended=false');
+  }
+
+  if (term) {
+    if (term.includes('@')) {
+      parts.push(`email:${escapeAdminQueryValue(term)}`);
+    } else if (term.includes(' ')) {
+      parts.push(`name:'${escapeAdminQueryValue(term)}'`);
+    } else {
+      // Prefix match on email (e.g. local part) and whole-word name match.
+      parts.push(`email:${escapeAdminQueryValue(term)}*`);
+    }
+  }
+
+  return parts.join(' ');
+}
+
 export function normalizeOrgUnitPath(path: string): string {
   const trimmed = path.trim();
   if (!trimmed) return '/';

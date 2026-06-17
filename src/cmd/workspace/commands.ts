@@ -4,8 +4,13 @@ import { buildExecutionContext, stderr, type RootOptions } from "../execution-co
 import type { PaginatedResult, PaginationOptions } from "../../types/pagination.js";
 import { generatePassword } from "./password.js";
 
+export type ListUsersOptions = PaginationOptions & {
+  /** Free-text search passed to the Admin Directory API (email, name, etc.). */
+  query?: string;
+};
+
 export type WorkspaceUserCommandDeps = {
-  listUsers?: (orgUnitPath?: string, options?: PaginationOptions) => Promise<PaginatedResult<WorkspaceUser>>;
+  listUsers?: (orgUnitPath?: string, options?: ListUsersOptions) => Promise<PaginatedResult<WorkspaceUser>>;
   createUser?: (input: CreateUserInput) => Promise<CreateUserResult>;
   deleteUser?: (email: string) => Promise<DeleteUserResult>;
   suspendUser?: (email: string) => Promise<SuspendUserResult>;

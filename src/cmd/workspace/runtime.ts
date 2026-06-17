@@ -3,6 +3,8 @@ import { google } from "googleapis";
 import { ServiceRuntime, type ServiceRuntimeOptions } from "../../googleapi/auth-factory.js";
 import { scopes } from "../../googleauth/service.js";
 import type { PaginationOptions } from "../../types/pagination.js";
+import { buildListUsersAdminQuery } from "../tui/search.js";
+import type { ListUsersOptions } from "./commands.js";
 import {
   type WorkspaceUserCommandDeps,
   type WorkspaceUser,
@@ -49,14 +51,11 @@ export function buildWorkspaceUserCommandDeps(options: ServiceRuntimeOptions): R
   const runtime = new ServiceRuntime(options);
 
   return {
-    listUsers: async (orgUnitPath?: string, options?: PaginationOptions) => {
+    listUsers: async (orgUnitPath?: string, options?: ListUsersOptions) => {
       const auth = await runtime.getClient(scopes("workspace"));
       const admin = google.admin({ version: "directory_v1", auth });
 
-      let query = "isSuspended=false";
-      if (orgUnitPath) {
-        query = `orgUnitPath='${orgUnitPath}'`;
-      }
+      const query = buildListUsersAdminQuery(orgUnitPath, options?.query);
 
       const params: Record<string, unknown> = {
         customer: "my_customer",

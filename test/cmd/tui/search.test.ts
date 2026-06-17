@@ -3,6 +3,8 @@ import {
   normalizeOrgUnitPath,
   filterWorkspaceUsersByQuery,
   filterItemsByQuery,
+  escapeAdminQueryValue,
+  buildListUsersAdminQuery,
 } from '../../../src/cmd/tui/search.js';
 import type { WorkspaceUser } from '../../../src/cmd/workspace/commands.js';
 
@@ -14,6 +16,44 @@ const sampleUser = (overrides: Partial<WorkspaceUser> = {}): WorkspaceUser => ({
   orgUnitPath: '/Test',
   isAdmin: false,
   ...overrides,
+});
+
+describe('escapeAdminQueryValue', () => {
+  it('escapes single quotes', () => {
+    expect(escapeAdminQueryValue("Valentine's")).toBe("Valentine\\'s");
+  });
+});
+
+describe('buildListUsersAdminQuery', () => {
+  it('defaults to non-suspended users when no org or search', () => {
+    expect(buildListUsersAdminQuery()).toBe('isSuspended=false');
+  });
+
+  it('scopes by org unit path', () => {
+    expect(buildListUsersAdminQuery('/Faculty')).toBe("orgUnitPath='/Faculty'");
+  });
+
+  it('searches by full email', () => {
+    expect(buildListUsersAdminQuery('/', 'alice@example.com')).toBe(
+      "orgUnitPath='/' email:alice@example.com",
+    );
+  });
+
+  it('searches by email prefix', () => {
+    expect(buildListUsersAdminQuery(undefined, 'alice')).toBe('email:alice*');
+  });
+
+  it('searches by full name phrase', () => {
+    expect(buildListUsersAdminQuery('/HR', 'Jane Smith')).toBe(
+      "orgUnitPath='/HR' name:'Jane Smith'",
+    );
+  });
+
+  it('escapes quotes in org path and search', () => {
+    expect(buildListUsersAdminQuery("/O'Brien", "Valentine's Day")).toBe(
+      "orgUnitPath='/O\\'Brien' name:'Valentine\\'s Day'",
+    );
+  });
 });
 
 describe('normalizeOrgUnitPath', () => {
