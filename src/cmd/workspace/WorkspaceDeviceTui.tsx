@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import SelectInput from 'ink-select-input';
 import { WipeDeviceWizard } from './WipeDeviceWizard.js';
+import { ListDevicesTui } from './ListDevicesTui.js';
 import type { WorkspaceDeviceCommandDeps } from './commands.js';
 
 export interface WorkspaceDeviceTuiProps {
@@ -41,14 +42,23 @@ export function WorkspaceDeviceTui({ deviceDeps, onCancel }: WorkspaceDeviceTuiP
     );
   }
 
-  if (activeView === 'list-chromeos' || activeView === 'list-mobile') {
+  if (activeView === 'list-chromeos') {
     return (
-      <Box flexDirection="column" padding={1} borderStyle="round" borderColor="blue">
-        <Text>Under construction</Text>
-        <Box marginTop={1}>
-          <Text color="gray">Press ESC to return</Text>
-        </Box>
-      </Box>
+      <ListDevicesTui
+        deviceDeps={deviceDeps}
+        type="chromebook"
+        onCancel={() => setActiveView(null)}
+      />
+    );
+  }
+
+  if (activeView === 'list-mobile') {
+    return (
+      <ListDevicesTui
+        deviceDeps={deviceDeps}
+        type="mobile"
+        onCancel={() => setActiveView(null)}
+      />
     );
   }
 
