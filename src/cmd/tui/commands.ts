@@ -12,6 +12,8 @@ import {
 } from "../workspace/runtime.js";
 import { buildGmailCommandDeps } from "../gmail/runtime.js";
 import { buildCalendarCommandDeps } from "../calendar/runtime.js";
+import { buildDriveCommandDeps } from "../drive/runtime.js";
+import { ServiceRuntime } from "../../googleapi/auth-factory.js";
 import { resolveDefaultAccount } from "../auth/commands.js";
 
 export function registerTuiCommand(root: Command): void {
@@ -56,11 +58,25 @@ export function registerTuiCommand(root: Command): void {
         resolveAccount: async () => resolved,
       });
 
+      const runtime = new ServiceRuntime({
+        resolveAccount: async () => resolved,
+      });
+      const driveDeps = buildDriveCommandDeps(runtime);
+
       process.stdout.write("\x1b[2J\x1b[3J\x1b[H"); // clear the screen
 
       const { waitUntilExit } = render(
         React.createElement(MasterLayout, {
-          deps: { reportDeps, userDeps, deviceDeps, groupDeps, orgDeps, gmailDeps, calendarDeps },
+          deps: {
+            reportDeps,
+            userDeps,
+            deviceDeps,
+            groupDeps,
+            orgDeps,
+            gmailDeps,
+            calendarDeps,
+            driveDeps,
+          },
         })
       );
 
