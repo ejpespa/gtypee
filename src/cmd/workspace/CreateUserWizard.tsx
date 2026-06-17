@@ -1,295 +1,85 @@
-import React, { useState } from 'react';
-import { Box, Text, useInput } from 'ink';
-import TextInput from 'ink-text-input';
-import type { WorkspaceUserCommandDeps, CreateUserResult } from './commands.js';
+import React from 'react';
+import { TuiWizard } from '../tui/TuiWizard.js';
+import { normalizeOrgUnitPath } from '../tui/search.js';
+import type { WorkspaceUserCommandDeps } from './commands.js';
 
 export interface CreateUserWizardProps {
   userDeps: WorkspaceUserCommandDeps;
   onCancel?: () => void;
 }
 
-type WizardStep = 'EMAIL' | 'FIRST_NAME' | 'LAST_NAME' | 'PASSWORD' | 'ORG_UNIT' | 'CONFIRM' | 'DONE';
-
 export function CreateUserWizard({ userDeps, onCancel }: CreateUserWizardProps) {
-  const [step, setStep] = useState<WizardStep>('EMAIL');
-
-  // Confirmed values
-  const [email, setEmail] = useState('');
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [password, setPassword] = useState('');
-  const [orgUnit, setOrgUnit] = useState('');
-
-  // Input values (live typing)
-  const [emailInput, setEmailInput] = useState('');
-  const [firstNameInput, setFirstNameInput] = useState('');
-  const [lastNameInput, setLastNameInput] = useState('');
-  const [passwordInput, setPasswordInput] = useState('');
-  const [orgUnitInput, setOrgUnitInput] = useState('');
-
-  const [validationError, setValidationError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [apiError, setApiError] = useState<string | null>(null);
-  const [result, setResult] = useState<CreateUserResult | null>(null);
-
-  const executeCreate = async () => {
-    setLoading(true);
-    setApiError(null);
-    try {
-      if (!userDeps.createUser) {
-        throw new Error('createUser dependency function is not provided.');
-      }
-      const res = await userDeps.createUser({
-        email,
-        firstName,
-        lastName,
-        password,
-        orgUnitPath: orgUnit.trim() === '' ? '/' : orgUnit,
-      });
-      if (res.applied) {
-        setResult(res);
-        setStep('DONE');
-      } else {
-        throw new Error('User creation was not applied (failed).');
-      }
-    } catch (err: any) {
-      setApiError(err.message || 'An error occurred during user creation.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Global escape and confirm handler
-  useInput((input, key) => {
-    if (key.escape) {
-      if (onCancel) {
-        onCancel();
-      }
-    }
-
-    if (step === 'CONFIRM' && !loading) {
-      if (input.toLowerCase() === 'y') {
-        executeCreate();
-      }
-    }
-  });
-
-  const handleEmailSubmit = (value: string) => {
-    const trimmed = value.trim();
-    if (!trimmed) {
-      setValidationError('Email cannot be empty.');
-      return;
-    }
-    // Basic email format check
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
-      setValidationError('Please enter a valid email address (e.g., user@domain.com).');
-      return;
-    }
-    setValidationError(null);
-    setEmail(trimmed);
-    setStep('FIRST_NAME');
-  };
-
-  const handleFirstNameSubmit = (value: string) => {
-    const trimmed = value.trim();
-    if (!trimmed) {
-      setValidationError('First name cannot be empty.');
-      return;
-    }
-    setValidationError(null);
-    setFirstName(trimmed);
-    setStep('LAST_NAME');
-  };
-
-  const handleLastNameSubmit = (value: string) => {
-    const trimmed = value.trim();
-    if (!trimmed) {
-      setValidationError('Last name cannot be empty.');
-      return;
-    }
-    setValidationError(null);
-    setLastName(trimmed);
-    setStep('PASSWORD');
-  };
-
-  const handlePasswordSubmit = (value: string) => {
-    if (value.length < 8) {
-      setValidationError('Password must be at least 8 characters long.');
-      return;
-    }
-    setValidationError(null);
-    setPassword(value);
-    setStep('ORG_UNIT');
-  };
-
-  const handleOrgUnitSubmit = (value: string) => {
-    setValidationError(null);
-    setOrgUnit(value);
-    setStep('CONFIRM');
-  };
-
   return (
-    <Box flexDirection="column" padding={1} borderStyle="round" borderColor="blue">
-      <Box marginBottom={1}>
-        <Text bold color="cyan">Workspace Admin: Create User Wizard</Text>
-      </Box>
+    <TuiWizard
+      title="Create User"
+      sensitiveResult
+      fields={[
+        {
+          key: 'givenName',
+          label: 'Given Name',
+          required: true,
+        },
+        {
+          key: 'familyName',
+          label: 'Family Name',
+          required: true,
+        },
+        {
+          key: 'primaryEmail',
+          label: 'Primary Email',
+          required: true,
+        },
+        {
+          key: 'password',
+          label: 'Password (optional — auto-generated if empty)',
+          placeholder: 'Leave empty to auto-generate',
+        },
+        {
+          key: 'orgUnit',
+          label: 'Org Unit',
+          placeholder: '/',
+        },
+      ]}
+      summary={(values) => {
+        const password = (values.password ?? '').trim();
+        return [
+          `Given name: ${values.givenName}`,
+          `Family name: ${values.familyName}`,
+          `Email: ${values.primaryEmail}`,
+          `Password: ${password ? '*'.repeat(password.length) : '(auto-generated)'}`,
+          `Org unit: ${normalizeOrgUnitPath(values.orgUnit ?? '')}`,
+        ].join('\n');
+      }}
+      onCancel={() => onCancel?.()}
+      onSubmit={async (values) => {
+        if (!userDeps.createUser) {
+          throw new Error('createUser dependency function is not provided.');
+        }
 
-      {/* Completed steps printed above */}
-      {step !== 'EMAIL' && (
-        <Text>Email: <Text color="green">{email}</Text></Text>
-      )}
-      {step !== 'EMAIL' && step !== 'FIRST_NAME' && (
-        <Text>First Name: <Text color="green">{firstName}</Text></Text>
-      )}
-      {step !== 'EMAIL' && step !== 'FIRST_NAME' && step !== 'LAST_NAME' && (
-        <Text>Last Name: <Text color="green">{lastName}</Text></Text>
-      )}
-      {step !== 'EMAIL' && step !== 'FIRST_NAME' && step !== 'LAST_NAME' && step !== 'PASSWORD' && (
-        <Text>Password: <Text color="green">{'*'.repeat(password.length)}</Text></Text>
-      )}
-      {step !== 'EMAIL' && step !== 'FIRST_NAME' && step !== 'LAST_NAME' && step !== 'PASSWORD' && step !== 'ORG_UNIT' && (
-        <Text>Org Unit: <Text color="green">{orgUnit || '/'}</Text></Text>
-      )}
+        const password = (values.password ?? '').trim();
+        if (password && password.length < 8) {
+          throw new Error('Password must be at least 8 characters long.');
+        }
 
-      {/* Current active step */}
-      {step === 'EMAIL' && (
-        <Box flexDirection="column" marginTop={1}>
-          <Box>
-            <Text bold>Email: </Text>
-            <TextInput
-              value={emailInput}
-              onChange={(val) => {
-                setEmailInput(val);
-                setValidationError(null);
-              }}
-              onSubmit={handleEmailSubmit}
-              focus
-            />
-          </Box>
-          {validationError && (
-            <Text color="red">{validationError}</Text>
-          )}
-        </Box>
-      )}
+        const result = await userDeps.createUser({
+          email: (values.primaryEmail ?? '').trim(),
+          firstName: (values.givenName ?? '').trim(),
+          lastName: (values.familyName ?? '').trim(),
+          password: password || (undefined as unknown as string),
+          orgUnitPath: normalizeOrgUnitPath(values.orgUnit ?? ''),
+        });
 
-      {step === 'FIRST_NAME' && (
-        <Box flexDirection="column" marginTop={1}>
-          <Box>
-            <Text bold>First Name: </Text>
-            <TextInput
-              value={firstNameInput}
-              onChange={(val) => {
-                setFirstNameInput(val);
-                setValidationError(null);
-              }}
-              onSubmit={handleFirstNameSubmit}
-              focus
-            />
-          </Box>
-          {validationError && (
-            <Text color="red">{validationError}</Text>
-          )}
-        </Box>
-      )}
+        if (!result.applied) {
+          throw new Error('User creation was not applied.');
+        }
 
-      {step === 'LAST_NAME' && (
-        <Box flexDirection="column" marginTop={1}>
-          <Box>
-            <Text bold>Last Name: </Text>
-            <TextInput
-              value={lastNameInput}
-              onChange={(val) => {
-                setLastNameInput(val);
-                setValidationError(null);
-              }}
-              onSubmit={handleLastNameSubmit}
-              focus
-            />
-          </Box>
-          {validationError && (
-            <Text color="red">{validationError}</Text>
-          )}
-        </Box>
-      )}
-
-      {step === 'PASSWORD' && (
-        <Box flexDirection="column" marginTop={1}>
-          <Box>
-            <Text bold>Password: </Text>
-            <TextInput
-              value={passwordInput}
-              onChange={(val) => {
-                setPasswordInput(val);
-                setValidationError(null);
-              }}
-              onSubmit={handlePasswordSubmit}
-              mask="*"
-              focus
-            />
-          </Box>
-          {validationError && (
-            <Text color="red">{validationError}</Text>
-          )}
-        </Box>
-      )}
-
-      {step === 'ORG_UNIT' && (
-        <Box flexDirection="column" marginTop={1}>
-          <Box>
-            <Text bold>Org Unit: </Text>
-            <TextInput
-              value={orgUnitInput}
-              onChange={(val) => {
-                setOrgUnitInput(val);
-                setValidationError(null);
-              }}
-              onSubmit={handleOrgUnitSubmit}
-              focus
-            />
-          </Box>
-          {validationError && (
-            <Text color="red">{validationError}</Text>
-          )}
-        </Box>
-      )}
-
-      {step === 'CONFIRM' && (
-        <Box flexDirection="column" marginTop={1}>
-          {apiError && (
-            <Box marginBottom={1}>
-              <Text color="red">Error: {apiError}</Text>
-            </Box>
-          )}
-          {loading ? (
-            <Text color="yellow">Creating user in Google Workspace...</Text>
-          ) : (
-            <Box flexDirection="column">
-              <Text bold color="yellow">Please confirm the details above.</Text>
-              <Text color="white">Press <Text bold color="green">'y'</Text> to create the user, or <Text bold color="red">ESC</Text> to cancel.</Text>
-            </Box>
-          )}
-        </Box>
-      )}
-
-      {step === 'DONE' && (
-        <Box flexDirection="column" marginTop={1}>
-          <Text color="green" bold>User created successfully!</Text>
-          {result && (
-            <Box flexDirection="column" marginTop={1}>
-              <Text>User ID: <Text color="cyan">{result.userId}</Text></Text>
-              <Text>Primary Email: <Text color="cyan">{result.primaryEmail}</Text></Text>
-              <Text>Password: <Text color="yellow">{result.password}</Text></Text>
-            </Box>
-          )}
-          <Box marginTop={1}>
-            <Text color="gray">Press ESC to exit.</Text>
-          </Box>
-        </Box>
-      )}
-
-      <Box marginTop={1}>
-        <Text color="gray">Wizard: [ESC to quit]</Text>
-      </Box>
-    </Box>
+        return [
+          `User created: ${result.primaryEmail}`,
+          `User ID: ${result.userId}`,
+          '',
+          result.password,
+        ].join('\n');
+      }}
+    />
   );
 }
