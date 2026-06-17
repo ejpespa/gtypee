@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import SelectInput from 'ink-select-input';
+import { AdminAuditTui } from './AdminAuditTui.js';
 import { DeletedUsersTui } from './DeletedUsersTui.js';
+import { LoginAuditTui } from './LoginAuditTui.js';
 import type { WorkspaceReportCommandDeps, WorkspaceUserCommandDeps } from './commands.js';
 
 export interface WorkspaceReportTuiProps {
@@ -66,8 +68,9 @@ export function WorkspaceReportTui({ reportDeps, userDeps, onCancel }: Workspace
 
   if (activeView === 'login-audit') {
     return (
-      <ReportPlaceholder
-        title="Login Audit"
+      <LoginAuditTui
+        reportDeps={reportDeps}
+        days={30}
         onCancel={() => setActiveView(null)}
       />
     );
@@ -75,8 +78,9 @@ export function WorkspaceReportTui({ reportDeps, userDeps, onCancel }: Workspace
 
   if (activeView === 'admin-audit') {
     return (
-      <ReportPlaceholder
-        title="Admin Audit"
+      <AdminAuditTui
+        reportDeps={reportDeps}
+        days={30}
         onCancel={() => setActiveView(null)}
       />
     );
