@@ -73,16 +73,23 @@ export function buildGmailCommandDeps(options: ServiceRuntimeOptions): Required<
             userId: "me",
             id: msg.id!,
             format: "metadata",
-            metadataHeaders: ["Subject"],
+            metadataHeaders: ["Subject", "From", "Date"],
           });
-          const subjectHeader = detail.data.payload?.headers?.find(
-            (h) => h.name?.toLowerCase() === "subject",
-          );
-          return {
+          const headers = detail.data.payload?.headers ?? [];
+          const getHeader = (name: string) =>
+            headers.find((h) => h.name?.toLowerCase() === name.toLowerCase())?.value ?? "";
+          const item: import("./commands.js").GmailMessageSummary = {
             id: detail.data.id ?? "",
             threadId: detail.data.threadId ?? "",
-            subject: subjectHeader?.value ?? "(no subject)",
+            subject: getHeader("subject") || "(no subject)",
           };
+          const from = getHeader("from");
+          const date = getHeader("date");
+          const snippet = detail.data.snippet ?? "";
+          if (from) item.from = from;
+          if (snippet) item.snippet = snippet;
+          if (date) item.date = date;
+          return item;
         }),
       );
 

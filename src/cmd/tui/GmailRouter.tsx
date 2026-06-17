@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import SelectInput from 'ink-select-input';
+import { ListMessagesTui } from '../gmail/ListMessagesTui.js';
 import type { GmailCommandDeps } from '../gmail/commands.js';
 
 interface GmailRouterProps {
@@ -8,7 +9,7 @@ interface GmailRouterProps {
   onCancel: () => void;
 }
 
-export function GmailRouter({ deps: _deps, onCancel }: GmailRouterProps) {
+export function GmailRouter({ deps, onCancel }: GmailRouterProps) {
   const [activeSubMenu, setActiveSubMenu] = useState<string | null>(null);
 
   const items = [
@@ -20,28 +21,31 @@ export function GmailRouter({ deps: _deps, onCancel }: GmailRouterProps) {
     setActiveSubMenu(item.value);
   };
 
-  useInput((input, key) => {
-    if (key.escape) {
-      if (activeSubMenu !== null) {
-        setActiveSubMenu(null);
-      } else {
-        onCancel();
-      }
+  useInput((_input, key) => {
+    if (activeSubMenu === null && key.escape) {
+      onCancel();
     }
   });
 
-  if (activeSubMenu === 'inbox' || activeSubMenu === 'search') {
-    const title = activeSubMenu === 'inbox' ? 'Inbox Messages' : 'Search Messages';
+  if (activeSubMenu === 'inbox') {
     return (
-      <Box flexDirection="column" padding={1}>
-        <Box marginBottom={1}>
-          <Text bold color="cyan">{title}</Text>
-        </Box>
-        <Text color="yellow">Message list coming soon — wired in Task 11</Text>
-        <Box marginTop={1}>
-          <Text color="gray">Press ESC to return to Gmail menu</Text>
-        </Box>
-      </Box>
+      <ListMessagesTui
+        gmailDeps={deps}
+        title="Inbox Messages"
+        defaultQuery="in:inbox"
+        onCancel={() => setActiveSubMenu(null)}
+      />
+    );
+  }
+
+  if (activeSubMenu === 'search') {
+    return (
+      <ListMessagesTui
+        gmailDeps={deps}
+        title="Search Messages"
+        defaultQuery=""
+        onCancel={() => setActiveSubMenu(null)}
+      />
     );
   }
 

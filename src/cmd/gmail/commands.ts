@@ -9,6 +9,9 @@ export type GmailMessageSummary = {
   id: string;
   threadId: string;
   subject: string;
+  from?: string;
+  snippet?: string;
+  date?: string;
 };
 
 export type GmailSendResult = {
