@@ -10,6 +10,9 @@ import {
 import { filterItemsByQuery } from '../tui/search.js';
 import { TuiSearchControls } from '../tui/TuiSearchControls.js';
 import { TuiListFooter } from '../tui/TuiListFooter.js';
+import { TuiDetailPanel } from '../tui/TuiDetailPanel.js';
+import { textToDetailLines } from '../tui/detail.js';
+import { formatDocsReadResult } from './commands.js';
 import type { DocsCommandDeps, DocsSummary } from './commands.js';
 
 export interface ListDocsTuiProps {
@@ -31,6 +34,18 @@ export function ListDocsTui({ docsDeps, onCancel }: ListDocsTuiProps) {
   const [pageHistory, setPageHistory] = useState<(string | undefined)[]>([undefined]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [pageCache, setPageCache] = useState<Record<number, DocsSummary[]>>({});
+
+  const [detailTitle, setDetailTitle] = useState<string | null>(null);
+  const [detailLines, setDetailLines] = useState<string[]>([]);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
+
+  const clearDetail = useCallback(() => {
+    setDetailTitle(null);
+    setDetailLines([]);
+    setDetailLoading(false);
+    setDetailError(null);
+  }, []);
 
   const applySearch = useCallback(() => {
     setAppliedSearch(searchDraft.trim());
@@ -80,7 +95,28 @@ export function ListDocsTui({ docsDeps, onCancel }: ListDocsTuiProps) {
     (doc) => [doc.name, doc.id],
   );
 
+  const handleSelectDoc = useCallback(async (item: { value: string }) => {
+    const summary = visibleDocs.find((d) => d.id === item.value);
+    setDetailTitle(summary?.name || 'Document');
+    setDetailLines([]);
+    setDetailError(null);
+    setDetailLoading(true);
+
+    try {
+      const result = await docsDeps.readDoc(item.value);
+      setDetailLines(textToDetailLines(formatDocsReadResult(result, 'human')));
+    } catch (err: unknown) {
+      setDetailError(err instanceof Error ? err.message : 'Failed to read document');
+    } finally {
+      setDetailLoading(false);
+    }
+  }, [docsDeps, visibleDocs]);
+
+  const inDetail = detailTitle !== null || detailLoading || detailError !== null;
+
   useInput((input, key) => {
+    if (inDetail) return;
+
     if (isEditingSearch) {
       if (key.escape) {
         setSearchDraft(appliedSearch);
@@ -105,6 +141,18 @@ export function ListDocsTui({ docsDeps, onCancel }: ListDocsTuiProps) {
     if (action === 'next' && localHasNextPage) setCurrentIndex((i) => i + 1);
     if (action === 'prev' && currentIndex > 0) setCurrentIndex((i) => i - 1);
   });
+
+  if (inDetail) {
+    return (
+      <TuiDetailPanel
+        title={detailTitle ?? 'Document'}
+        lines={detailLines}
+        loading={detailLoading}
+        error={detailError}
+        onBack={clearDetail}
+      />
+    );
+  }
 
   return (
     <Box flexDirection="column" padding={1} borderStyle="round" borderColor="blue">
@@ -141,7 +189,7 @@ export function ListDocsTui({ docsDeps, onCancel }: ListDocsTuiProps) {
               label: formatDocLabel(doc),
               value: doc.id,
             }))}
-            onSelect={() => {}}
+            onSelect={handleSelectDoc}
           />
         </Box>
       )}

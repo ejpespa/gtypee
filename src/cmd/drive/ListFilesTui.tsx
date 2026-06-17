@@ -11,7 +11,10 @@ import {
 import { filterItemsByQuery } from '../tui/search.js';
 import { TuiSearchControls } from '../tui/TuiSearchControls.js';
 import { TuiListFooter } from '../tui/TuiListFooter.js';
+import { TuiDetailPanel } from '../tui/TuiDetailPanel.js';
+import { textToDetailLines } from '../tui/detail.js';
 import { normalizeDriveSearchQuery } from '../../googleapi/drive.js';
+import { formatDriveFileInfo } from './commands.js';
 import type { DriveCommandDeps, DriveFileSummary } from './commands.js';
 
 export interface ListFilesTuiProps {
@@ -49,6 +52,18 @@ export function ListFilesTui({
   const [pageHistory, setPageHistory] = useState<(string | undefined)[]>([undefined]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [pageCache, setPageCache] = useState<{ [page: number]: DriveFileSummary[] }>({});
+
+  const [detailTitle, setDetailTitle] = useState<string | null>(null);
+  const [detailLines, setDetailLines] = useState<string[]>([]);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
+
+  const clearDetail = useCallback(() => {
+    setDetailTitle(null);
+    setDetailLines([]);
+    setDetailLoading(false);
+    setDetailError(null);
+  }, []);
 
   const applyApiQuery = useCallback(() => {
     setAppliedApiQuery(apiQueryDraft.trim());
@@ -116,7 +131,28 @@ export function ListFilesTui({
     (file) => [file.name, file.mimeType],
   );
 
+  const handleSelectFile = useCallback(async (item: { value: string }) => {
+    const summary = visibleFiles.find((f) => f.id === item.value);
+    setDetailTitle(summary?.name || 'File');
+    setDetailLines([]);
+    setDetailError(null);
+    setDetailLoading(true);
+
+    try {
+      const info = await driveDeps.getFileInfo(item.value);
+      setDetailLines(textToDetailLines(formatDriveFileInfo(info, 'human')));
+    } catch (err: unknown) {
+      setDetailError(err instanceof Error ? err.message : 'Failed to load file info');
+    } finally {
+      setDetailLoading(false);
+    }
+  }, [driveDeps, visibleFiles]);
+
+  const inDetail = detailTitle !== null || detailLoading || detailError !== null;
+
   useInput((input, key) => {
+    if (inDetail) return;
+
     if (isEditingApiQuery || isEditingSearch) {
       if (key.escape) {
         if (isEditingApiQuery) {
@@ -154,6 +190,18 @@ export function ListFilesTui({
   });
 
   const awaitingSearchQuery = mode === 'search' && !appliedApiQuery;
+
+  if (inDetail) {
+    return (
+      <TuiDetailPanel
+        title={detailTitle ?? 'File'}
+        lines={detailLines}
+        loading={detailLoading}
+        error={detailError}
+        onBack={clearDetail}
+      />
+    );
+  }
 
   return (
     <Box flexDirection="column" flexGrow={1}>
@@ -211,7 +259,7 @@ export function ListFilesTui({
               label: formatFileLabel(file),
               value: file.id,
             }))}
-            onSelect={() => {}}
+            onSelect={handleSelectFile}
           />
         </Box>
       )}

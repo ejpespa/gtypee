@@ -10,6 +10,7 @@ import {
 import { filterItemsByQuery } from '../tui/search.js';
 import { TuiSearchControls } from '../tui/TuiSearchControls.js';
 import { TuiListFooter } from '../tui/TuiListFooter.js';
+import { TuiDetailPanel } from '../tui/TuiDetailPanel.js';
 import type { TasksCommandDeps, TaskItem } from './commands.js';
 
 export interface ListTasksTuiProps {
@@ -35,6 +36,14 @@ export function ListTasksTui({ tasksDeps, onCancel }: ListTasksTuiProps) {
   const [searchDraft, setSearchDraft] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
   const [isEditingSearch, setIsEditingSearch] = useState(false);
+
+  const [detailTitle, setDetailTitle] = useState<string | null>(null);
+  const [detailLines, setDetailLines] = useState<string[]>([]);
+
+  const clearDetail = useCallback(() => {
+    setDetailTitle(null);
+    setDetailLines([]);
+  }, []);
 
   const applyListId = useCallback(() => {
     const trimmed = listIdDraft.trim();
@@ -81,7 +90,23 @@ export function ListTasksTui({ tasksDeps, onCancel }: ListTasksTuiProps) {
     DEFAULT_TUI_PAGE_SIZE,
   );
 
+  const handleSelectTask = useCallback((item: { value: string }) => {
+    const task = visibleTasks.find((t) => t.id === item.value);
+    if (!task) return;
+    setDetailTitle(task.title || 'Task');
+    setDetailLines([
+      `ID: ${task.id}`,
+      `Title: ${task.title}`,
+      `Status: ${task.done ? 'completed' : 'open'}`,
+      `List: ${appliedListId ?? '@default'}`,
+    ]);
+  }, [visibleTasks, appliedListId]);
+
+  const inDetail = detailTitle !== null;
+
   useInput((input, key) => {
+    if (inDetail) return;
+
     if (isEditingListId || isEditingSearch) {
       if (key.escape) {
         if (isEditingListId) {
@@ -119,6 +144,16 @@ export function ListTasksTui({ tasksDeps, onCancel }: ListTasksTuiProps) {
   });
 
   const listLabel = appliedListId ?? '@default';
+
+  if (inDetail) {
+    return (
+      <TuiDetailPanel
+        title={detailTitle ?? 'Task'}
+        lines={detailLines}
+        onBack={clearDetail}
+      />
+    );
+  }
 
   return (
     <Box flexDirection="column" padding={1} borderStyle="round" borderColor="blue">
@@ -167,7 +202,7 @@ export function ListTasksTui({ tasksDeps, onCancel }: ListTasksTuiProps) {
               label: formatTaskLabel(task),
               value: task.id,
             }))}
-            onSelect={() => {}}
+            onSelect={handleSelectTask}
           />
         </Box>
       )}

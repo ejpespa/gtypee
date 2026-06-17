@@ -10,7 +10,12 @@ import {
 import { filterItemsByQuery } from '../tui/search.js';
 import { TuiSearchControls } from '../tui/TuiSearchControls.js';
 import { TuiListFooter } from '../tui/TuiListFooter.js';
+import { TuiDetailPanel } from '../tui/TuiDetailPanel.js';
+import { textToDetailLines } from '../tui/detail.js';
+import { formatSheetsRead } from './commands.js';
 import type { SheetsCommandDeps, SheetsSummary } from './commands.js';
+
+const DEFAULT_PREVIEW_RANGE = 'A1:J20';
 
 export interface ListSheetsTuiProps {
   sheetsDeps: Required<SheetsCommandDeps>;
@@ -31,6 +36,18 @@ export function ListSheetsTui({ sheetsDeps, onCancel }: ListSheetsTuiProps) {
   const [pageHistory, setPageHistory] = useState<(string | undefined)[]>([undefined]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [pageCache, setPageCache] = useState<Record<number, SheetsSummary[]>>({});
+
+  const [detailTitle, setDetailTitle] = useState<string | null>(null);
+  const [detailLines, setDetailLines] = useState<string[]>([]);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
+
+  const clearDetail = useCallback(() => {
+    setDetailTitle(null);
+    setDetailLines([]);
+    setDetailLoading(false);
+    setDetailError(null);
+  }, []);
 
   const applySearch = useCallback(() => {
     setAppliedSearch(searchDraft.trim());
@@ -80,7 +97,28 @@ export function ListSheetsTui({ sheetsDeps, onCancel }: ListSheetsTuiProps) {
     (sheet) => [sheet.name, sheet.id],
   );
 
+  const handleSelectSheet = useCallback(async (item: { value: string }) => {
+    const summary = visibleSheets.find((s) => s.id === item.value);
+    setDetailTitle(summary?.name || 'Spreadsheet');
+    setDetailLines([]);
+    setDetailError(null);
+    setDetailLoading(true);
+
+    try {
+      const result = await sheetsDeps.readRange(item.value, DEFAULT_PREVIEW_RANGE);
+      setDetailLines(textToDetailLines(formatSheetsRead(result, 'human')));
+    } catch (err: unknown) {
+      setDetailError(err instanceof Error ? err.message : 'Failed to read spreadsheet');
+    } finally {
+      setDetailLoading(false);
+    }
+  }, [sheetsDeps, visibleSheets]);
+
+  const inDetail = detailTitle !== null || detailLoading || detailError !== null;
+
   useInput((input, key) => {
+    if (inDetail) return;
+
     if (isEditingSearch) {
       if (key.escape) {
         setSearchDraft(appliedSearch);
@@ -105,6 +143,18 @@ export function ListSheetsTui({ sheetsDeps, onCancel }: ListSheetsTuiProps) {
     if (action === 'next' && localHasNextPage) setCurrentIndex((i) => i + 1);
     if (action === 'prev' && currentIndex > 0) setCurrentIndex((i) => i - 1);
   });
+
+  if (inDetail) {
+    return (
+      <TuiDetailPanel
+        title={`${detailTitle ?? 'Spreadsheet'} (${DEFAULT_PREVIEW_RANGE})`}
+        lines={detailLines}
+        loading={detailLoading}
+        error={detailError}
+        onBack={clearDetail}
+      />
+    );
+  }
 
   return (
     <Box flexDirection="column" padding={1} borderStyle="round" borderColor="blue">
@@ -141,7 +191,7 @@ export function ListSheetsTui({ sheetsDeps, onCancel }: ListSheetsTuiProps) {
               label: formatSheetLabel(sheet),
               value: sheet.id,
             }))}
-            onSelect={() => {}}
+            onSelect={handleSelectSheet}
           />
         </Box>
       )}

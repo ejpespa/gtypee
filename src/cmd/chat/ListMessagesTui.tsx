@@ -10,6 +10,8 @@ import {
 import { filterItemsByQuery } from '../tui/search.js';
 import { TuiSearchControls } from '../tui/TuiSearchControls.js';
 import { TuiListFooter } from '../tui/TuiListFooter.js';
+import { TuiDetailPanel } from '../tui/TuiDetailPanel.js';
+import { textToDetailLines } from '../tui/detail.js';
 import type { ChatCommandDeps, ChatMessage } from './commands.js';
 
 export interface ListMessagesTuiProps {
@@ -40,6 +42,14 @@ export function ListMessagesTui({ chatDeps, onCancel }: ListMessagesTuiProps) {
   const [searchDraft, setSearchDraft] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
   const [isEditingSearch, setIsEditingSearch] = useState(false);
+
+  const [detailTitle, setDetailTitle] = useState<string | null>(null);
+  const [detailLines, setDetailLines] = useState<string[]>([]);
+
+  const clearDetail = useCallback(() => {
+    setDetailTitle(null);
+    setDetailLines([]);
+  }, []);
 
   const applySpace = useCallback(() => {
     const trimmed = spaceDraft.trim();
@@ -95,7 +105,23 @@ export function ListMessagesTui({ chatDeps, onCancel }: ListMessagesTuiProps) {
     DEFAULT_TUI_PAGE_SIZE,
   );
 
+  const handleSelectMessage = useCallback((item: { value: string }) => {
+    const message = visibleMessages.find((m) => m.id === item.value);
+    if (!message) return;
+    setDetailTitle(truncateText(message.text || message.id, 40));
+    setDetailLines(textToDetailLines([
+      `ID: ${message.id}`,
+      `Space: ${appliedSpace}`,
+      '',
+      message.text || '(empty message)',
+    ].join('\n')));
+  }, [visibleMessages, appliedSpace]);
+
+  const inDetail = detailTitle !== null;
+
   useInput((input, key) => {
+    if (inDetail) return;
+
     if (isEditingSpace || isEditingSearch) {
       if (key.escape) {
         if (isEditingSpace) {
@@ -131,6 +157,16 @@ export function ListMessagesTui({ chatDeps, onCancel }: ListMessagesTuiProps) {
     if (action === 'next' && hasNextPage) setCurrentIndex((i) => i + 1);
     if (action === 'prev' && currentIndex > 0) setCurrentIndex((i) => i - 1);
   });
+
+  if (inDetail) {
+    return (
+      <TuiDetailPanel
+        title={detailTitle ?? 'Message'}
+        lines={detailLines}
+        onBack={clearDetail}
+      />
+    );
+  }
 
   return (
     <Box flexDirection="column" padding={1} borderStyle="round" borderColor="blue">
@@ -181,7 +217,7 @@ export function ListMessagesTui({ chatDeps, onCancel }: ListMessagesTuiProps) {
               label: formatMessageLabel(message),
               value: message.id,
             }))}
-            onSelect={() => {}}
+            onSelect={handleSelectMessage}
           />
         </Box>
       )}

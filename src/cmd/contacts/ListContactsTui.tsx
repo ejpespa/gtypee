@@ -12,6 +12,7 @@ import {
 import { filterItemsByQuery } from '../tui/search.js';
 import { TuiSearchControls } from '../tui/TuiSearchControls.js';
 import { TuiListFooter } from '../tui/TuiListFooter.js';
+import { TuiDetailPanel } from '../tui/TuiDetailPanel.js';
 import type { ContactsCommandDeps, ContactSummary } from './commands.js';
 
 export interface ListContactsTuiProps {
@@ -46,6 +47,18 @@ export function ListContactsTui({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [pageCache, setPageCache] = useState<Record<number, ContactSummary[]>>({});
   const [searchResults, setSearchResults] = useState<ContactSummary[]>([]);
+
+  const [detailTitle, setDetailTitle] = useState<string | null>(null);
+  const [detailLines, setDetailLines] = useState<string[]>([]);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
+
+  const clearDetail = useCallback(() => {
+    setDetailTitle(null);
+    setDetailLines([]);
+    setDetailLoading(false);
+    setDetailError(null);
+  }, []);
 
   const applyApiQuery = useCallback(() => {
     setAppliedApiQuery(apiQueryDraft.trim());
@@ -133,7 +146,31 @@ export function ListContactsTui({
   const visibleContacts = mode === 'list' ? filteredListContacts : searchSlice;
   const hasNextPage = mode === 'list' ? listHasNextPage : searchHasNextPage;
 
+  const handleSelectContact = useCallback(async (item: { value: string }) => {
+    const summary = visibleContacts.find((c) => c.resourceName === item.value);
+    setDetailTitle(summary?.email || summary?.resourceName || 'Contact');
+    setDetailLines([]);
+    setDetailError(null);
+    setDetailLoading(true);
+
+    try {
+      const contact = await contactsDeps.getContact(item.value);
+      setDetailLines([
+        `Resource: ${contact.resourceName}`,
+        `Email: ${contact.email || '(none)'}`,
+      ]);
+    } catch (err: unknown) {
+      setDetailError(err instanceof Error ? err.message : 'Failed to load contact');
+    } finally {
+      setDetailLoading(false);
+    }
+  }, [contactsDeps, visibleContacts]);
+
+  const inDetail = detailTitle !== null || detailLoading || detailError !== null;
+
   useInput((input, key) => {
+    if (inDetail) return;
+
     if (isEditingApiQuery || isEditingSearch) {
       if (key.escape) {
         if (isEditingApiQuery) {
@@ -171,6 +208,18 @@ export function ListContactsTui({
   });
 
   const showEmptyApiPrompt = mode === 'search' && !appliedApiQuery;
+
+  if (inDetail) {
+    return (
+      <TuiDetailPanel
+        title={detailTitle ?? 'Contact'}
+        lines={detailLines}
+        loading={detailLoading}
+        error={detailError}
+        onBack={clearDetail}
+      />
+    );
+  }
 
   return (
     <Box flexDirection="column" padding={1} borderStyle="round" borderColor="blue">
@@ -221,7 +270,7 @@ export function ListContactsTui({
               label: formatContactLabel(contact),
               value: contact.resourceName,
             }))}
-            onSelect={() => {}}
+            onSelect={handleSelectContact}
           />
         </Box>
       )}

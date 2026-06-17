@@ -11,6 +11,7 @@ import {
 import { filterItemsByQuery } from '../tui/search.js';
 import { TuiSearchControls } from '../tui/TuiSearchControls.js';
 import { TuiListFooter } from '../tui/TuiListFooter.js';
+import { TuiDetailPanel } from '../tui/TuiDetailPanel.js';
 import type { CalendarCommandDeps, CalendarEventSummary } from './commands.js';
 
 export interface ListEventsTuiProps {
@@ -32,6 +33,14 @@ export function ListEventsTui({ calendarDeps, onCancel }: ListEventsTuiProps) {
   const [appliedTo, setAppliedTo] = useState<string | undefined>(undefined);
   const [appliedSearch, setAppliedSearch] = useState('');
   const [activeField, setActiveField] = useState<'from' | 'to' | 'search' | null>(null);
+
+  const [detailTitle, setDetailTitle] = useState<string | null>(null);
+  const [detailLines, setDetailLines] = useState<string[]>([]);
+
+  const clearDetail = useCallback(() => {
+    setDetailTitle(null);
+    setDetailLines([]);
+  }, []);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -123,7 +132,22 @@ export function ListEventsTui({ calendarDeps, onCancel }: ListEventsTuiProps) {
     (event) => [event.summary, event.id, event.start],
   );
 
+  const handleSelectEvent = useCallback((item: { value: string }) => {
+    const event = visibleEvents.find((e) => e.id === item.value);
+    if (!event) return;
+    setDetailTitle(event.summary || 'Event');
+    setDetailLines([
+      `ID: ${event.id}`,
+      `Summary: ${event.summary || '(no title)'}`,
+      `Start: ${event.start || 'unknown'}`,
+    ]);
+  }, [visibleEvents]);
+
+  const inDetail = detailTitle !== null;
+
   useInput((input, key) => {
+    if (inDetail) return;
+
     if (activeField !== null) {
       if (key.escape) {
         if (activeField === 'from') setFromDraft(appliedFrom ?? '');
@@ -158,6 +182,16 @@ export function ListEventsTui({ calendarDeps, onCancel }: ListEventsTuiProps) {
     if (action === 'next' && localHasNextPage) setCurrentIndex((i) => i + 1);
     if (action === 'prev' && currentIndex > 0) setCurrentIndex((i) => i - 1);
   });
+
+  if (inDetail) {
+    return (
+      <TuiDetailPanel
+        title={detailTitle ?? 'Event'}
+        lines={detailLines}
+        onBack={clearDetail}
+      />
+    );
+  }
 
   return (
     <Box flexDirection="column" flexGrow={1}>
@@ -219,7 +253,7 @@ export function ListEventsTui({ calendarDeps, onCancel }: ListEventsTuiProps) {
               label: formatEventLabel(event),
               value: event.id,
             }))}
-            onSelect={() => {}}
+            onSelect={handleSelectEvent}
           />
         </Box>
       )}

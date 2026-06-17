@@ -22,7 +22,7 @@ export function TuiListFooter({
       <Text color={hasNextPage && !loading ? 'green' : 'gray'}>[Next →]</Text>
       <Text color="gray">
         {' '}
-        | ←/→ or Space · {backHint}
+        | Enter view · ←/→ or Space · {backHint}
         {loading ? ' | Loading...' : ''}
       </Text>
     </Box>

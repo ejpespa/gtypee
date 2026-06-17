@@ -9,6 +9,9 @@ import {
   shouldHandlePaginationKey,
 } from '../tui/pagination.js';
 import { TuiListFooter } from '../tui/TuiListFooter.js';
+import { TuiDetailPanel } from '../tui/TuiDetailPanel.js';
+import { textToDetailLines } from '../tui/detail.js';
+import { formatGmailMessageDetail } from './commands.js';
 import type { GmailCommandDeps, GmailMessageSummary } from './commands.js';
 
 export interface ListMessagesTuiProps {
@@ -47,6 +50,18 @@ export function ListMessagesTui({
   const [pageHistory, setPageHistory] = useState<(string | undefined)[]>([undefined]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [pageCache, setPageCache] = useState<{ [page: number]: GmailMessageSummary[] }>({});
+
+  const [detailTitle, setDetailTitle] = useState<string | null>(null);
+  const [detailLines, setDetailLines] = useState<string[]>([]);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
+
+  const clearDetail = useCallback(() => {
+    setDetailTitle(null);
+    setDetailLines([]);
+    setDetailLoading(false);
+    setDetailError(null);
+  }, []);
 
   const applyQuery = useCallback(() => {
     setAppliedQuery(queryDraft.trim());
@@ -92,7 +107,31 @@ export function ListMessagesTui({
   const localHasNextPage = hasNextTokenPage(pageHistory, currentIndex);
   const currentMessages = pageCache[currentIndex] ?? [];
 
+  const handleSelectMessage = useCallback(async (item: { value: string }) => {
+    const summary = currentMessages.find((m) => m.id === item.value);
+    setDetailTitle(summary?.subject || 'Message');
+    setDetailLines([]);
+    setDetailError(null);
+    setDetailLoading(true);
+
+    try {
+      if (!gmailDeps.getMessage) {
+        throw new Error('getMessage dependency function is not provided.');
+      }
+      const message = await gmailDeps.getMessage(item.value);
+      setDetailLines(textToDetailLines(formatGmailMessageDetail(message, 'human')));
+    } catch (err: unknown) {
+      setDetailError(err instanceof Error ? err.message : 'Failed to load message');
+    } finally {
+      setDetailLoading(false);
+    }
+  }, [gmailDeps, currentMessages]);
+
+  const inDetail = detailTitle !== null || detailLoading || detailError !== null;
+
   useInput((input, key) => {
+    if (inDetail) return;
+
     if (isEditingQuery) {
       if (key.escape) {
         setQueryDraft(appliedQuery);
@@ -117,6 +156,18 @@ export function ListMessagesTui({
     if (action === 'next' && localHasNextPage) setCurrentIndex((i) => i + 1);
     if (action === 'prev' && currentIndex > 0) setCurrentIndex((i) => i - 1);
   });
+
+  if (inDetail) {
+    return (
+      <TuiDetailPanel
+        title={detailTitle ?? 'Message'}
+        lines={detailLines}
+        loading={detailLoading}
+        error={detailError}
+        onBack={clearDetail}
+      />
+    );
+  }
 
   return (
     <Box flexDirection="column" flexGrow={1}>
@@ -156,7 +207,7 @@ export function ListMessagesTui({
               label: formatMessageLabel(message),
               value: message.id,
             }))}
-            onSelect={() => {}}
+            onSelect={handleSelectMessage}
           />
         </Box>
       )}
