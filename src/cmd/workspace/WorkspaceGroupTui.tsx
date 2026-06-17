@@ -3,6 +3,7 @@ import { Box, Text, useInput } from 'ink';
 import SelectInput from 'ink-select-input';
 import TextInput from 'ink-text-input';
 import type { WorkspaceGroupCommandDeps, CreateGroupResult } from './commands.js';
+import { ListGroupsTui } from './ListGroupsTui.js';
 
 export interface CreateGroupWizardProps {
   groupDeps: WorkspaceGroupCommandDeps;
@@ -227,12 +228,10 @@ export function WorkspaceGroupTui({ groupDeps, onCancel }: WorkspaceGroupTuiProp
 
   if (activeView === 'list-groups') {
     return (
-      <Box flexDirection="column" padding={1} borderStyle="round" borderColor="blue">
-        <Text>Under construction</Text>
-        <Box marginTop={1}>
-          <Text color="gray">Press ESC to return</Text>
-        </Box>
-      </Box>
+      <ListGroupsTui
+        groupDeps={groupDeps}
+        onCancel={() => setActiveView(null)}
+      />
     );
   }
 
