@@ -4,6 +4,7 @@ import SelectInput from 'ink-select-input';
 import TextInput from 'ink-text-input';
 import type { WorkspaceGroupCommandDeps, CreateGroupResult } from './commands.js';
 import { ListGroupsTui } from './ListGroupsTui.js';
+import { ListGroupMembersTui } from './ListGroupMembersTui.js';
 
 export interface CreateGroupWizardProps {
   groupDeps: WorkspaceGroupCommandDeps;
@@ -201,6 +202,7 @@ export function WorkspaceGroupTui({ groupDeps, onCancel }: WorkspaceGroupTuiProp
   const items = [
     { label: 'Create New Group', value: 'create-group' },
     { label: 'List All Groups', value: 'list-groups' },
+    { label: 'List Group Members', value: 'list-group-members' },
   ];
 
   const handleSelect = (item: { value: string }) => {
@@ -229,6 +231,15 @@ export function WorkspaceGroupTui({ groupDeps, onCancel }: WorkspaceGroupTuiProp
   if (activeView === 'list-groups') {
     return (
       <ListGroupsTui
+        groupDeps={groupDeps}
+        onCancel={() => setActiveView(null)}
+      />
+    );
+  }
+
+  if (activeView === 'list-group-members') {
+    return (
+      <ListGroupMembersTui
         groupDeps={groupDeps}
         onCancel={() => setActiveView(null)}
       />
