@@ -1,17 +1,21 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import TextInput from 'ink-text-input';
 import {
   DEFAULT_TUI_PAGE_SIZE,
   sliceLocalPage,
-  shouldHandlePaginationKey,
 } from '../tui/pagination.js';
 import { filterItemsByQuery } from '../tui/search.js';
 import { TuiSearchControls } from '../tui/TuiSearchControls.js';
-import { TuiListFooter } from '../tui/TuiListFooter.js';
+import { TuiDetailPanel } from '../tui/TuiDetailPanel.js';
+import type { TuiDetailAction } from '../tui/TuiDetailPanel.js';
+import { TuiListScreen } from '../tui/TuiListScreen.js';
+import { copyToClipboard } from '../tui/systemActions.js';
 import { useLocalPaginatedList } from '../tui/hooks/useLocalPaginatedList.js';
+import { useDetailView } from '../tui/hooks/useDetailView.js';
+import { useDetailActions } from '../tui/hooks/useDetailActions.js';
 import { useTuiNavigation } from '../tui/TuiNavigationContext.js';
-import type { WorkspaceGroupCommandDeps } from './commands.js';
+import type { WorkspaceGroupCommandDeps, GroupMember } from './commands.js';
 
 export interface ListGroupMembersTuiProps {
   groupDeps: WorkspaceGroupCommandDeps;
@@ -19,6 +23,14 @@ export interface ListGroupMembersTuiProps {
 }
 
 type ViewStep = 'PICK_GROUP' | 'MEMBERS';
+
+function formatMemberLabel(member: GroupMember): string {
+  return `${member.email} — ${member.role} — ${member.status}`;
+}
+
+function memberId(member: GroupMember): string {
+  return `${member.email}::${member.role}`;
+}
 
 export function ListGroupMembersTui({ groupDeps, onCancel }: ListGroupMembersTuiProps) {
   const { setBreadcrumbs, setHelpLines } = useTuiNavigation();
@@ -31,6 +43,7 @@ export function ListGroupMembersTui({ groupDeps, onCancel }: ListGroupMembersTui
   const [searchDraft, setSearchDraft] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
   const [isEditingSearch, setIsEditingSearch] = useState(false);
+  const [selectedMember, setSelectedMember] = useState<GroupMember | null>(null);
 
   const fetchAll = useCallback(async () => {
     if (!groupDeps.listGroupMembers) {
@@ -53,9 +66,12 @@ export function ListGroupMembersTui({ groupDeps, onCancel }: ListGroupMembersTui
     pageSize: DEFAULT_TUI_PAGE_SIZE,
   });
 
+  const detail = useDetailView();
+  const actions = useDetailActions();
+
   useEffect(() => {
     if (step === 'PICK_GROUP') {
-      setBreadcrumbs(['Workspace', 'Group Members']);
+      setBreadcrumbs(['Workspace', 'Groups', 'Members']);
       setHelpLines([
         'Enter group email and press Enter',
         'ESC — back',
@@ -63,14 +79,16 @@ export function ListGroupMembersTui({ groupDeps, onCancel }: ListGroupMembersTui
       return;
     }
 
-    setBreadcrumbs(['Workspace', 'Group Members', groupEmail]);
+    setBreadcrumbs(['Workspace', 'Groups', 'Members']);
     setHelpLines([
       '/ or s — filter results',
       'r — refresh members',
+      'Enter — view member',
+      'c — copy email (in detail)',
       '←/→ or Space — paginate',
       'ESC — back',
     ]);
-  }, [groupEmail, setBreadcrumbs, setHelpLines, step]);
+  }, [setBreadcrumbs, setHelpLines, step]);
 
   const applySearch = useCallback(() => {
     setAppliedSearch(searchDraft.trim());
@@ -84,12 +102,50 @@ export function ListGroupMembersTui({ groupDeps, onCancel }: ListGroupMembersTui
     (member) => [member.email, member.role, member.status],
   );
 
-  const { slice: pagedMembers, hasNextPage: filteredHasNextPage } = sliceLocalPage(
+  const { slice: visibleMembers, hasNextPage: filteredHasNextPage } = sliceLocalPage(
     filteredMembers,
     currentIndex,
     DEFAULT_TUI_PAGE_SIZE,
   );
   const totalPages = Math.max(1, Math.ceil(filteredMembers.length / DEFAULT_TUI_PAGE_SIZE));
+
+  const clearDetail = useCallback(() => {
+    detail.clear();
+    actions.resetStatus();
+    setSelectedMember(null);
+  }, [actions, detail]);
+
+  const handleSelectMember = useCallback(async (id: string) => {
+    const member = filteredMembers.find((m) => memberId(m) === id);
+    if (!member) return;
+
+    actions.resetStatus();
+    setSelectedMember(member);
+
+    await detail.open({
+      title: member.email,
+      load: async () => [
+        `Email: ${member.email}`,
+        `Role: ${member.role}`,
+        `Type: ${member.status || '(none)'}`,
+      ],
+    });
+  }, [actions, detail, filteredMembers]);
+
+  const detailPanelActions = useMemo((): TuiDetailAction[] => {
+    if (!selectedMember) return [];
+
+    return [
+      {
+        key: 'c',
+        label: 'copy email',
+        onAction: () => actions.runAction(async () => {
+          await copyToClipboard(selectedMember.email);
+          return `Copied email: ${selectedMember.email}`;
+        }),
+      },
+    ];
+  }, [actions, selectedMember]);
 
   const handleGroupEmailSubmit = async (value: string) => {
     const trimmed = value.trim();
@@ -110,6 +166,8 @@ export function ListGroupMembersTui({ groupDeps, onCancel }: ListGroupMembersTui
     setStep('MEMBERS');
   };
 
+  const blocked = isEditingSearch || detail.isOpen;
+
   useInput((input, key) => {
     if (step === 'PICK_GROUP') {
       if (key.escape) {
@@ -117,6 +175,8 @@ export function ListGroupMembersTui({ groupDeps, onCancel }: ListGroupMembersTui
       }
       return;
     }
+
+    if (detail.isOpen) return;
 
     if (isEditingSearch) {
       if (key.escape) {
@@ -133,19 +193,7 @@ export function ListGroupMembersTui({ groupDeps, onCancel }: ListGroupMembersTui
 
     if (input === '/' || input === 's') {
       setIsEditingSearch(true);
-      return;
     }
-
-    if (input === 'r') {
-      refresh();
-      return;
-    }
-
-    if (loading) return;
-
-    const action = shouldHandlePaginationKey(input, key, false);
-    if (action === 'next' && filteredHasNextPage) setCurrentIndex((i) => i + 1);
-    if (action === 'prev' && currentIndex > 0) setCurrentIndex((i) => i - 1);
   });
 
   if (step === 'PICK_GROUP') {
@@ -180,18 +228,40 @@ export function ListGroupMembersTui({ groupDeps, onCancel }: ListGroupMembersTui
     );
   }
 
-  return (
-    <Box flexDirection="column" flexGrow={1}>
-      <Box flexShrink={0} marginBottom={1}>
-        <Text bold color="cyan">
-          Group Members: {groupEmail}
-          {!loading && filteredMembers.length > 0
-            ? ` (${filteredMembers.length} total · page ${currentIndex + 1}/${totalPages})`
-            : ''}
-        </Text>
-      </Box>
+  if (detail.isOpen) {
+    return (
+      <TuiDetailPanel
+        title={detail.title ?? 'Member'}
+        lines={detail.lines}
+        loading={detail.loading}
+        error={detail.error}
+        onBack={clearDetail}
+        actions={detailPanelActions}
+        actionStatus={actions.actionStatus}
+        actionBusy={actions.actionBusy}
+      />
+    );
+  }
 
-      <Box flexShrink={0}>
+  const emptyMessage = members.length === 0
+    ? `No members found in ${groupEmail}.`
+    : appliedSearch
+      ? `No members match "${appliedSearch}". Clear search to see all results.`
+      : 'No members found.';
+
+  return (
+    <TuiListScreen
+      title={`Group Members: ${groupEmail}`}
+      pageLabel={`Page ${currentIndex + 1}/${totalPages}`}
+      items={visibleMembers}
+      loading={loading}
+      error={error}
+      hasNextPage={filteredHasNextPage}
+      currentIndex={currentIndex}
+      onSelect={handleSelectMember}
+      formatLabel={formatMemberLabel}
+      getId={memberId}
+      filterSlot={(
         <TuiSearchControls
           appliedSearch={appliedSearch}
           searchDraft={searchDraft}
@@ -200,39 +270,14 @@ export function ListGroupMembersTui({ groupDeps, onCancel }: ListGroupMembersTui
           onSubmit={applySearch}
           hint="press / or s to edit · Enter to apply · ESC to cancel · filters all results"
         />
-      </Box>
-
-      <Box flexDirection="column" flexGrow={1} marginBottom={1}>
-        {loading ? (
-          <Text color="yellow">Loading group members...</Text>
-        ) : error ? (
-          <Text color="red">Error: {error}</Text>
-        ) : members.length === 0 ? (
-          <Text color="gray">No members found in {groupEmail}.</Text>
-        ) : filteredMembers.length === 0 ? (
-          <Text color="gray">
-            {appliedSearch
-              ? `No members match "${appliedSearch}". Clear search to see all results.`
-              : 'No members found.'}
-          </Text>
-        ) : (
-          pagedMembers.map((member, index) => (
-            <Box key={`${member.email}-${member.role}-${index}`} marginBottom={0}>
-              <Text wrap="wrap">
-                <Text color="green">{member.email}</Text>
-                <Text color="gray"> — {member.role} — {member.status}</Text>
-              </Text>
-            </Box>
-          ))
-        )}
-      </Box>
-
-      <TuiListFooter
-        currentIndex={currentIndex}
-        hasNextPage={filteredHasNextPage}
-        loading={loading}
-        backHint="r refresh · ESC to return"
-      />
-    </Box>
+      )}
+      emptyMessage={emptyMessage}
+      onPagination={(action) => {
+        if (action === 'next' && filteredHasNextPage) setCurrentIndex((i) => i + 1);
+        if (action === 'prev' && currentIndex > 0) setCurrentIndex((i) => i - 1);
+      }}
+      onRefresh={refresh}
+      blocked={blocked}
+    />
   );
 }
