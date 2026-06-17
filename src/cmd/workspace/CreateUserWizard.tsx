@@ -8,29 +8,31 @@ export interface CreateUserWizardProps {
   onCancel?: () => void;
 }
 
-type Step = 'EMAIL' | 'FIRST_NAME' | 'LAST_NAME' | 'PASSWORD' | 'CONFIRM' | 'DONE';
+type WizardStep = 'EMAIL' | 'FIRST_NAME' | 'LAST_NAME' | 'PASSWORD' | 'ORG_UNIT' | 'CONFIRM' | 'DONE';
 
 export function CreateUserWizard({ userDeps, onCancel }: CreateUserWizardProps) {
-  const [step, setStep] = useState<Step>('EMAIL');
+  const [step, setStep] = useState<WizardStep>('EMAIL');
 
   // Confirmed values
   const [email, setEmail] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [password, setPassword] = useState('');
+  const [orgUnit, setOrgUnit] = useState('');
 
   // Input values (live typing)
   const [emailInput, setEmailInput] = useState('');
   const [firstNameInput, setFirstNameInput] = useState('');
   const [lastNameInput, setLastNameInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
+  const [orgUnitInput, setOrgUnitInput] = useState('');
 
   const [validationError, setValidationError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
   const [result, setResult] = useState<CreateUserResult | null>(null);
 
-  const handleConfirm = async () => {
+  const executeCreate = async () => {
     setLoading(true);
     setApiError(null);
     try {
@@ -42,6 +44,7 @@ export function CreateUserWizard({ userDeps, onCancel }: CreateUserWizardProps) 
         firstName,
         lastName,
         password,
+        orgUnitPath: orgUnit.trim() === '' ? '/' : orgUnit,
       });
       if (res.applied) {
         setResult(res);
@@ -66,7 +69,7 @@ export function CreateUserWizard({ userDeps, onCancel }: CreateUserWizardProps) 
 
     if (step === 'CONFIRM' && !loading) {
       if (input.toLowerCase() === 'y') {
-        handleConfirm();
+        executeCreate();
       }
     }
   });
@@ -116,6 +119,12 @@ export function CreateUserWizard({ userDeps, onCancel }: CreateUserWizardProps) 
     }
     setValidationError(null);
     setPassword(value);
+    setStep('ORG_UNIT');
+  };
+
+  const handleOrgUnitSubmit = (value: string) => {
+    setValidationError(null);
+    setOrgUnit(value);
     setStep('CONFIRM');
   };
 
@@ -137,6 +146,9 @@ export function CreateUserWizard({ userDeps, onCancel }: CreateUserWizardProps) 
       )}
       {step !== 'EMAIL' && step !== 'FIRST_NAME' && step !== 'LAST_NAME' && step !== 'PASSWORD' && (
         <Text>Password: <Text color="green">{'*'.repeat(password.length)}</Text></Text>
+      )}
+      {step !== 'EMAIL' && step !== 'FIRST_NAME' && step !== 'LAST_NAME' && step !== 'PASSWORD' && step !== 'ORG_UNIT' && (
+        <Text>Org Unit: <Text color="green">{orgUnit || '/'}</Text></Text>
       )}
 
       {/* Current active step */}
@@ -212,6 +224,26 @@ export function CreateUserWizard({ userDeps, onCancel }: CreateUserWizardProps) 
               }}
               onSubmit={handlePasswordSubmit}
               mask="*"
+              focus
+            />
+          </Box>
+          {validationError && (
+            <Text color="red">{validationError}</Text>
+          )}
+        </Box>
+      )}
+
+      {step === 'ORG_UNIT' && (
+        <Box flexDirection="column" marginTop={1}>
+          <Box>
+            <Text bold>Org Unit: </Text>
+            <TextInput
+              value={orgUnitInput}
+              onChange={(val) => {
+                setOrgUnitInput(val);
+                setValidationError(null);
+              }}
+              onSubmit={handleOrgUnitSubmit}
               focus
             />
           </Box>
