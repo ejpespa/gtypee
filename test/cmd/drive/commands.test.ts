@@ -566,7 +566,7 @@ describe("drive ls with pagination", () => {
 
     await runCommand(program, ["node", "test", "drive", "search", "--query", "test", "--page-size", "25"]);
 
-    expect(searchFiles.fn).toHaveBeenCalledWith("test", { pageSize: 25, pageToken: undefined });
+    expect(searchFiles.fn).toHaveBeenCalledWith("fullText contains 'test'", { pageSize: 25, pageToken: undefined });
   });
 
   it("should pass pageToken option to searchFiles", async () => {
@@ -581,7 +581,7 @@ describe("drive ls with pagination", () => {
 
     await runCommand(program, ["node", "test", "drive", "search", "--query", "test", "--page-token", "abc123"]);
 
-    expect(searchFiles.fn).toHaveBeenCalledWith("test", { pageSize: undefined, pageToken: "abc123" });
+    expect(searchFiles.fn).toHaveBeenCalledWith("fullText contains 'test'", { pageSize: undefined, pageToken: "abc123" });
   });
 });
 

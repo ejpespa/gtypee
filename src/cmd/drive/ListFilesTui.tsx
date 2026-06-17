@@ -284,7 +284,7 @@ export function ListFilesTui({
           ) : (
             <>
               <Text color="green">{appliedApiQuery || '(none)'}</Text>
-              <Text color="gray"> · press q to edit · Enter to apply</Text>
+              <Text color="gray"> · q to edit · plain text or Drive query · Enter to apply</Text>
             </>
           )}
         </Box>
