@@ -25,12 +25,39 @@ export function buildListUsersAdminQuery(orgUnitPath?: string, search?: string):
     } else if (term.includes(' ')) {
       parts.push(`name:'${escapeAdminQueryValue(term)}'`);
     } else {
-      // Prefix match on email (e.g. local part) and whole-word name match.
-      parts.push(`email:${escapeAdminQueryValue(term)}*`);
+      // givenName/familyName word match (first or last name).
+      parts.push(`name:'${escapeAdminQueryValue(term)}'`);
     }
   }
 
   return parts.join(' ');
+}
+
+/**
+ * Admin API cannot OR email vs givenName vs familyName in one query.
+ * For a single-word search, run separate queries and merge in listUsers.
+ */
+export function buildListUsersSearchQueries(orgUnitPath?: string, search?: string): string[] {
+  const term = search?.trim();
+  if (!term) {
+    return [buildListUsersAdminQuery(orgUnitPath)];
+  }
+  if (term.includes('@') || term.includes(' ')) {
+    return [buildListUsersAdminQuery(orgUnitPath, term)];
+  }
+
+  const orgPart = orgUnitPath
+    ? `orgUnitPath='${escapeAdminQueryValue(orgUnitPath)}'`
+    : '';
+  const withClause = (clause: string) => (orgPart ? `${orgPart} ${clause}` : clause);
+  const escaped = escapeAdminQueryValue(term);
+
+  return [
+    withClause(`name:'${escaped}'`),
+    withClause(`givenName:${escaped}*`),
+    withClause(`familyName:${escaped}*`),
+    withClause(`email:${escaped}*`),
+  ];
 }
 
 export function normalizeOrgUnitPath(path: string): string {

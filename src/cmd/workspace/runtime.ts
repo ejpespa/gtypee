@@ -3,7 +3,7 @@ import { google } from "googleapis";
 import { ServiceRuntime, type ServiceRuntimeOptions } from "../../googleapi/auth-factory.js";
 import { scopes } from "../../googleauth/service.js";
 import type { PaginationOptions } from "../../types/pagination.js";
-import { buildListUsersAdminQuery } from "../tui/search.js";
+import { buildListUsersSearchQueries } from "../tui/search.js";
 import type { ListUsersOptions } from "./commands.js";
 import {
   type WorkspaceUserCommandDeps,
@@ -54,26 +54,18 @@ export function buildWorkspaceUserCommandDeps(options: ServiceRuntimeOptions): R
     listUsers: async (orgUnitPath?: string, options?: ListUsersOptions) => {
       const auth = await runtime.getClient(scopes("workspace"));
       const admin = google.admin({ version: "directory_v1", auth });
+      const pageSize = options?.pageSize ?? 500;
+      const queries = buildListUsersSearchQueries(orgUnitPath, options?.query);
 
-      const query = buildListUsersAdminQuery(orgUnitPath, options?.query);
-
-      const params: Record<string, unknown> = {
-        customer: "my_customer",
-        maxResults: options?.pageSize ?? 500,
-        orderBy: "email",
-        query,
-      };
-
-      if (options?.pageToken !== undefined) {
-        params.pageToken = options.pageToken;
-      }
-
-      const response = await admin.users.list(params);
-
-      const users = response.data.users ?? [];
-      const items: WorkspaceUser[] = [];
-
-      for (const user of users) {
+      const mapUser = (user: {
+        id?: string | null;
+        primaryEmail?: string | null;
+        name?: { givenName?: string | null; familyName?: string | null } | null;
+        suspended?: boolean | null;
+        orgUnitPath?: string | null;
+        isAdmin?: boolean | null;
+        lastLoginTime?: string | null;
+      }): WorkspaceUser => {
         const item: WorkspaceUser = {
           id: user.id ?? "",
           primaryEmail: user.primaryEmail ?? "",
@@ -88,16 +80,59 @@ export function buildWorkspaceUserCommandDeps(options: ServiceRuntimeOptions): R
         if (user.lastLoginTime) {
           item.lastLoginTime = user.lastLoginTime;
         }
-        items.push(item);
+        return item;
+      };
+
+      if (queries.length === 1) {
+        const params: Record<string, unknown> = {
+          customer: "my_customer",
+          maxResults: pageSize,
+          orderBy: "email",
+          query: queries[0],
+        };
+
+        if (options?.pageToken !== undefined) {
+          params.pageToken = options.pageToken;
+        }
+
+        const response = await admin.users.list(params);
+        const items = (response.data.users ?? []).map(mapUser);
+        const result: { items: WorkspaceUser[]; nextPageToken?: string } = { items };
+
+        if (response.data.nextPageToken) {
+          result.nextPageToken = response.data.nextPageToken;
+        }
+
+        return result;
       }
 
-      const result: { items: WorkspaceUser[]; nextPageToken?: string } = { items };
-
-      if (response.data.nextPageToken) {
-        result.nextPageToken = response.data.nextPageToken;
+      // Single-word search: merge name/email queries (Admin API has no OR across fields).
+      if (options?.pageToken !== undefined) {
+        return { items: [] };
       }
 
-      return result;
+      const seen = new Set<string>();
+      const merged: WorkspaceUser[] = [];
+
+      for (const query of queries) {
+        const response = await admin.users.list({
+          customer: "my_customer",
+          maxResults: pageSize,
+          orderBy: "email",
+          query,
+        });
+
+        for (const user of response.data.users ?? []) {
+          const key = user.id ?? user.primaryEmail ?? "";
+          if (!key || seen.has(key)) continue;
+          seen.add(key);
+          merged.push(mapUser(user));
+        }
+      }
+
+      merged.sort((a, b) => a.primaryEmail.localeCompare(b.primaryEmail));
+
+      return { items: merged.slice(0, pageSize) };
     },
 
     createUser: async (input: CreateUserInput): Promise<CreateUserResult> => {

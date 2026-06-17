@@ -5,6 +5,7 @@ import {
   filterItemsByQuery,
   escapeAdminQueryValue,
   buildListUsersAdminQuery,
+  buildListUsersSearchQueries,
 } from '../../../src/cmd/tui/search.js';
 import type { WorkspaceUser } from '../../../src/cmd/workspace/commands.js';
 
@@ -39,8 +40,9 @@ describe('buildListUsersAdminQuery', () => {
     );
   });
 
-  it('searches by email prefix', () => {
-    expect(buildListUsersAdminQuery(undefined, 'alice')).toBe('email:alice*');
+  it('searches by first or last name word', () => {
+    expect(buildListUsersAdminQuery(undefined, 'Maria')).toBe("name:'Maria'");
+    expect(buildListUsersAdminQuery('/HR', 'Santos')).toBe("orgUnitPath='/HR' name:'Santos'");
   });
 
   it('searches by full name phrase', () => {
@@ -53,6 +55,26 @@ describe('buildListUsersAdminQuery', () => {
     expect(buildListUsersAdminQuery("/O'Brien", "Valentine's Day")).toBe(
       "orgUnitPath='/O\\'Brien' name:'Valentine\\'s Day'",
     );
+  });
+});
+
+describe('buildListUsersSearchQueries', () => {
+  it('returns one query for email or multi-word name', () => {
+    expect(buildListUsersSearchQueries('/', 'a@b.com')).toEqual([
+      "orgUnitPath='/' email:a@b.com",
+    ]);
+    expect(buildListUsersSearchQueries('/HR', 'Jane Smith')).toEqual([
+      "orgUnitPath='/HR' name:'Jane Smith'",
+    ]);
+  });
+
+  it('returns merged name and email queries for a single word', () => {
+    expect(buildListUsersSearchQueries('/Faculty', 'Santos')).toEqual([
+      "orgUnitPath='/Faculty' name:'Santos'",
+      "orgUnitPath='/Faculty' givenName:Santos*",
+      "orgUnitPath='/Faculty' familyName:Santos*",
+      "orgUnitPath='/Faculty' email:Santos*",
+    ]);
   });
 });
 
