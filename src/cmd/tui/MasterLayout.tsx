@@ -5,10 +5,20 @@ import { WorkspaceRouter } from './WorkspaceRouter.js';
 import { GmailRouter } from './GmailRouter.js';
 import { CalendarRouter } from './CalendarRouter.js';
 import { DriveRouter } from './DriveRouter.js';
+import { DocsRouter } from './DocsRouter.js';
+import { SheetsRouter } from './SheetsRouter.js';
+import { TasksRouter } from './TasksRouter.js';
+import { ContactsRouter } from './ContactsRouter.js';
+import { ChatRouter } from './ChatRouter.js';
 import type { WorkspaceDeviceCommandDeps, WorkspaceReportCommandDeps, WorkspaceUserCommandDeps, WorkspaceGroupCommandDeps, WorkspaceOrgUnitCommandDeps } from '../workspace/commands.js';
 import type { GmailCommandDeps } from '../gmail/commands.js';
 import type { CalendarCommandDeps } from '../calendar/commands.js';
 import type { DriveCommandDeps } from '../drive/commands.js';
+import type { DocsCommandDeps } from '../docs/commands.js';
+import type { SheetsCommandDeps } from '../sheets/commands.js';
+import type { TasksCommandDeps } from '../tasks/commands.js';
+import type { ContactsCommandDeps } from '../contacts/commands.js';
+import type { ChatCommandDeps } from '../chat/commands.js';
 
 export interface TuiConfigDeps {
   reportDeps: Required<WorkspaceReportCommandDeps>;
@@ -19,6 +29,11 @@ export interface TuiConfigDeps {
   gmailDeps: Required<GmailCommandDeps>;
   calendarDeps: Required<CalendarCommandDeps>;
   driveDeps: Required<DriveCommandDeps>;
+  docsDeps: Required<DocsCommandDeps>;
+  sheetsDeps: Required<SheetsCommandDeps>;
+  tasksDeps: Required<TasksCommandDeps>;
+  contactsDeps: Required<ContactsCommandDeps>;
+  chatDeps: Required<ChatCommandDeps>;
 }
 
 interface MasterLayoutProps {
@@ -29,8 +44,25 @@ const items = [
   { label: 'Workspace Admin', value: 'workspace' },
   { label: 'Gmail', value: 'gmail' },
   { label: 'Drive', value: 'drive' },
-  { label: 'Calendar', value: 'calendar' }
+  { label: 'Calendar', value: 'calendar' },
+  { label: 'Docs', value: 'docs' },
+  { label: 'Sheets', value: 'sheets' },
+  { label: 'Tasks', value: 'tasks' },
+  { label: 'Contacts', value: 'contacts' },
+  { label: 'Chat', value: 'chat' },
 ];
+
+const wiredMenus = new Set([
+  'workspace',
+  'gmail',
+  'drive',
+  'calendar',
+  'docs',
+  'sheets',
+  'tasks',
+  'contacts',
+  'chat',
+]);
 
 export function MasterLayout({ deps }: MasterLayoutProps) {
   const { exit } = useApp();
@@ -39,23 +71,13 @@ export function MasterLayout({ deps }: MasterLayoutProps) {
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
 
   useInput((input, key) => {
-    // Top-level exit
     if (activeMenu === null && (input === 'q' || key.escape)) {
       exit();
       return;
     }
 
-    // Sub-menu exit (Back to main layout) for placeholders
-    if (
-      activeMenu !== null &&
-      activeMenu !== 'workspace' &&
-      activeMenu !== 'gmail' &&
-      activeMenu !== 'calendar' &&
-      activeMenu !== 'drive' &&
-      key.escape
-    ) {
+    if (activeMenu !== null && !wiredMenus.has(activeMenu) && key.escape) {
       handleBack();
-      return;
     }
   });
 
@@ -138,11 +160,52 @@ export function MasterLayout({ deps }: MasterLayoutProps) {
           </Box>
         )}
 
-        {activeMenu !== null &&
-          activeMenu !== 'workspace' &&
-          activeMenu !== 'gmail' &&
-          activeMenu !== 'calendar' &&
-          activeMenu !== 'drive' && (
+        {activeMenu === 'docs' && (
+          <Box flexDirection="column" width="100%">
+             <DocsRouter
+               deps={deps.docsDeps}
+               onCancel={handleBack}
+             />
+          </Box>
+        )}
+
+        {activeMenu === 'sheets' && (
+          <Box flexDirection="column" width="100%">
+             <SheetsRouter
+               deps={deps.sheetsDeps}
+               onCancel={handleBack}
+             />
+          </Box>
+        )}
+
+        {activeMenu === 'tasks' && (
+          <Box flexDirection="column" width="100%">
+             <TasksRouter
+               deps={deps.tasksDeps}
+               onCancel={handleBack}
+             />
+          </Box>
+        )}
+
+        {activeMenu === 'contacts' && (
+          <Box flexDirection="column" width="100%">
+             <ContactsRouter
+               deps={deps.contactsDeps}
+               onCancel={handleBack}
+             />
+          </Box>
+        )}
+
+        {activeMenu === 'chat' && (
+          <Box flexDirection="column" width="100%">
+             <ChatRouter
+               deps={deps.chatDeps}
+               onCancel={handleBack}
+             />
+          </Box>
+        )}
+
+        {activeMenu !== null && !wiredMenus.has(activeMenu) && (
           <Box justifyContent="center" alignItems="center" flexGrow={1}>
             <Text color="yellow">Module '{activeMenu}' coming soon...</Text>
             <Box marginTop={2}><Text color="gray">Press ESC to return</Text></Box>

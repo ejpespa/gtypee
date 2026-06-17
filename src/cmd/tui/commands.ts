@@ -13,6 +13,11 @@ import {
 import { buildGmailCommandDeps } from "../gmail/runtime.js";
 import { buildCalendarCommandDeps } from "../calendar/runtime.js";
 import { buildDriveCommandDeps } from "../drive/runtime.js";
+import { buildDocsCommandDeps } from "../docs/runtime.js";
+import { buildSheetsCommandDeps } from "../sheets/runtime.js";
+import { buildTasksCommandDeps } from "../tasks/runtime.js";
+import { buildContactsCommandDeps } from "../contacts/runtime.js";
+import { buildChatCommandDeps } from "../chat/runtime.js";
 import { ServiceRuntime } from "../../googleapi/auth-factory.js";
 import { resolveDefaultAccount } from "../auth/commands.js";
 
@@ -58,10 +63,16 @@ export function registerTuiCommand(root: Command): void {
         resolveAccount: async () => resolved,
       });
 
-      const runtime = new ServiceRuntime({
+      const runtimeOptions = {
         resolveAccount: async () => resolved,
-      });
+      };
+      const runtime = new ServiceRuntime(runtimeOptions);
       const driveDeps = buildDriveCommandDeps(runtime);
+      const docsDeps = buildDocsCommandDeps(runtime);
+      const sheetsDeps = buildSheetsCommandDeps(runtime);
+      const tasksDeps = buildTasksCommandDeps(runtime);
+      const contactsDeps = buildContactsCommandDeps(runtimeOptions);
+      const chatDeps = buildChatCommandDeps(runtimeOptions);
 
       process.stdout.write("\x1b[2J\x1b[3J\x1b[H"); // clear the screen
 
@@ -76,6 +87,11 @@ export function registerTuiCommand(root: Command): void {
             gmailDeps,
             calendarDeps,
             driveDeps,
+            docsDeps,
+            sheetsDeps,
+            tasksDeps,
+            contactsDeps,
+            chatDeps,
           },
         })
       );
