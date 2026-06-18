@@ -49,9 +49,17 @@ docs/*
 mcps/
 terminals/
 agent-tools/
-test-api.cjs
-verify-totals.js
-verify-totals.ts
+users.txt
 inactive-users.txt
 interactive-deleted-users.sh
+test-api.cjs
+test-api.ts
+test-compile-fix.cjs
+test-replace.ts
+patch.js
+replace-action.cjs
+replace-action.js
+progress.md
+verify-totals.js
+verify-totals.ts
 FORM 1.jpg
