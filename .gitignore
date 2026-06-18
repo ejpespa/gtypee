@@ -52,4 +52,6 @@ agent-tools/
 test-api.cjs
 verify-totals.js
 verify-totals.ts
+inactive-users.txt
+interactive-deleted-users.sh
 FORM 1.jpg
