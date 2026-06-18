@@ -42,6 +42,8 @@ credentials*.json
 .claude/
 README-release.md
 docs/*
+!docs/index.html
+/docs/superpowers/*
 
 # Local dev / agent artifacts (do not commit)
 mcps/
