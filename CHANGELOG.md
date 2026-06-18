@@ -1,3 +1,59 @@
+# [1.20.0](https://github.com/ejpespa/gtypee/compare/v1.19.0...v1.20.0) (2026-06-18)
+
+
+### Bug Fixes
+
+* **drive:** normalize plain-text search queries for API ([59cec94](https://github.com/ejpespa/gtypee/commit/59cec941c14348e0f448401c8be44eb9a228a4f5))
+* **tui:** prevent Enter in search from opening list selection ([3bf4116](https://github.com/ejpespa/gtypee/commit/3bf41161b057b3f6cd0ad3bb49cc48b22b17a417))
+* **tui:** search users by first or last name via Admin API ([ef68c56](https://github.com/ejpespa/gtypee/commit/ef68c56be1bbec049af63fd8e404a07e09edc27f))
+* **tui:** search users domain-wide via Admin API query ([e93c1b2](https://github.com/ejpespa/gtypee/commit/e93c1b24daa1fd546cd17e0d50e9992974b533aa))
+
+
+### Features
+
+* **tui:** add admin audit list with search and pagination ([dee77f7](https://github.com/ejpespa/gtypee/commit/dee77f786e5dbda3f6af4f51a0355e50dddfc8a4))
+* **tui:** add calendar events list with search and pagination ([6e338c4](https://github.com/ejpespa/gtypee/commit/6e338c44d5f1e0b88fe4dbdff22d27085afd5b4f))
+* **tui:** add detailEnabled to list footer hint ([223e5b9](https://github.com/ejpespa/gtypee/commit/223e5b9b8e0ef215d8ef31f5112ac52dc00015db))
+* **tui:** add docs, sheets, tasks, contacts, and chat list views ([8693898](https://github.com/ejpespa/gtypee/commit/8693898ba0326a04485dd273de765cf461e65b49))
+* **tui:** add drive file list and search with pagination ([94762dd](https://github.com/ejpespa/gtypee/commit/94762dd3111dffd82e57d6df14e7e4abdf5142ba))
+* **tui:** add gmail message list with query search and pagination ([f00e88e](https://github.com/ejpespa/gtypee/commit/f00e88e513ef10e4ca73bdc42db6cbd6d591c9de))
+* **tui:** add group members list with search and pagination ([857434f](https://github.com/ejpespa/gtypee/commit/857434f448f7575e1d8f1920dfd226235ef8e4a4))
+* **tui:** add inactive users list with search and pagination ([a8668fb](https://github.com/ejpespa/gtypee/commit/a8668fb944593393e35838771c8687daf015e779))
+* **tui:** add login audit list with search and pagination ([2851d11](https://github.com/ejpespa/gtypee/commit/2851d11446157f026270b0bdfdff957908c3cdfe))
+* **tui:** add login challenge shortcut to Admin Console Security ([86eb0e5](https://github.com/ejpespa/gtypee/commit/86eb0e504747bb67a5fc4ae79d8802cf14a0a28d))
+* **tui:** add search to groups list ([57033c3](https://github.com/ejpespa/gtypee/commit/57033c313df661fa5a1619ea92177c700820a325))
+* **tui:** add search to org and device lists; DRY search footer ([8528e6f](https://github.com/ejpespa/gtypee/commit/8528e6f6b66f12ad2d83e11e8928354405d97806))
+* **tui:** add shared search controls and generic list filter ([88fed90](https://github.com/ejpespa/gtypee/commit/88fed90c3d16406b03400086d4304dd6f5114c84))
+* **tui:** add TuiKeybar with buildKeybarLine helper ([fd5ec80](https://github.com/ejpespa/gtypee/commit/fd5ec8089ae66dc0d2100a9472cbee9fde88598c))
+* **tui:** add TuiScreenShell and TuiStatusLine ([27e0bfa](https://github.com/ejpespa/gtypee/commit/27e0bfa0dfdd7c6d553272239614db095357f96c))
+* **tui:** add user suspend/unsuspend wizards ([ed38029](https://github.com/ejpespa/gtypee/commit/ed38029fe726435fe7d4c35ac6fa6cb3ce5fb3f5))
+* **tui:** add workspace reports submenu router ([1b44705](https://github.com/ejpespa/gtypee/commit/1b44705c42b85238bfefea8cee2590968ffb2f08))
+* **tui:** download and export from detail views ([0ec45d7](https://github.com/ejpespa/gtypee/commit/0ec45d78d6ba568578a6c83db2cba489c29444f5))
+* **tui:** filter Gmail list by sender email ([016792d](https://github.com/ejpespa/gtypee/commit/016792dff77769dc5555b6d99a21c0a82d550bbe))
+* **tui:** full Gmail threads and Drive folder browsing ([7bd71b7](https://github.com/ejpespa/gtypee/commit/7bd71b7ab203222084a1e56746731dd7cb2f0982))
+* **tui:** open detail view when selecting list items ([e69c5b1](https://github.com/ejpespa/gtypee/commit/e69c5b179c37ee6e8e6713ae317b69d68bc3ae98))
+* **tui:** Phase 1 platform shell and list migrations ([74dedc6](https://github.com/ejpespa/gtypee/commit/74dedc6a0adefbe7974c64bc67814ae3970d6629))
+* **tui:** Phase 2 read parity and detail upgrades ([ddf9d9a](https://github.com/ejpespa/gtypee/commit/ddf9d9a119362d076937b33a31f4cb5898c019c6))
+* **tui:** Phase 3 Gmail and Drive write actions ([c48b406](https://github.com/ejpespa/gtypee/commit/c48b406ea0ac83aa902030e174354b20c1291d8f))
+* **tui:** TuiListScreen detailEnabled and optional keybar ([5f2e175](https://github.com/ejpespa/gtypee/commit/5f2e1753c2a278e8d8a8208316f53742f913b6be))
+* **tui:** TuiWizard sensitiveResult display mode ([28557ac](https://github.com/ejpespa/gtypee/commit/28557ac4d002a3084f006a1f60a45a38df06a8e3))
+* **tui:** wire gmail router into master layout ([26036a7](https://github.com/ejpespa/gtypee/commit/26036a7cd8f609e71256f705e096cf795ff3150f))
+* **tui:** wire Slides, Forms, Keep, Meet, People, and Classroom (Phase 4) ([9b4ba13](https://github.com/ejpespa/gtypee/commit/9b4ba133604628020258d8df1c03f1f0b75639cd))
+* **workspace:** apply TuiScreenShell and help to routers ([5b150d9](https://github.com/ejpespa/gtypee/commit/5b150d9fd15f685703d1bc9177575de69d5daca5))
+* **workspace:** audit lists read-only detail ([56b01ca](https://github.com/ejpespa/gtypee/commit/56b01cac96859f7760bfede1fa9d4a061c6008ca))
+* **workspace:** deleted users read-only detail ([4191e12](https://github.com/ejpespa/gtypee/commit/4191e12d9c5020c551f42f80dff46e6ab7cbfd9a))
+* **workspace:** device and org actions submenus ([39910f8](https://github.com/ejpespa/gtypee/commit/39910f832f381795358eb65e7a00e2f45d7b572a))
+* **workspace:** devices list detail panel ([954e6ec](https://github.com/ejpespa/gtypee/commit/954e6ecbc88c497ec85b93ba28464a7c72dcb823))
+* **workspace:** extend user actions CLI parity ([d59a982](https://github.com/ejpespa/gtypee/commit/d59a982eea0389c399c385e81dac7e70bee1c2d0))
+* **workspace:** group actions submenu ([53efa9a](https://github.com/ejpespa/gtypee/commit/53efa9a0bab46f1df835ef6ab175a93ed8430751))
+* **workspace:** group members selectable detail ([9cdb85d](https://github.com/ejpespa/gtypee/commit/9cdb85d3774452f7e4f6bb0b7135cca0dca5c189))
+* **workspace:** groups list detail panel and actions entry ([6e24620](https://github.com/ejpespa/gtypee/commit/6e24620b6fc3af990303f1920fd08ab2734c8e07))
+* **workspace:** improve user management TUI with detail view and actions ([b969b1f](https://github.com/ejpespa/gtypee/commit/b969b1fcfd283f0835f9bd2de47bcf83cc77d61e))
+* **workspace:** inactive users list detail and actions ([ed699d1](https://github.com/ejpespa/gtypee/commit/ed699d12be7d58a297efc501e7772fd7c43b1c4b))
+* **workspace:** last-used org unit session default ([860d175](https://github.com/ejpespa/gtypee/commit/860d175ef1bcc84906d3defb7dcd5e89849b4683))
+* **workspace:** navigation defaults and cross-links ([aa8d90c](https://github.com/ejpespa/gtypee/commit/aa8d90cedb627b566f77e17444414ff9da4b121e))
+* **workspace:** org units list detail panel ([fc937fa](https://github.com/ejpespa/gtypee/commit/fc937fad7afd51e4687244b5571441b2467b62f0))
+
 # [1.19.0](https://github.com/ejpespa/gtypee/compare/v1.18.0...v1.19.0) (2026-06-17)
 
 
