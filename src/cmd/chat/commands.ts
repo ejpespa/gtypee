@@ -44,6 +44,31 @@ async function runWithStableApiError<T>(service: string, call: () => Promise<T>)
   }
 }
 
+export async function resolveChatSendTarget(
+  deps: Required<ChatCommandDeps>,
+  opts: { space?: string; to?: string },
+): Promise<string> {
+  if (!opts.space && !opts.to) {
+    throw new Error("Either --space or --to is required");
+  }
+  if (opts.space && opts.to) {
+    throw new Error("Cannot combine --space and --to; use one or the other");
+  }
+
+  if (opts.space) {
+    return opts.space;
+  }
+
+  const email = opts.to!.trim();
+  const existing = await deps.findDirectMessage(email);
+  if (existing) {
+    return existing.id;
+  }
+
+  const created = await deps.setupDirectMessage(email);
+  return created.id;
+}
+
 export function formatChatMessages(messages: ChatMessage[], mode: OutputMode): string {
   if (mode === "json") {
     return JSON.stringify({ messages }, null, 2);
@@ -148,18 +173,12 @@ export function registerChatCommands(chatCommand: Command, deps: ChatCommandDeps
 
       await resolvedDeps.ensureWorkspace();
 
-      let targetSpace = opts.space ?? "";
-
-      if (opts.to) {
-        // Resolve email to a DM space: try finding existing, otherwise set one up
-        const existing = await runWithStableApiError("chat", () => resolvedDeps.findDirectMessage(opts.to!));
-        if (existing) {
-          targetSpace = existing.id;
-        } else {
-          const created = await runWithStableApiError("chat", () => resolvedDeps.setupDirectMessage(opts.to!));
-          targetSpace = created.id;
-        }
-      }
+      const targetSpace = await runWithStableApiError("chat", () =>
+        resolveChatSendTarget(
+          resolvedDeps,
+          opts.to ? { to: opts.to } : { space: opts.space! },
+        ),
+      );
 
       const result = await runWithStableApiError("chat", () => resolvedDeps.sendMessage(targetSpace, opts.text));
       if (ctx.output.mode === "json") {

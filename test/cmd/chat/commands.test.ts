@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { Command } from "commander";
 
-import { formatChatMessages, registerChatCommands } from "../../../src/cmd/chat/commands.js";
+import {
+  formatChatMessages,
+  registerChatCommands,
+  resolveChatSendTarget,
+} from "../../../src/cmd/chat/commands.js";
 
 describe("chat command formatters", () => {
   it("formats chat messages as json", () => {
@@ -154,6 +158,23 @@ describe("chat command formatters", () => {
     } finally {
       process.stdout.write = originalWrite;
     }
+  });
+
+  it("resolveChatSendTarget reuses existing DM space", async () => {
+    const spaceId = await resolveChatSendTarget(
+      {
+        ensureWorkspace: async () => undefined,
+        listSpaces: async () => [],
+        getSpace: async (id) => ({ id, displayName: "" }),
+        createSpace: async () => ({ id: "", created: false }),
+        listMessages: async () => [],
+        sendMessage: async () => ({ id: "", sent: false }),
+        findDirectMessage: async () => ({ id: "spaces/dm-existing", displayName: "DM" }),
+        setupDirectMessage: async () => ({ id: "spaces/should-not-call", displayName: "" }),
+      },
+      { to: "user@example.com" },
+    );
+    expect(spaceId).toBe("spaces/dm-existing");
   });
 
   it("returns clear workspace-required error", async () => {

@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import SelectInput from 'ink-select-input';
 import { ListMessagesTui } from '../chat/ListMessagesTui.js';
-import type { ChatCommandDeps } from '../chat/commands.js';
+import { resolveChatSendTarget, type ChatCommandDeps } from '../chat/commands.js';
+import { TuiWizard } from './TuiWizard.js';
+import { translateApiError } from './translateApiError.js';
 
 interface ChatRouterProps {
   deps: Required<ChatCommandDeps>;
@@ -14,7 +16,20 @@ export function ChatRouter({ deps, onCancel }: ChatRouterProps) {
 
   const items = [
     { label: 'Space Messages', value: 'messages' },
+    { label: 'Send to Email', value: 'send-email' },
+    { label: 'Send to Space', value: 'send-space' },
   ];
+
+  const sendMessage = async (target: { to?: string; space?: string }, text: string) => {
+    await deps.ensureWorkspace();
+    const targetSpace = await resolveChatSendTarget(deps, target);
+    const result = await deps.sendMessage(targetSpace, text);
+    if (!result.sent) {
+      throw new Error('Message send was not applied');
+    }
+    const via = target.to ? `to ${target.to}` : `to space ${target.space}`;
+    return `Sent ${via} (id=${result.id || 'unknown'})`;
+  };
 
   const handleSelect = (item: { value: string }) => {
     setActiveSubMenu(item.value);
@@ -31,6 +46,46 @@ export function ChatRouter({ deps, onCancel }: ChatRouterProps) {
       <ListMessagesTui
         chatDeps={deps}
         onCancel={() => setActiveSubMenu(null)}
+      />
+    );
+  }
+
+  if (activeSubMenu === 'send-email') {
+    return (
+      <TuiWizard
+        title="Send Chat to Email"
+        fields={[
+          { key: 'to', label: 'Recipient email', required: true, placeholder: 'user@example.com' },
+          { key: 'text', label: 'Message', required: true, multiline: true },
+        ]}
+        onCancel={() => setActiveSubMenu(null)}
+        onSubmit={async (values) => {
+          try {
+            return await sendMessage({ to: values.to ?? '' }, values.text ?? '');
+          } catch (error: unknown) {
+            throw new Error(translateApiError(error));
+          }
+        }}
+      />
+    );
+  }
+
+  if (activeSubMenu === 'send-space') {
+    return (
+      <TuiWizard
+        title="Send Chat to Space"
+        fields={[
+          { key: 'space', label: 'Space id', required: true, placeholder: 'spaces/ABC123' },
+          { key: 'text', label: 'Message', required: true, multiline: true },
+        ]}
+        onCancel={() => setActiveSubMenu(null)}
+        onSubmit={async (values) => {
+          try {
+            return await sendMessage({ space: values.space ?? '' }, values.text ?? '');
+          } catch (error: unknown) {
+            throw new Error(translateApiError(error));
+          }
+        }}
       />
     );
   }

@@ -165,7 +165,8 @@ Pick a service from the Master Dashboard sidebar: **Workspace Admin**, Gmail, Dr
 | **Drive** | Browse files · Trash · Shared drives |
 | **Calendar** | Events and calendars |
 | **Docs / Sheets / Slides** | List, detail, and service-specific actions |
-| **Tasks, Contacts, Chat, Forms, Keep, Meet, People, Classroom** | List → detail → action flows per service |
+| **Chat** | Space messages · **Send to email** (DM) · Send to space |
+| **Tasks, Contacts, Forms, Keep, Meet, People, Classroom** | List → detail → action flows per service |
 | **Meet** | Upcoming meetings (from Calendar) |
 
 ### TUI vs CLI coverage

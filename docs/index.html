@@ -678,7 +678,7 @@ gtypee --sa your-sa@project.iam.gserviceaccount.com --impersonate admin@domain.c
                 <div class="glass rounded-2xl p-5">
                     <h3 class="text-white font-semibold mb-2">Other productivity services</h3>
                     <p class="text-slate-400 text-sm">Drive (files, trash, shared drives), Calendar, Docs, Sheets, Slides,
-                        Tasks, Contacts, Chat, Forms, Keep, Meet (upcoming meetings), People, Classroom — list → detail →
+                        Tasks, Contacts, Chat (space messages, send to email, send to space), Forms, Keep, Meet (upcoming meetings), People, Classroom — list → detail →
                         action flows.</p>
                 </div>
             </div>
@@ -1190,6 +1190,8 @@ gtypee tasks done --id &lt;id&gt;</code></pre>
                                     Contacts</h4>
                                 <div class="bg-surface-950 rounded-xl p-4 font-mono text-xs overflow-x-auto">
                                     <pre><code class="language-bash">gtypee chat spaces
+gtypee chat send --to user@example.com \
+  --text "Hello!"
 gtypee chat send --space &lt;id&gt; \
   --text "Hello!"
 gtypee contacts list
