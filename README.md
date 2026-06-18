@@ -20,6 +20,7 @@ A powerful command-line interface for managing Gmail, Drive, Calendar, and 15+ G
 
 ## Key Features
 
+- **Interactive TUI** - Master Dashboard for browsing and managing services with keyboard navigation (Ink + React)
 - **15+ Google Services** - Gmail, Drive, Calendar, Docs, Sheets, Slides, Tasks, Forms, Contacts, People, Chat, Classroom, Groups, Keep, and Apps Script
 - **Two Auth Modes** - OAuth 2.0 for personal accounts, Service Account for workspace admin
 - **JSON Output** - All commands support `--json` for scripting and automation
@@ -30,6 +31,7 @@ A powerful command-line interface for managing Gmail, Drive, Calendar, and 15+ G
 
 - [Installation](#installation)
 - [Quick Start](#quick-start)
+- [Interactive TUI](#interactive-tui)
 - [Authentication](#authentication)
 - [Commands Reference](#commands-reference)
   - [Gmail](#gmail-commands)
@@ -85,11 +87,14 @@ npm install -g gtypee
 # Set up authentication
 gtypee auth add --email you@gmail.com
 
-# Start using
+# Start using CLI commands
 gtypee gmail labels
 gtypee drive ls
 gtypee calendar events
 gtypee people me
+
+# Or launch the interactive Master Dashboard
+gtypee tui
 ```
 
 ### Running from Source (Development)
@@ -119,6 +124,45 @@ npm run dev -- --help
 > # CORRECT - use compiled version
 > node dist/bin/gtypee.js workspace user list --json | jq '.[].primaryEmail'
 > ```
+
+---
+
+## Interactive TUI
+
+Launch the **Master Dashboard** — a terminal UI for browsing Gmail, Drive, Calendar, Workspace Admin, and 15+ services without memorizing command syntax.
+
+```bash
+# Personal account (after gtypee auth add)
+gtypee tui
+
+# Workspace admin with domain-wide delegation
+gtypee --sa your-sa@project.iam.gserviceaccount.com --impersonate admin@domain.com tui
+```
+
+### What's included
+
+| Area | Capabilities |
+|------|----------------|
+| **Workspace Admin** | List/search users (name & email), user detail actions, groups, org units, devices, reports, admin wizards (reset password, suspend, aliases, etc.) |
+| **Gmail** | Labels, messages, threads, drafts, attachments |
+| **Drive** | Browse files, trash, shared drives |
+| **Calendar** | Events and calendars |
+| **Docs / Sheets / Slides** | Document browsing and actions |
+| **Tasks, Contacts, Chat, Forms, Keep, Meet, People, Classroom** | Service-specific list and detail flows |
+
+### Keyboard shortcuts
+
+| Key | Action |
+|-----|--------|
+| **↑ / ↓** | Move selection in lists and menus |
+| **Enter** | Select item or confirm |
+| **ESC** | Go back (or quit from service picker) |
+| **q** | Quit from the main service picker |
+| **?** | Toggle context-sensitive help overlay |
+
+Workspace user search runs domain-wide via the Admin SDK (not just the current page). Press **Enter** in the search field to apply filters.
+
+> **Tip:** Use the same global flags as CLI commands (`--account`, `--sa`, `--impersonate`, `--client`) before `tui`.
 
 ---
 

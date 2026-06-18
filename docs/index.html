@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>gtypee – TypeScript CLI for Google Workspace Administration</title>
     <meta name="description"
-        content="gtypee is a powerful TypeScript CLI for managing Gmail, Drive, Calendar, and 15+ Google Workspace services. OAuth 2.0 & Service Account support, JSON output for scripting.">
+        content="gtypee is a powerful TypeScript CLI for managing Gmail, Drive, Calendar, and 15+ Google Workspace services. Interactive TUI Master Dashboard, OAuth 2.0 & Service Account support, JSON output for scripting.">
     <meta name="keywords"
         content="gtypee, Google Workspace CLI, Gmail CLI, Google Drive CLI, Google Calendar CLI, TypeScript CLI, workspace admin, Google API, automation, service account, OAuth, gmail-cli, google-docs, google-sheets, google-slides, google-tasks, google-forms, google-chat, google-classroom, google-keep, google-contacts, google-apps-script, admin-sdk, domain-wide-delegation, email-automation, drive-export, bulk-operations, json-output, devops, sysadmin, user-management, command-line, terminal">
     <meta name="author" content="ejpespa">
@@ -15,7 +15,7 @@
     <!-- Open Graph -->
     <meta property="og:title" content="gtypee – TypeScript CLI for Google Workspace">
     <meta property="og:description"
-        content="Manage Gmail, Drive, Calendar, and 15+ Google services from the terminal. Perfect for personal productivity and workspace admin.">
+        content="Manage Gmail, Drive, Calendar, and 15+ Google services from the terminal. Interactive TUI Master Dashboard plus CLI commands for personal productivity and workspace admin.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://github.com/ejpespa/gtypee">
     <meta property="og:image" content="https://raw.githubusercontent.com/ejpespa/gtypee/main/logo.svg">
@@ -23,7 +23,7 @@
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="gtypee – TypeScript CLI for Google Workspace">
     <meta name="twitter:description"
-        content="Manage Gmail, Drive, Calendar, and 15+ Google services from the terminal.">
+        content="Manage Gmail, Drive, Calendar, and 15+ Google services from the terminal — CLI commands and an interactive TUI.">
     <!-- JSON-LD Structured Data -->
     <script type="application/ld+json">
   {
@@ -32,7 +32,7 @@
     "name": "gtypee",
     "applicationCategory": "DeveloperApplication",
     "operatingSystem": "Windows, macOS, Linux",
-    "description": "A powerful TypeScript CLI for managing Gmail, Drive, Calendar, and 15+ Google Workspace services.",
+    "description": "A powerful TypeScript CLI for managing Gmail, Drive, Calendar, and 15+ Google Workspace services. Includes an interactive TUI Master Dashboard.",
     "url": "https://github.com/ejpespa/gtypee",
     "license": "https://opensource.org/licenses/ISC",
     "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
@@ -188,6 +188,7 @@
                 </a>
                 <div class="hidden md:flex items-center gap-6 text-sm">
                     <a href="#features" class="nav-link text-slate-400 hover:text-white transition-colors">Features</a>
+                    <a href="#tui" class="nav-link text-slate-400 hover:text-white transition-colors">TUI</a>
                     <a href="#installation"
                         class="nav-link text-slate-400 hover:text-white transition-colors">Install</a>
                     <a href="#authentication"
@@ -217,6 +218,7 @@
         <div id="mobile-menu" class="hidden md:hidden bg-slate-900/95 backdrop-blur-xl border-t border-white/5">
             <div class="px-4 py-3 space-y-2">
                 <a href="#features" class="block py-2 text-slate-400 hover:text-white">Features</a>
+                <a href="#tui" class="block py-2 text-slate-400 hover:text-white">TUI</a>
                 <a href="#installation" class="block py-2 text-slate-400 hover:text-white">Install</a>
                 <a href="#authentication" class="block py-2 text-slate-400 hover:text-white">Auth</a>
                 <a href="#commands" class="block py-2 text-slate-400 hover:text-white">Commands</a>
@@ -258,8 +260,9 @@
                     TypeScript CLI for <span class="text-white font-medium">Google Workspace</span> administration
                 </p>
                 <p class="text-base text-slate-500 max-w-2xl mx-auto mb-10">
-                    Manage Gmail, Drive, Calendar, and 15+ Google services from the terminal. Perfect for personal
-                    productivity, workspace administration, and automation scripts.
+                    Manage Gmail, Drive, Calendar, and 15+ Google services from the terminal — with a full interactive
+                    TUI Master Dashboard or scriptable CLI commands. Perfect for personal productivity, workspace
+                    administration, and automation.
                 </p>
                 <div class="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
                     <div class="code-block glass rounded-xl px-6 py-3 font-mono text-sm inline-flex items-center gap-3">
@@ -289,6 +292,8 @@
                         Account</span>
                     <span class="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-slate-400">JSON
                         Output</span>
+                    <span class="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-slate-400">Interactive
+                        TUI</span>
                 </div>
             </div>
         </div>
@@ -308,6 +313,17 @@
                     command line</p>
             </div>
             <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div class="service-card glass rounded-2xl p-6 ring-1 ring-gblue/20">
+                    <div class="w-12 h-12 rounded-xl bg-indigo-500/15 flex items-center justify-center mb-4">
+                        <svg class="w-6 h-6 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-semibold text-white mb-2">Interactive TUI</h3>
+                    <p class="text-slate-400 text-sm">Master Dashboard built with Ink + React — browse Workspace users,
+                        Gmail, Drive, Calendar, and more with keyboard navigation and guided admin wizards</p>
+                </div>
                 <div class="service-card glass rounded-2xl p-6">
                     <div class="w-12 h-12 rounded-xl bg-gblue/15 flex items-center justify-center mb-4">
                         <svg class="w-6 h-6 text-gblue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -554,11 +570,14 @@ npm install -g gtypee
 # Set up authentication
 gtypee auth add --email you@gmail.com
 
-# Start using
+# Start using CLI commands
 gtypee gmail labels
 gtypee drive ls
 gtypee calendar events
-gtypee people me</code></pre>
+gtypee people me
+
+# Or launch the interactive Master Dashboard
+gtypee tui</code></pre>
                 </div>
             </div>
             <div class="mt-6 glass rounded-2xl p-6">
@@ -583,8 +602,71 @@ node dist/bin/gtypee.js --help</code></pre>
         </div>
     </section>
 
+    <!-- Interactive TUI -->
+    <section id="tui" class="py-24">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 class="text-3xl font-bold text-white mb-4 flex items-center gap-3">
+                <span
+                    class="w-8 h-8 rounded-lg bg-indigo-500/15 flex items-center justify-center text-indigo-400 text-sm font-bold">★</span>
+                Interactive TUI
+            </h2>
+            <p class="text-slate-400 mb-8">The <strong class="text-white font-medium">Master Dashboard</strong> is a
+                terminal UI for managing Google Workspace without memorizing command syntax. Pick a service from the
+                sidebar, drill into lists and details, and run admin wizards — all from the keyboard.</p>
+
+            <div class="code-block glass rounded-2xl p-6 mb-6">
+                <div class="bg-surface-950 rounded-xl p-4 font-mono text-sm overflow-x-auto">
+                    <pre><code class="language-bash"># Personal account (after gtypee auth add)
+gtypee tui
+
+# Workspace admin with domain-wide delegation
+gtypee --sa your-sa@project.iam.gserviceaccount.com --impersonate admin@domain.com tui</code></pre>
+                </div>
+            </div>
+
+            <div class="grid sm:grid-cols-2 gap-4 mb-8">
+                <div class="glass rounded-2xl p-5">
+                    <h3 class="text-white font-semibold mb-2">Workspace Admin</h3>
+                    <p class="text-slate-400 text-sm">List and search users (name &amp; email, domain-wide), groups, org
+                        units, devices, reports, and guided wizards for password reset, suspend, aliases, and more.</p>
+                </div>
+                <div class="glass rounded-2xl p-5">
+                    <h3 class="text-white font-semibold mb-2">Productivity Services</h3>
+                    <p class="text-slate-400 text-sm">Gmail, Drive, Calendar, Docs, Sheets, Slides, Tasks, Contacts,
+                        Chat, Forms, Keep, Meet, People, and Classroom — each with list → detail → action flows.</p>
+                </div>
+            </div>
+
+            <div class="glass rounded-2xl p-6">
+                <h3 class="text-lg font-semibold text-white mb-4">Keyboard shortcuts</h3>
+                <div class="grid sm:grid-cols-2 gap-3 text-sm">
+                    <div class="flex gap-3"><kbd
+                            class="px-2 py-0.5 rounded bg-white/10 text-white font-mono text-xs">↑ ↓</kbd><span
+                            class="text-slate-400">Move selection</span></div>
+                    <div class="flex gap-3"><kbd
+                            class="px-2 py-0.5 rounded bg-white/10 text-white font-mono text-xs">Enter</kbd><span
+                            class="text-slate-400">Select / confirm</span></div>
+                    <div class="flex gap-3"><kbd
+                            class="px-2 py-0.5 rounded bg-white/10 text-white font-mono text-xs">ESC</kbd><span
+                            class="text-slate-400">Go back</span></div>
+                    <div class="flex gap-3"><kbd
+                            class="px-2 py-0.5 rounded bg-white/10 text-white font-mono text-xs">q</kbd><span
+                            class="text-slate-400">Quit from service picker</span></div>
+                    <div class="flex gap-3"><kbd
+                            class="px-2 py-0.5 rounded bg-white/10 text-white font-mono text-xs">?</kbd><span
+                            class="text-slate-400">Context help overlay</span></div>
+                </div>
+                <p class="text-slate-500 text-sm mt-4">Use the same global flags as CLI commands (<code
+                        class="text-slate-400 bg-white/5 px-1 rounded">--account</code>, <code
+                        class="text-slate-400 bg-white/5 px-1 rounded">--sa</code>, <code
+                        class="text-slate-400 bg-white/5 px-1 rounded">--impersonate</code>) before <code
+                        class="text-slate-400 bg-white/5 px-1 rounded">tui</code>.</p>
+            </div>
+        </div>
+    </section>
+
     <!-- Authentication -->
-    <section id="authentication" class="py-24">
+    <section id="authentication" class="py-24 bg-slate-900/50">
         <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <h2 class="text-3xl font-bold text-white mb-8 flex items-center gap-3">
                 <span
