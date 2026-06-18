@@ -16,7 +16,7 @@
 
 ---
 
-A powerful command-line interface for managing Gmail, Drive, Calendar, and 15+ Google services. Perfect for personal productivity, workspace administration, and automation scripts.
+A powerful CLI and interactive TUI for managing Gmail, Drive, Calendar, and 15+ Google services. Use `gtypee tui` for keyboard-driven admin workflows, or scriptable commands with `--json`. Perfect for personal productivity, workspace administration, and automation.
 
 ## Key Features
 
@@ -139,16 +139,40 @@ gtypee tui
 gtypee --sa your-sa@project.iam.gserviceaccount.com --impersonate admin@domain.com tui
 ```
 
-### What's included
+### Service sidebar
 
-| Area | Capabilities |
-|------|----------------|
-| **Workspace Admin** | List/search users (name & email), user detail actions, groups, org units, devices, reports, admin wizards (reset password, suspend, aliases, etc.) |
-| **Gmail** | Labels, messages, threads, drafts, attachments |
-| **Drive** | Browse files, trash, shared drives |
+Pick a service from the Master Dashboard sidebar: **Workspace Admin**, Gmail, Drive, Calendar, Docs, Sheets, Tasks, Contacts, Chat, Slides, Forms, Keep, Meet, People, Classroom.
+
+### Workspace Admin
+
+| Section | What's in the TUI |
+|---------|-------------------|
+| **Reports** | Deleted users · Login audit · Admin audit |
+| **User Management** | List users by org unit (domain-wide name/email search) · Inactive users · Create user wizard · User actions menu · Recover deleted user |
+| **Group Management** | Create group · List groups · List members · Add/remove members · Delete group |
+| **Device Management** | List devices · Wipe device · Disable device |
+| **Org Unit Management** | Create org unit · List org units · Update · Delete |
+
+**User actions menu** (per-user wizards): reset password · generate backup codes · turn off login challenge (10 min)* · suspend · unsuspend · grant admin · revoke admin · set org unit · delete user · add alias · delete alias · delete photo
+
+\* *Turn off login challenge* opens the [Admin Console Security](https://admin.google.com/ac/security) page for the user — Google has no public API for a timed identity-question bypass.
+
+### Productivity services
+
+| Service | TUI capabilities |
+|---------|------------------|
+| **Gmail** | Inbox · Sent · Search · Compose · Drafts · Threads (attachments on messages) |
+| **Drive** | Browse files · Trash · Shared drives |
 | **Calendar** | Events and calendars |
-| **Docs / Sheets / Slides** | Document browsing and actions |
-| **Tasks, Contacts, Chat, Forms, Keep, Meet, People, Classroom** | Service-specific list and detail flows |
+| **Docs / Sheets / Slides** | List, detail, and service-specific actions |
+| **Tasks, Contacts, Chat, Forms, Keep, Meet, People, Classroom** | List → detail → action flows per service |
+| **Meet** | Upcoming meetings (from Calendar) |
+
+### TUI vs CLI coverage
+
+| TUI + CLI | CLI only |
+|-----------|----------|
+| Workspace Admin, Gmail, Drive, Calendar, Docs, Sheets, Slides, Tasks, Contacts, Chat, Forms, Keep, Meet, People, Classroom | **Apps Script** (`gtypee appscript`) · legacy **Groups** (`gtypee groups`) · auth, config, agent, health-check, completion, schema |
 
 ### Keyboard shortcuts
 
@@ -715,7 +739,15 @@ gtypee keep create --title "Shopping List"
 gtypee keep update --id <note-id> --title "Updated Title"
 ```
 
-**Apps Script**
+**Meet**
+
+```bash
+gtypee meet create
+gtypee meet get --space spaces/abc123
+gtypee meet end --space spaces/abc123
+```
+
+**Apps Script** (CLI only — not in the TUI yet)
 
 ```bash
 gtypee appscript list
@@ -1471,24 +1503,25 @@ git commit -m "docs: add usage examples"                   # → No release
 
 ## Supported Services
 
-| Service | API | Personal Account | Workspace (SA) |
-|---------|-----|:---:|:---:|
-| Gmail | Gmail API | Yes | Yes |
-| Calendar | Calendar API | Yes | Yes |
-| Drive | Drive API | Yes | Yes |
-| Docs | Docs API + Drive API | Yes | Yes |
-| Sheets | Sheets API + Drive API | Yes | Yes |
-| Slides | Slides API + Drive API | Yes | Yes |
-| Tasks | Tasks API | Yes | Yes |
-| Forms | Forms API | Yes | Yes |
-| Contacts | People API | Yes | Yes |
-| People | People API | Yes | Yes |
-| Chat | Chat API | Yes | Yes |
-| Classroom | Classroom API | Yes | Yes |
-| Apps Script | Apps Script API + Drive API | Yes | Yes |
-| Groups | Admin SDK Directory API | No | Yes |
-| Keep | Keep API | No | Yes |
-| Workspace Admin | Admin SDK API | No | Yes |
+| Service | API | Personal | Workspace (SA) | TUI |
+|---------|-----|:---:|:---:|:---:|
+| Gmail | Gmail API | Yes | Yes | Yes |
+| Calendar | Calendar API | Yes | Yes | Yes |
+| Drive | Drive API | Yes | Yes | Yes |
+| Docs | Docs API + Drive API | Yes | Yes | Yes |
+| Sheets | Sheets API + Drive API | Yes | Yes | Yes |
+| Slides | Slides API + Drive API | Yes | Yes | Yes |
+| Tasks | Tasks API | Yes | Yes | Yes |
+| Forms | Forms API | Yes | Yes | Yes |
+| Contacts | People API | Yes | Yes | Yes |
+| People | People API | Yes | Yes | Yes |
+| Chat | Chat API | Yes | Yes | Yes |
+| Classroom | Classroom API | Yes | Yes | Yes |
+| Meet | Meet API | Yes | Yes | Yes |
+| Apps Script | Apps Script API + Drive API | Yes | Yes | — |
+| Groups | Admin SDK Directory API | No | Yes | — |
+| Keep | Keep API | No | Yes | Yes |
+| Workspace Admin | Admin SDK API | No | Yes | Yes |
 
 ---
 
