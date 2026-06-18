@@ -42,3 +42,12 @@ credentials*.json
 .claude/
 README-release.md
 docs/*
+
+# Local dev / agent artifacts (do not commit)
+mcps/
+terminals/
+agent-tools/
+test-api.cjs
+verify-totals.js
+verify-totals.ts
+FORM 1.jpg
