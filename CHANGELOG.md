@@ -3,6 +3,13 @@
 
 ### Features
 
+* **tui:** send Google Chat messages by email or space ([a4f5607](https://github.com/ejpespa/gtypee/commit/a4f5607e1709e208fe66066ed1d1dfe1ef154e66))
+
+# [1.21.0](https://github.com/ejpespa/gtypee/compare/v1.20.0...v1.21.0) (2026-06-18)
+
+
+### Features
+
 * **tui:** send Google Chat messages by email or space ([e8c17b0](https://github.com/ejpespa/gtypee/commit/e8c17b011c9af9d67677268b7a6c87583ebd58a9))
 
 # [1.20.0](https://github.com/ejpespa/gtypee/compare/v1.19.0...v1.20.0) (2026-06-18)
