@@ -157,6 +157,8 @@ Pick a service from the Master Dashboard sidebar: **Workspace Admin**, Gmail, Dr
 
 \* *Turn off login challenge* opens the [Admin Console Security](https://admin.google.com/ac/security) page for the user — Google has no public API for a timed identity-question bypass.
 
+**User Hub:** From List Users or Inactive Users, Enter opens a User Hub for that account. Related links open Groups, Devices, Login audit (30d), and Admin audit (30d) scoped to the user. ESC returns to the hub, then to the list. Keys: **a** actions · **o** Admin · **c** copy email · **l** login challenge.
+
 ### Productivity services
 
 | Service | TUI capabilities |
