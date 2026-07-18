@@ -59,21 +59,12 @@ export function WorkspaceOrgTui({
     setActiveView(item.value);
   };
 
+  // Only handle ESC on the menu itself. Child views own ESC via onCancel
+  // (list-users → list-orgs, hub → list, etc.). Parent must not steal the stack.
   useInput((_input, key) => {
-    if (!key.escape) return;
-
-    if (activeView === null) {
+    if (activeView === null && key.escape) {
       onCancel?.();
-      return;
     }
-
-    if (activeView === 'list-users') {
-      setPrefillOrgUnitPathForUsers(undefined);
-      setActiveView('list-orgs');
-      return;
-    }
-
-    setActiveView(null);
   });
 
   if (activeView === 'create-org') {

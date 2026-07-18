@@ -53,13 +53,11 @@ export function WorkspaceUserTui({
     setActiveView(item.value);
   };
 
+  // Only handle ESC on the menu itself. Child views (list/hub/wizard/actions)
+  // own ESC via their own useInput + onCancel; parent must not steal the stack.
   useInput((_input, key) => {
     if (activeView === null && key.escape) {
       onCancel?.();
-      return;
-    }
-    if (activeView !== null && key.escape) {
-      setActiveView(null);
     }
   });
 
