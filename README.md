@@ -148,7 +148,7 @@ Pick a service from the Master Dashboard sidebar: **Workspace Admin**, Gmail, Dr
 | Section | What's in the TUI |
 |---------|-------------------|
 | **Reports** | Deleted users · Login audit · Admin audit |
-| **User Management** | List users by org unit (domain-wide name/email search) · Inactive users · Create user wizard · User actions menu · Recover deleted user |
+| **User Management** | List users by org unit (domain-wide name/email search) · **User Hub** (Related: groups, devices, login/admin audit) · Inactive users · Create user wizard · User actions menu · Recover deleted user |
 | **Group Management** | Create group · List groups · List members · Add/remove members · Delete group |
 | **Device Management** | List devices · Wipe device · Disable device |
 | **Org Unit Management** | Create org unit · List org units · Update · Delete |
@@ -157,7 +157,16 @@ Pick a service from the Master Dashboard sidebar: **Workspace Admin**, Gmail, Dr
 
 \* *Turn off login challenge* opens the [Admin Console Security](https://admin.google.com/ac/security) page for the user — Google has no public API for a timed identity-question bypass.
 
-**User Hub:** From List Users or Inactive Users, Enter opens a User Hub for that account. Related links open Groups, Devices, Login audit (30d), and Admin audit (30d) scoped to the user. ESC returns to the hub, then to the list. Keys: **a** actions · **o** Admin · **c** copy email · **l** login challenge.
+**User Hub:** From List Users or Inactive Users, **Enter** opens a **User Hub** for that account (profile + Related). Related drill-downs stay scoped to the selected user:
+
+| Related | What you get |
+|---------|----------------|
+| **Groups** | Directory groups the user belongs to |
+| **Devices** | ChromeOS + mobile devices linked to their email |
+| **Login audit (30d)** | Login events for that user only |
+| **Admin audit (30d)** | Admin console activity for that user only |
+
+**ESC** returns to the hub from a Related view, then to the user list. Hub keys: **a** user actions · **o** open in Admin Console · **c** copy email · **l** login challenge (Security page).
 
 ### Productivity services
 
@@ -182,10 +191,11 @@ Pick a service from the Master Dashboard sidebar: **Workspace Admin**, Gmail, Dr
 | Key | Action |
 |-----|--------|
 | **↑ / ↓** | Move selection in lists and menus |
-| **Enter** | Select item or confirm |
-| **ESC** | Go back (or quit from service picker) |
+| **Enter** | Select item, confirm, or open User Hub from a user list |
+| **ESC** | Go back one level (Related → hub → list → menu; quit from service picker) |
 | **q** | Quit from the main service picker |
 | **?** | Toggle context-sensitive help overlay |
+| **a** / **o** / **c** / **l** | On User Hub: actions · Admin · copy email · login challenge |
 
 Workspace user search runs domain-wide via the Admin SDK (not just the current page). Press **Enter** in the search field to apply filters.
 
