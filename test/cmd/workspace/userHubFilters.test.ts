@@ -37,6 +37,18 @@ describe('filterRowsByUserEmail', () => {
     ];
     expect(filterRowsByUserEmail(rows, 'jane@acme.com').map((r) => r.id)).toEqual([1, 3]);
   });
+
+  // Composition order for LoginAuditTui / AdminAuditTui: email scope first, then text search.
+  it('audit pipeline: email filter then text query on remaining rows', () => {
+    const rows = [
+      { userEmail: 'jane@acme.com', ip: '1.1.1.1' },
+      { userEmail: 'bob@acme.com', ip: '2.2.2.2' },
+      { userEmail: 'jane@acme.com', ip: '9.9.9.9' },
+    ];
+    const forUser = filterRowsByUserEmail(rows, 'jane@acme.com');
+    const searched = forUser.filter((r) => r.ip.includes('9.9'));
+    expect(searched).toEqual([{ userEmail: 'jane@acme.com', ip: '9.9.9.9' }]);
+  });
 });
 
 describe('filterDevicesByUserEmail', () => {

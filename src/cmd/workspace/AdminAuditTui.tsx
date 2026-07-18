@@ -14,10 +14,12 @@ import { useDetailView } from '../tui/hooks/useDetailView.js';
 import { useDetailActions } from '../tui/hooks/useDetailActions.js';
 import { useTuiNavigation } from '../tui/TuiNavigationContext.js';
 import type { AdminActivity, WorkspaceReportCommandDeps } from './commands.js';
+import { filterRowsByUserEmail } from './userHubFilters.js';
 
 export interface AdminAuditTuiProps {
   reportDeps: Required<WorkspaceReportCommandDeps>;
   days?: number;
+  filterUserEmail?: string;
   onCancel?: () => void;
 }
 
@@ -29,7 +31,7 @@ function formatActivityLabel(activity: AdminActivity): string {
   return `${activity.userEmail || '(unknown)'}  ${activity.action || '(no action)'}  ${activity.resource || '(no resource)'}  ${activity.timestamp}`;
 }
 
-export function AdminAuditTui({ reportDeps, days = 30, onCancel }: AdminAuditTuiProps) {
+export function AdminAuditTui({ reportDeps, days = 30, filterUserEmail, onCancel }: AdminAuditTuiProps) {
   const { setBreadcrumbs, setHelpLines } = useTuiNavigation();
 
   const [activities, setActivities] = useState<AdminActivity[]>([]);
@@ -52,15 +54,20 @@ export function AdminAuditTui({ reportDeps, days = 30, onCancel }: AdminAuditTui
   }, [searchDraft]);
 
   useEffect(() => {
-    setBreadcrumbs(['Workspace', 'Reports', 'Admin Audit']);
+    setBreadcrumbs(
+      filterUserEmail
+        ? ['Workspace', 'Users', filterUserEmail, 'Admin audit']
+        : ['Workspace', 'Reports', 'Admin Audit'],
+    );
     setHelpLines([
+      ...(filterUserEmail ? [`Scoped to ${filterUserEmail}`] : []),
       '/ or s — search',
       'Enter — view admin event',
       'c — copy admin email in detail',
       '←/→ or Space — paginate',
       'ESC — back',
     ]);
-  }, [setBreadcrumbs, setHelpLines]);
+  }, [setBreadcrumbs, setHelpLines, filterUserEmail]);
 
   useEffect(() => {
     let active = true;
@@ -83,8 +90,12 @@ export function AdminAuditTui({ reportDeps, days = 30, onCancel }: AdminAuditTui
     return () => { active = false; };
   }, [reportDeps, days]);
 
+  const scopedActivities = filterUserEmail
+    ? filterRowsByUserEmail(activities, filterUserEmail)
+    : activities;
+
   const filteredActivities = filterItemsByQuery(
-    activities,
+    scopedActivities,
     appliedSearch,
     (activity) => [activity.userEmail, activity.action, activity.resource],
   );
@@ -177,11 +188,15 @@ export function AdminAuditTui({ reportDeps, days = 30, onCancel }: AdminAuditTui
     );
   }
 
-  const emptyMessage = activities.length === 0
-    ? 'No admin activities found.'
-    : appliedSearch
+  const emptyMessage = filterUserEmail
+    ? (appliedSearch
       ? `No activities match "${appliedSearch}". Clear search to see all results.`
-      : 'No admin activities found.';
+      : `No admin events for ${filterUserEmail} in the last ${days} days.`)
+    : scopedActivities.length === 0
+      ? 'No admin activities found.'
+      : appliedSearch
+        ? `No activities match "${appliedSearch}". Clear search to see all results.`
+        : 'No admin activities found.';
 
   return (
     <TuiListScreen

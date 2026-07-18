@@ -14,10 +14,12 @@ import { useDetailView } from '../tui/hooks/useDetailView.js';
 import { useDetailActions } from '../tui/hooks/useDetailActions.js';
 import { useTuiNavigation } from '../tui/TuiNavigationContext.js';
 import type { WorkspaceReportCommandDeps, LoginActivity } from './commands.js';
+import { filterRowsByUserEmail } from './userHubFilters.js';
 
 export interface LoginAuditTuiProps {
   reportDeps: Required<WorkspaceReportCommandDeps>;
   days?: number;
+  filterUserEmail?: string;
   onCancel?: () => void;
 }
 
@@ -34,7 +36,7 @@ function formatLoginEvent(login: LoginActivity): string {
   return login.success ? 'login_success' : 'login_failure';
 }
 
-export function LoginAuditTui({ reportDeps, days = 30, onCancel }: LoginAuditTuiProps) {
+export function LoginAuditTui({ reportDeps, days = 30, filterUserEmail, onCancel }: LoginAuditTuiProps) {
   const { setBreadcrumbs, setHelpLines } = useTuiNavigation();
 
   const [logins, setLogins] = useState<LoginActivity[]>([]);
@@ -57,15 +59,20 @@ export function LoginAuditTui({ reportDeps, days = 30, onCancel }: LoginAuditTui
   }, [searchDraft]);
 
   useEffect(() => {
-    setBreadcrumbs(['Workspace', 'Reports', 'Login Audit']);
+    setBreadcrumbs(
+      filterUserEmail
+        ? ['Workspace', 'Users', filterUserEmail, 'Login audit']
+        : ['Workspace', 'Reports', 'Login Audit'],
+    );
     setHelpLines([
+      ...(filterUserEmail ? [`Scoped to ${filterUserEmail}`] : []),
       '/ or s — search',
       'Enter — view login event',
       'c — copy email in detail',
       '←/→ or Space — paginate',
       'ESC — back',
     ]);
-  }, [setBreadcrumbs, setHelpLines]);
+  }, [setBreadcrumbs, setHelpLines, filterUserEmail]);
 
   useEffect(() => {
     let active = true;
@@ -88,8 +95,12 @@ export function LoginAuditTui({ reportDeps, days = 30, onCancel }: LoginAuditTui
     return () => { active = false; };
   }, [reportDeps, days]);
 
+  const scopedLogins = filterUserEmail
+    ? filterRowsByUserEmail(logins, filterUserEmail)
+    : logins;
+
   const filteredLogins = filterItemsByQuery(
-    logins,
+    scopedLogins,
     appliedSearch,
     (login) => [login.userEmail, login.ipAddress],
   );
@@ -183,11 +194,15 @@ export function LoginAuditTui({ reportDeps, days = 30, onCancel }: LoginAuditTui
     );
   }
 
-  const emptyMessage = logins.length === 0
-    ? 'No login activity found.'
-    : appliedSearch
+  const emptyMessage = filterUserEmail
+    ? (appliedSearch
       ? `No logins match "${appliedSearch}". Try clearing search.`
-      : 'No login activity found.';
+      : `No login events for ${filterUserEmail} in the last ${days} days.`)
+    : scopedLogins.length === 0
+      ? 'No login activity found.'
+      : appliedSearch
+        ? `No logins match "${appliedSearch}". Try clearing search.`
+        : 'No login events on this page.';
 
   return (
     <TuiListScreen
