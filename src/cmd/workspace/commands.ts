@@ -138,6 +138,10 @@ export type WorkspaceGroupCommandDeps = {
   updateGroup?: (email: string, name: string) => Promise<UpdateGroupResult>;
   getGroup?: (email: string) => Promise<GroupInfo>;
   listGroups?: (options?: PaginationOptions) => Promise<PaginatedResult<GroupInfo>>;
+  listGroupsForUser?: (
+    userEmail: string,
+    options?: PaginationOptions,
+  ) => Promise<PaginatedResult<GroupInfo>>;
   addGroupMember?: (groupEmail: string, memberEmail: string, role: string) => Promise<AddMemberResult>;
   removeGroupMember?: (groupEmail: string, memberEmail: string) => Promise<RemoveMemberResult>;
   listGroupMembers?: (groupEmail: string) => Promise<GroupMember[]>;
@@ -326,6 +330,7 @@ const defaultGroupDeps: Required<WorkspaceGroupCommandDeps> = {
   updateGroup: async () => ({ email: "", name: "", applied: false }),
   getGroup: async () => ({ id: "", email: "", name: "" }),
   listGroups: async () => ({ items: [] }),
+  listGroupsForUser: async () => ({ items: [] }),
   addGroupMember: async () => ({ groupEmail: "", memberEmail: "", role: "", applied: false }),
   removeGroupMember: async () => ({ groupEmail: "", memberEmail: "", applied: false }),
   listGroupMembers: async () => [],

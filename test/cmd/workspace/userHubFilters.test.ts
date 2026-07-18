@@ -4,9 +4,11 @@ import {
   filterRowsByUserEmail,
   filterDevicesByUserEmail,
   collectDevicesForUser,
+  mapGroupListItems,
   DEVICE_SCAN_MAX_PAGES,
 } from '../../../src/cmd/workspace/userHubFilters.js';
-import type { Device } from '../../../src/cmd/workspace/commands.js';
+import type { Device, ListDevicesInput } from '../../../src/cmd/workspace/commands.js';
+import type { PaginationOptions } from '../../../src/types/pagination.js';
 
 const device = (overrides: Partial<Device> = {}): Device => ({
   deviceId: 'd1',
@@ -49,7 +51,7 @@ describe('filterDevicesByUserEmail', () => {
 
 describe('collectDevicesForUser', () => {
   it('merges chromebook and mobile matches and reports incomplete when page cap hit with more pages', async () => {
-    const listDevices = vi.fn(async (input: { type?: string }, options?: { pageToken?: string }) => {
+    const listDevices = vi.fn(async (input: ListDevicesInput, options?: PaginationOptions) => {
       if (input.type === 'chromebook') {
         if (!options?.pageToken) {
           return {
@@ -77,5 +79,13 @@ describe('collectDevicesForUser', () => {
 
   it('DEVICE_SCAN_MAX_PAGES is 5', () => {
     expect(DEVICE_SCAN_MAX_PAGES).toBe(5);
+  });
+});
+
+describe('mapGroupListItems', () => {
+  it('mapGroupListItems fills empty strings for nullish fields', () => {
+    expect(mapGroupListItems([{ id: null, email: 'a@b.com', name: undefined }])).toEqual([
+      { id: '', email: 'a@b.com', name: '' },
+    ]);
   });
 });

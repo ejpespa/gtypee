@@ -5,6 +5,7 @@ import { scopes } from "../../googleauth/service.js";
 import type { PaginationOptions } from "../../types/pagination.js";
 import { buildListUsersSearchQueries } from "../tui/search.js";
 import type { ListUsersOptions } from "./commands.js";
+import { mapGroupListItems } from "./userHubFilters.js";
 import {
   type WorkspaceUserCommandDeps,
   type WorkspaceUser,
@@ -635,11 +636,7 @@ export function buildWorkspaceGroupCommandDeps(options: ServiceRuntimeOptions): 
 
         const response = await admin.groups.list(params);
         const groups = response.data.groups ?? [];
-        const items = groups.map((g) => ({
-          id: g.id ?? "",
-          email: g.email ?? "",
-          name: g.name ?? "",
-        }));
+        const items = mapGroupListItems(groups);
 
         const result: { items: typeof items; nextPageToken?: string } = { items };
 
@@ -647,6 +644,35 @@ export function buildWorkspaceGroupCommandDeps(options: ServiceRuntimeOptions): 
           result.nextPageToken = response.data.nextPageToken;
         }
 
+        return result;
+      } catch {
+        return { items: [] };
+      }
+    },
+
+    listGroupsForUser: async (userEmail: string, options?: PaginationOptions) => {
+      const auth = await runtime.getClient(scopes("workspace"));
+      const admin = google.admin({ version: "directory_v1", auth });
+
+      try {
+        const params: Record<string, unknown> = {
+          userKey: userEmail,
+        };
+        if (options?.pageSize !== undefined) {
+          params.maxResults = options.pageSize;
+        }
+        if (options?.pageToken !== undefined) {
+          params.pageToken = options.pageToken;
+        }
+
+        const response = await admin.groups.list(params);
+        const groups = response.data.groups ?? [];
+        const items = mapGroupListItems(groups);
+
+        const result: { items: typeof items; nextPageToken?: string } = { items };
+        if (response.data.nextPageToken) {
+          result.nextPageToken = response.data.nextPageToken;
+        }
         return result;
       } catch {
         return { items: [] };

@@ -56,3 +56,17 @@ export async function collectDevicesForUser(
 
   return { devices, incomplete };
 }
+
+export function mapGroupListItems(
+  groups: Array<{
+    id?: string | null | undefined;
+    email?: string | null | undefined;
+    name?: string | null | undefined;
+  }>,
+): { id: string; email: string; name: string }[] {
+  return groups.map((g) => ({
+    id: g.id ?? '',
+    email: g.email ?? '',
+    name: g.name ?? '',
+  }));
+}
