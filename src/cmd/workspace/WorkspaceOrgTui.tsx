@@ -8,15 +8,31 @@ import { CreateOrgWizard } from './CreateOrgWizard.js';
 import { ListOrgsTui } from './ListOrgsTui.js';
 import { ListUsersTui } from './ListUsersTui.js';
 import { setLastOrgUnitPath } from './workspaceSessionState.js';
-import type { WorkspaceOrgUnitCommandDeps, WorkspaceUserCommandDeps } from './commands.js';
+import type {
+  WorkspaceOrgUnitCommandDeps,
+  WorkspaceUserCommandDeps,
+  WorkspaceGroupCommandDeps,
+  WorkspaceDeviceCommandDeps,
+  WorkspaceReportCommandDeps,
+} from './commands.js';
 
 export interface WorkspaceOrgTuiProps {
   orgDeps: WorkspaceOrgUnitCommandDeps;
   userDeps: WorkspaceUserCommandDeps;
+  groupDeps: Required<WorkspaceGroupCommandDeps>;
+  deviceDeps: Required<WorkspaceDeviceCommandDeps>;
+  reportDeps: Required<WorkspaceReportCommandDeps>;
   onCancel?: () => void;
 }
 
-export function WorkspaceOrgTui({ orgDeps, userDeps, onCancel }: WorkspaceOrgTuiProps) {
+export function WorkspaceOrgTui({
+  orgDeps,
+  userDeps,
+  groupDeps,
+  deviceDeps,
+  reportDeps,
+  onCancel,
+}: WorkspaceOrgTuiProps) {
   const { setBreadcrumbs, setHelpLines } = useTuiNavigation();
   const [activeView, setActiveView] = useState<string | null>(null);
   const [prefillOrgUnitPathForUsers, setPrefillOrgUnitPathForUsers] = useState<string | undefined>(undefined);
@@ -83,6 +99,9 @@ export function WorkspaceOrgTui({ orgDeps, userDeps, onCancel }: WorkspaceOrgTui
     return (
       <ListUsersTui
         userDeps={userDeps}
+        groupDeps={groupDeps}
+        deviceDeps={deviceDeps}
+        reportDeps={reportDeps}
         {...(prefillOrgUnitPathForUsers ? { defaultOrgUnitPath: prefillOrgUnitPathForUsers } : {})}
         onCancel={() => {
           setPrefillOrgUnitPathForUsers(undefined);

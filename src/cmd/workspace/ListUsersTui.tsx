@@ -1,24 +1,27 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import TextInput from 'ink-text-input';
 import { DEFAULT_TUI_PAGE_SIZE } from '../tui/pagination.js';
 import { normalizeOrgUnitPath } from '../tui/search.js';
 import { TuiSearchControls } from '../tui/TuiSearchControls.js';
-import { TuiDetailPanel } from '../tui/TuiDetailPanel.js';
-import type { TuiDetailAction } from '../tui/TuiDetailPanel.js';
 import { TuiListScreen } from '../tui/TuiListScreen.js';
-import { adminUserSecurityUrl, adminUserUrl } from '../tui/resourceLinks.js';
-import { copyToClipboard, openInBrowser } from '../tui/systemActions.js';
 import { usePaginatedList } from '../tui/hooks/usePaginatedList.js';
-import { useDetailView } from '../tui/hooks/useDetailView.js';
-import { useDetailActions } from '../tui/hooks/useDetailActions.js';
 import { useTuiNavigation } from '../tui/TuiNavigationContext.js';
-import { UserActionsTui } from './UserActionsTui.js';
-import type { WorkspaceUserCommandDeps, WorkspaceUser } from './commands.js';
+import { UserHubTui } from './UserHubTui.js';
+import type {
+  WorkspaceUserCommandDeps,
+  WorkspaceUser,
+  WorkspaceGroupCommandDeps,
+  WorkspaceDeviceCommandDeps,
+  WorkspaceReportCommandDeps,
+} from './commands.js';
 import { getLastOrgUnitPath, setLastOrgUnitPath } from './workspaceSessionState.js';
 
 export interface ListUsersTuiProps {
   userDeps: WorkspaceUserCommandDeps;
+  groupDeps: Required<WorkspaceGroupCommandDeps>;
+  deviceDeps: Required<WorkspaceDeviceCommandDeps>;
+  reportDeps: Required<WorkspaceReportCommandDeps>;
   defaultOrgUnitPath?: string;
   onCancel?: () => void;
 }
@@ -33,6 +36,9 @@ function formatUserLabel(user: WorkspaceUser): string {
 
 export function ListUsersTui({
   userDeps,
+  groupDeps,
+  deviceDeps,
+  reportDeps,
   defaultOrgUnitPath = getLastOrgUnitPath(),
   onCancel,
 }: ListUsersTuiProps) {
@@ -44,7 +50,6 @@ export function ListUsersTui({
   const [appliedSearch, setAppliedSearch] = useState('');
   const [activeField, setActiveField] = useState<'org' | 'search' | null>(null);
   const [selectedUser, setSelectedUser] = useState<WorkspaceUser | null>(null);
-  const [actionsEmail, setActionsEmail] = useState<string | null>(null);
 
   const fetchPage = useCallback(
     async (pageToken: string | undefined) => {
@@ -73,21 +78,19 @@ export function ListUsersTui({
     queryKey: `${appliedOrgPath}:${appliedSearch}`,
   });
 
-  const detail = useDetailView();
-  const actions = useDetailActions();
-
   useEffect(() => {
+    if (selectedUser) return;
     setBreadcrumbs(['Workspace', 'Users']);
     setHelpLines([
       'f or / — edit org unit',
       's — search users (domain-wide)',
       'r — refresh list',
-      'Enter — view user',
+      'Enter — open user hub',
       'Tab — switch field while editing',
       '←/→ or Space — paginate',
       'ESC — back',
     ]);
-  }, [setBreadcrumbs, setHelpLines]);
+  }, [selectedUser, setBreadcrumbs, setHelpLines]);
 
   const applyFilters = useCallback(() => {
     const normalized = normalizeOrgUnitPath(orgUnitDraft);
@@ -98,94 +101,17 @@ export function ListUsersTui({
     setActiveField(null);
   }, [orgUnitDraft, searchDraft, setCurrentIndex]);
 
-  const clearDetail = useCallback(() => {
-    detail.clear();
-    actions.resetStatus();
-    setSelectedUser(null);
-  }, [actions, detail]);
-
-  const openUserActions = useCallback((email: string) => {
-    clearDetail();
-    setActionsEmail(email);
-  }, [clearDetail]);
-
   const handleSelectUser = useCallback(async (userId: string) => {
     const user = rawUsers.find((u) => u.id === userId);
-    if (!user) return;
-
-    actions.resetStatus();
+    if (!user?.primaryEmail) return;
     setSelectedUser(user);
-
-    await detail.open({
-      title: user.primaryEmail,
-      load: async () => {
-        const fullName = [user.name.givenName, user.name.familyName].filter(Boolean).join(' ') || '(none)';
-        const aliases = userDeps.listAliases
-          ? await userDeps.listAliases(user.primaryEmail).catch(() => [])
-          : [];
-        const aliasLine = aliases.length > 0 ? aliases.join(', ') : '(none)';
-
-        return [
-          `Email: ${user.primaryEmail}`,
-          `Name: ${fullName}`,
-          `Org unit: ${user.orgUnitPath}`,
-          `Admin: ${user.isAdmin ? 'yes' : 'no'}`,
-          `Suspended: ${user.suspended ? 'yes' : 'no'}`,
-          `Last login: ${user.lastLoginTime ?? 'unknown'}`,
-          `User ID: ${user.id}`,
-          `Aliases: ${aliasLine}`,
-        ];
-      },
-    });
-  }, [actions, detail, rawUsers, userDeps]);
-
-  const detailPanelActions = useMemo((): TuiDetailAction[] => {
-    if (!selectedUser) return [];
-
-    const userKey = selectedUser.id || selectedUser.primaryEmail;
-
-    return [
-      {
-        key: 'o',
-        label: 'open in Admin',
-        onAction: () => actions.runAction(async () => {
-          await openInBrowser(adminUserUrl(userKey));
-          return 'Opened in Admin Console';
-        }),
-      },
-      {
-        key: 'c',
-        label: 'copy email',
-        onAction: () => actions.runAction(async () => {
-          await copyToClipboard(selectedUser.primaryEmail);
-          return `Copied email: ${selectedUser.primaryEmail}`;
-        }),
-      },
-      {
-        key: 'a',
-        label: 'user actions',
-        onAction: () => actions.runAction(async () => {
-          openUserActions(selectedUser.primaryEmail);
-          return `Opening actions for ${selectedUser.primaryEmail}`;
-        }),
-      },
-      {
-        key: 'l',
-        label: 'login challenge (10 min)',
-        onAction: () => actions.runAction(async () => {
-          const userKey = selectedUser.id || selectedUser.primaryEmail;
-          await openInBrowser(adminUserSecurityUrl(userKey));
-          return `Opened Security for ${selectedUser.primaryEmail}. Click Login challenge → Turn Off For 10 Minutes.`;
-        }),
-      },
-    ];
-  }, [actions, openUserActions, selectedUser]);
+  }, [rawUsers]);
 
   const editing = activeField !== null;
-  const blocked = editing || detail.isOpen;
+  const blocked = editing;
 
   useInput((input, key) => {
-    if (actionsEmail !== null || detail.isOpen) return;
+    if (selectedUser !== null) return;
 
     if (activeField !== null) {
       if (key.escape) {
@@ -213,27 +139,16 @@ export function ListUsersTui({
     }
   });
 
-  if (actionsEmail !== null) {
+  if (selectedUser) {
     return (
-      <UserActionsTui
+      <UserHubTui
+        user={selectedUser}
         userDeps={userDeps as Required<WorkspaceUserCommandDeps>}
-        prefillEmail={actionsEmail}
-        onCancel={() => setActionsEmail(null)}
-      />
-    );
-  }
-
-  if (detail.isOpen) {
-    return (
-      <TuiDetailPanel
-        title={detail.title ?? 'User'}
-        lines={detail.lines}
-        loading={detail.loading}
-        error={detail.error}
-        onBack={clearDetail}
-        actions={detailPanelActions}
-        actionStatus={actions.actionStatus}
-        actionBusy={actions.actionBusy}
+        groupDeps={groupDeps}
+        deviceDeps={deviceDeps}
+        reportDeps={reportDeps}
+        breadcrumbRoot={['Workspace', 'Users']}
+        onCancel={() => setSelectedUser(null)}
       />
     );
   }

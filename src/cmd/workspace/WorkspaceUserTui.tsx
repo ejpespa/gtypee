@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Text, useInput } from 'ink';
+import { useInput } from 'ink';
 import SelectInput from 'ink-select-input';
 import { useTuiNavigation } from '../tui/TuiNavigationContext.js';
 import { TuiScreenShell } from '../tui/TuiScreenShell.js';
@@ -9,15 +9,28 @@ import { DeletedUsersTui } from './DeletedUsersTui.js';
 import { InactiveUsersTui } from './InactiveUsersTui.js';
 import { ListUsersTui } from './ListUsersTui.js';
 import { UserActionsTui } from './UserActionsTui.js';
-import type { WorkspaceReportCommandDeps, WorkspaceUserCommandDeps } from './commands.js';
+import type {
+  WorkspaceDeviceCommandDeps,
+  WorkspaceGroupCommandDeps,
+  WorkspaceReportCommandDeps,
+  WorkspaceUserCommandDeps,
+} from './commands.js';
 
 export interface WorkspaceUserTuiProps {
   userDeps: Required<WorkspaceUserCommandDeps>;
-  reportDeps?: Required<WorkspaceReportCommandDeps>;
+  reportDeps: Required<WorkspaceReportCommandDeps>;
+  groupDeps: Required<WorkspaceGroupCommandDeps>;
+  deviceDeps: Required<WorkspaceDeviceCommandDeps>;
   onCancel?: () => void;
 }
 
-export function WorkspaceUserTui({ userDeps, reportDeps, onCancel }: WorkspaceUserTuiProps) {
+export function WorkspaceUserTui({
+  userDeps,
+  reportDeps,
+  groupDeps,
+  deviceDeps,
+  onCancel,
+}: WorkspaceUserTuiProps) {
   const { setBreadcrumbs, setHelpLines } = useTuiNavigation();
   const [activeView, setActiveView] = useState<string | null>(null);
 
@@ -63,6 +76,9 @@ export function WorkspaceUserTui({ userDeps, reportDeps, onCancel }: WorkspaceUs
     return (
       <ListUsersTui
         userDeps={userDeps}
+        groupDeps={groupDeps}
+        deviceDeps={deviceDeps}
+        reportDeps={reportDeps}
         onCancel={() => setActiveView(null)}
       />
     );
@@ -72,6 +88,9 @@ export function WorkspaceUserTui({ userDeps, reportDeps, onCancel }: WorkspaceUs
     return (
       <InactiveUsersTui
         userDeps={userDeps}
+        groupDeps={groupDeps}
+        deviceDeps={deviceDeps}
+        reportDeps={reportDeps}
         onCancel={() => setActiveView(null)}
       />
     );
@@ -87,15 +106,6 @@ export function WorkspaceUserTui({ userDeps, reportDeps, onCancel }: WorkspaceUs
   }
 
   if (activeView === 'recover-deleted-user') {
-    if (!reportDeps) {
-      return (
-        <Box flexDirection="column" flexGrow={1}>
-          <Text color="red">Deleted user recovery requires report dependencies.</Text>
-          <Text color="gray">Use Workspace Admin → Reports → Deleted Users.</Text>
-        </Box>
-      );
-    }
-
     return (
       <DeletedUsersTui
         reportDeps={reportDeps}

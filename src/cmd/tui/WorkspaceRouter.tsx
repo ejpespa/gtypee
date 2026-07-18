@@ -61,6 +61,8 @@ export function WorkspaceRouter({ deps, onCancel }: WorkspaceRouterProps) {
       <WorkspaceUserTui
         userDeps={deps.userDeps}
         reportDeps={deps.reportDeps}
+        groupDeps={deps.groupDeps}
+        deviceDeps={deps.deviceDeps}
         onCancel={() => setActiveSubMenu(null)}
       />
     );
@@ -89,6 +91,9 @@ export function WorkspaceRouter({ deps, onCancel }: WorkspaceRouterProps) {
       <WorkspaceOrgTui
         orgDeps={deps.orgDeps}
         userDeps={deps.userDeps}
+        groupDeps={deps.groupDeps}
+        deviceDeps={deps.deviceDeps}
+        reportDeps={deps.reportDeps}
         onCancel={() => setActiveSubMenu(null)}
       />
     );

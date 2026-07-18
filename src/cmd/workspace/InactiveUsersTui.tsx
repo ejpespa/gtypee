@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import {
   DEFAULT_TUI_PAGE_SIZE,
@@ -6,19 +6,22 @@ import {
 } from '../tui/pagination.js';
 import { filterItemsByQuery } from '../tui/search.js';
 import { TuiSearchControls } from '../tui/TuiSearchControls.js';
-import { TuiDetailPanel } from '../tui/TuiDetailPanel.js';
-import type { TuiDetailAction } from '../tui/TuiDetailPanel.js';
 import { TuiListScreen } from '../tui/TuiListScreen.js';
-import { adminUserUrl } from '../tui/resourceLinks.js';
-import { copyToClipboard, openInBrowser } from '../tui/systemActions.js';
-import { useDetailView } from '../tui/hooks/useDetailView.js';
-import { useDetailActions } from '../tui/hooks/useDetailActions.js';
 import { useTuiNavigation } from '../tui/TuiNavigationContext.js';
-import { UserActionsTui } from './UserActionsTui.js';
-import type { WorkspaceUserCommandDeps, WorkspaceUser } from './commands.js';
+import { UserHubTui } from './UserHubTui.js';
+import type {
+  WorkspaceUserCommandDeps,
+  WorkspaceUser,
+  WorkspaceGroupCommandDeps,
+  WorkspaceDeviceCommandDeps,
+  WorkspaceReportCommandDeps,
+} from './commands.js';
 
 export interface InactiveUsersTuiProps {
   userDeps: Required<WorkspaceUserCommandDeps>;
+  groupDeps: Required<WorkspaceGroupCommandDeps>;
+  deviceDeps: Required<WorkspaceDeviceCommandDeps>;
+  reportDeps: Required<WorkspaceReportCommandDeps>;
   days?: number;
   onCancel?: () => void;
 }
@@ -31,7 +34,14 @@ function formatUserLabel(user: WorkspaceUser): string {
   return `${user.primaryEmail}${adminTag}${susTag}${namePart}`;
 }
 
-export function InactiveUsersTui({ userDeps, days = 365, onCancel }: InactiveUsersTuiProps) {
+export function InactiveUsersTui({
+  userDeps,
+  groupDeps,
+  deviceDeps,
+  reportDeps,
+  days = 365,
+  onCancel,
+}: InactiveUsersTuiProps) {
   const { setBreadcrumbs, setHelpLines } = useTuiNavigation();
 
   const [users, setUsers] = useState<WorkspaceUser[]>([]);
@@ -45,10 +55,6 @@ export function InactiveUsersTui({ userDeps, days = 365, onCancel }: InactiveUse
   const [isEditingSearch, setIsEditingSearch] = useState(false);
 
   const [selectedUser, setSelectedUser] = useState<WorkspaceUser | null>(null);
-  const [actionsEmail, setActionsEmail] = useState<string | null>(null);
-
-  const detail = useDetailView();
-  const actions = useDetailActions();
 
   const applySearch = useCallback(() => {
     setAppliedSearch(searchDraft.trim());
@@ -57,16 +63,16 @@ export function InactiveUsersTui({ userDeps, days = 365, onCancel }: InactiveUse
   }, [searchDraft]);
 
   useEffect(() => {
+    if (selectedUser) return;
     setBreadcrumbs(['Workspace', 'Users', 'Inactive']);
     setHelpLines([
       'n — toggle never signed in only',
       '/ or s — search',
-      'Enter — view user',
-      'a — user actions (in detail)',
+      'Enter — open user hub',
       '←/→ or Space — paginate',
       'ESC — back',
     ]);
-  }, [setBreadcrumbs, setHelpLines]);
+  }, [selectedUser, setBreadcrumbs, setHelpLines]);
 
   useEffect(() => {
     let active = true;
@@ -112,84 +118,16 @@ export function InactiveUsersTui({ userDeps, days = 365, onCancel }: InactiveUse
     ? 'Users who have never signed in'
     : `Inactive users (no login in ${days} days)`;
 
-  const clearDetail = useCallback(() => {
-    detail.clear();
-    actions.resetStatus();
-    setSelectedUser(null);
-  }, [actions, detail]);
-
-  const openUserActions = useCallback((email: string) => {
-    clearDetail();
-    setActionsEmail(email);
-  }, [clearDetail]);
-
   const handleSelectUser = useCallback(async (userId: string) => {
     const user = filteredUsers.find((u) => u.id === userId);
-    if (!user) return;
-
-    actions.resetStatus();
+    if (!user?.primaryEmail) return;
     setSelectedUser(user);
+  }, [filteredUsers]);
 
-    await detail.open({
-      title: user.primaryEmail,
-      load: async () => {
-        const fullName = [user.name.givenName, user.name.familyName].filter(Boolean).join(' ') || '(none)';
-        const aliases = userDeps.listAliases
-          ? await userDeps.listAliases(user.primaryEmail).catch(() => [])
-          : [];
-        const aliasLine = aliases.length > 0 ? aliases.join(', ') : '(none)';
-
-        return [
-          `Email: ${user.primaryEmail}`,
-          `Name: ${fullName}`,
-          `Org unit: ${user.orgUnitPath}`,
-          `Admin: ${user.isAdmin ? 'yes' : 'no'}`,
-          `Suspended: ${user.suspended ? 'yes' : 'no'}`,
-          `Last login: ${user.lastLoginTime ?? 'unknown'}`,
-          `User ID: ${user.id}`,
-          `Aliases: ${aliasLine}`,
-        ];
-      },
-    });
-  }, [actions, detail, filteredUsers, userDeps]);
-
-  const detailPanelActions = useMemo((): TuiDetailAction[] => {
-    if (!selectedUser) return [];
-
-    const userKey = selectedUser.id || selectedUser.primaryEmail;
-
-    return [
-      {
-        key: 'o',
-        label: 'open in Admin',
-        onAction: () => actions.runAction(async () => {
-          await openInBrowser(adminUserUrl(userKey));
-          return 'Opened in Admin Console';
-        }),
-      },
-      {
-        key: 'c',
-        label: 'copy email',
-        onAction: () => actions.runAction(async () => {
-          await copyToClipboard(selectedUser.primaryEmail);
-          return `Copied email: ${selectedUser.primaryEmail}`;
-        }),
-      },
-      {
-        key: 'a',
-        label: 'user actions',
-        onAction: () => actions.runAction(async () => {
-          openUserActions(selectedUser.primaryEmail);
-          return `Opening actions for ${selectedUser.primaryEmail}`;
-        }),
-      },
-    ];
-  }, [actions, openUserActions, selectedUser]);
-
-  const blocked = isEditingSearch || detail.isOpen || actionsEmail !== null;
+  const blocked = isEditingSearch;
 
   useInput((input, key) => {
-    if (actionsEmail !== null || detail.isOpen) return;
+    if (selectedUser !== null) return;
 
     if (isEditingSearch) {
       if (key.escape) {
@@ -214,27 +152,16 @@ export function InactiveUsersTui({ userDeps, days = 365, onCancel }: InactiveUse
     }
   });
 
-  if (actionsEmail !== null) {
+  if (selectedUser) {
     return (
-      <UserActionsTui
+      <UserHubTui
+        user={selectedUser}
         userDeps={userDeps}
-        prefillEmail={actionsEmail}
-        onCancel={() => setActionsEmail(null)}
-      />
-    );
-  }
-
-  if (detail.isOpen) {
-    return (
-      <TuiDetailPanel
-        title={detail.title ?? 'User'}
-        lines={detail.lines}
-        loading={detail.loading}
-        error={detail.error}
-        onBack={clearDetail}
-        actions={detailPanelActions}
-        actionStatus={actions.actionStatus}
-        actionBusy={actions.actionBusy}
+        groupDeps={groupDeps}
+        deviceDeps={deviceDeps}
+        reportDeps={reportDeps}
+        breadcrumbRoot={['Workspace', 'Users', 'Inactive']}
+        onCancel={() => setSelectedUser(null)}
       />
     );
   }
