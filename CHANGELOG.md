@@ -1,3 +1,19 @@
+# [1.22.0](https://github.com/ejpespa/gtypee/compare/v1.21.0...v1.22.0) (2026-08-10)
+
+
+### Bug Fixes
+
+* **tui:** distinguish unknown recovery info and avoid stale fetch overwrite ([03453fa](https://github.com/ejpespa/gtypee/commit/03453fa7c9bd031e422645ac4b9192d894f0f21c))
+
+
+### Features
+
+* **tui:** show and edit recovery info in User Hub ([cb405d6](https://github.com/ejpespa/gtypee/commit/cb405d6b32691ce7774e6e3d29c271ebee0ae8eb))
+* **workspace:** add buildRecoveryInfoPatch helper ([87a083e](https://github.com/ejpespa/gtypee/commit/87a083e6eb197f6c940817093a30c6a9f4875b0c))
+* **workspace:** add getUserRecovery and setRecoveryInfo dep types ([9e04c21](https://github.com/ejpespa/gtypee/commit/9e04c217b1bcc93cabef0824a6fe7e00adbdc075))
+* **workspace:** add RecoveryInfoWizard component ([a6d337a](https://github.com/ejpespa/gtypee/commit/a6d337a0cbad4dc4282e0736f1bc8eddcc6255f2))
+* **workspace:** implement getUserRecovery and setRecoveryInfo via Admin SDK ([8ab5ee9](https://github.com/ejpespa/gtypee/commit/8ab5ee945bf2e252ea38ae6b5ddcdac713ab33b2))
+
 # [1.21.0](https://github.com/ejpespa/gtypee/compare/v1.20.0...v1.21.0) (2026-08-10)
 
 
