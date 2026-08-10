@@ -1,3 +1,10 @@
+## [1.22.1](https://github.com/ejpespa/gtypee/compare/v1.22.0...v1.22.1) (2026-08-10)
+
+
+### Bug Fixes
+
+* **workspace:** surface real API error from setRecoveryInfo ([b29aead](https://github.com/ejpespa/gtypee/commit/b29aeada482bc71ec7347b4156e507a5b60d8675))
+
 # [1.22.0](https://github.com/ejpespa/gtypee/compare/v1.21.0...v1.22.0) (2026-08-10)
 
 
