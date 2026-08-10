@@ -1,3 +1,10 @@
+# [1.23.0](https://github.com/ejpespa/gtypee/compare/v1.22.1...v1.23.0) (2026-08-10)
+
+
+### Features
+
+* **tui:** skip email prompt in user action wizards when opened from User Hub ([d891faa](https://github.com/ejpespa/gtypee/commit/d891faacf3a35f15f4a2deaaf7d3365b73d81267))
+
 ## [1.22.1](https://github.com/ejpespa/gtypee/compare/v1.22.0...v1.22.1) (2026-08-10)
 
 
