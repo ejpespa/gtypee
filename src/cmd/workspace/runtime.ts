@@ -307,8 +307,9 @@ export function buildWorkspaceUserCommandDeps(options: ServiceRuntimeOptions): R
           requestBody: patch,
         });
         return { email, ...patch, applied: true };
-      } catch {
-        return { email, applied: false };
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : String(err);
+        throw new Error(`Failed to update recovery info for ${email}: ${reason}`);
       }
     },
 
