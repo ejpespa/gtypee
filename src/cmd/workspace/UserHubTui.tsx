@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import SelectInput from 'ink-select-input';
 import { TuiKeybar } from '../tui/TuiKeybar.js';
@@ -7,12 +7,14 @@ import { adminUserSecurityUrl, adminUserUrl } from '../tui/resourceLinks.js';
 import { copyToClipboard, openInBrowser } from '../tui/systemActions.js';
 import { useDetailActions } from '../tui/hooks/useDetailActions.js';
 import { useTuiNavigation } from '../tui/TuiNavigationContext.js';
+import { RecoveryInfoWizard } from './RecoveryInfoWizard.js';
 import { UserActionsTui } from './UserActionsTui.js';
 import { UserGroupsTui } from './UserGroupsTui.js';
 import { UserDevicesTui } from './UserDevicesTui.js';
 import { LoginAuditTui } from './LoginAuditTui.js';
 import { AdminAuditTui } from './AdminAuditTui.js';
 import type {
+  UserRecoveryInfo,
   WorkspaceUser,
   WorkspaceUserCommandDeps,
   WorkspaceGroupCommandDeps,
@@ -33,7 +35,8 @@ export interface UserHubTuiProps {
 type HubView =
   | { kind: 'hub' }
   | { kind: 'related'; target: 'groups' | 'devices' | 'login-audit' | 'admin-audit' }
-  | { kind: 'actions' };
+  | { kind: 'actions' }
+  | { kind: 'recovery' };
 
 const RELATED_ITEMS = [
   { label: 'Groups', value: 'groups' },
@@ -54,10 +57,14 @@ export function UserHubTui({
   const { setBreadcrumbs, setHelpLines } = useTuiNavigation();
   const [view, setView] = useState<HubView>({ kind: 'hub' });
   const [aliases, setAliases] = useState<string[] | null>(null);
+  const [recovery, setRecovery] = useState<UserRecoveryInfo | null>(null);
+  const [recoveryFailed, setRecoveryFailed] = useState(false);
+  const recoverySavedRef = useRef(false);
   const actions = useDetailActions();
 
   useEffect(() => {
     let active = true;
+    recoverySavedRef.current = false;
     if (userDeps.listAliases) {
       userDeps
         .listAliases(user.primaryEmail)
@@ -70,6 +77,20 @@ export function UserHubTui({
     } else {
       setAliases([]);
     }
+    userDeps
+      .getUserRecovery(user.primaryEmail)
+      .then((info) => {
+        if (active && !recoverySavedRef.current) {
+          setRecovery(info);
+          setRecoveryFailed(false);
+        }
+      })
+      .catch(() => {
+        if (active && !recoverySavedRef.current) {
+          setRecovery({});
+          setRecoveryFailed(true);
+        }
+      });
     return () => {
       active = false;
     };
@@ -81,6 +102,7 @@ export function UserHubTui({
     setHelpLines([
       'Enter — open related view for this user',
       'a — user actions (password, suspend, …)',
+      'e — edit recovery info (email, phone)',
       'o — open in Admin Console · c — copy email · l — login challenge',
       'ESC — back to user list',
       'Related: groups, devices, login audit, admin audit (30 days)',
@@ -106,10 +128,12 @@ export function UserHubTui({
       `Admin: ${user.isAdmin ? 'yes' : 'no'}`,
       `Suspended: ${user.suspended ? 'yes' : 'no'}`,
       `Last login: ${user.lastLoginTime ?? 'unknown'}`,
+      `Recovery email: ${recoveryFailed ? '(unknown)' : recovery === null ? 'loading…' : recovery.recoveryEmail ?? '(none)'}`,
+      `Recovery phone: ${recoveryFailed ? '(unknown)' : recovery === null ? 'loading…' : recovery.recoveryPhone ?? '(none)'}`,
       `User ID: ${user.id}`,
       `Aliases: ${aliasLine}`,
     ];
-  }, [aliases, user]);
+  }, [aliases, recovery, recoveryFailed, user]);
 
   useInput((input, key) => {
     if (view.kind !== 'hub' || actions.actionBusy) return;
@@ -119,6 +143,10 @@ export function UserHubTui({
     }
     if (input === 'a') {
       setView({ kind: 'actions' });
+      return;
+    }
+    if (input === 'e') {
+      setView({ kind: 'recovery' });
       return;
     }
     if (input === 'c') {
@@ -146,6 +174,22 @@ export function UserHubTui({
   });
 
   const backToHub = useCallback(() => setView({ kind: 'hub' }), []);
+
+  if (view.kind === 'recovery') {
+    return (
+      <RecoveryInfoWizard
+        userDeps={userDeps}
+        email={user.primaryEmail}
+        current={recovery ?? {}}
+        onSaved={(info) => {
+          recoverySavedRef.current = true;
+          setRecovery((prev) => ({ ...prev, ...info }));
+          setRecoveryFailed(false);
+        }}
+        onCancel={backToHub}
+      />
+    );
+  }
 
   if (view.kind === 'actions') {
     return (
@@ -224,7 +268,7 @@ export function UserHubTui({
         </Box>
       ) : null}
       <TuiKeybar detailEnabled={false} refreshEnabled={false} />
-      <Text color="gray">a actions · o Admin · c copy · l challenge · ESC back</Text>
+      <Text color="gray">a actions · e recovery · o Admin · c copy · l challenge · ESC back</Text>
     </TuiScreenShell>
   );
 }

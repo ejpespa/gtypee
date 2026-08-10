@@ -16,6 +16,8 @@ import {
   type UnsuspendUserResult,
   type SetAdminResult,
   type ResetPasswordResult,
+  type UserRecoveryInfo,
+  type RecoveryInfoResult,
   type SetOrgUnitResult,
   type AliasResult,
   type PhotoResult,
@@ -47,6 +49,7 @@ import {
   type DeleteOrgUnitResult,
 } from "./commands.js";
 import { generatePassword } from "./password.js";
+import { buildRecoveryInfoPatch } from "./recoveryInfo.js";
 
 export function buildWorkspaceUserCommandDeps(options: ServiceRuntimeOptions): Required<WorkspaceUserCommandDeps> {
   const runtime = new ServiceRuntime(options);
@@ -270,6 +273,42 @@ export function buildWorkspaceUserCommandDeps(options: ServiceRuntimeOptions): R
         return { email, newPassword, applied: true };
       } catch {
         return { email, newPassword: "", applied: false };
+      }
+    },
+
+    getUserRecovery: async (email: string): Promise<UserRecoveryInfo> => {
+      const auth = await runtime.getClient(scopes("workspace"));
+      const admin = google.admin({ version: "directory_v1", auth });
+
+      const response = await admin.users.get({
+        userKey: email,
+        projection: "full",
+        fields: "recoveryEmail,recoveryPhone",
+      });
+
+      const info: UserRecoveryInfo = {};
+      if (response.data.recoveryEmail) info.recoveryEmail = response.data.recoveryEmail;
+      if (response.data.recoveryPhone) info.recoveryPhone = response.data.recoveryPhone;
+      return info;
+    },
+
+    setRecoveryInfo: async (email: string, info: { recoveryEmail?: string; recoveryPhone?: string }): Promise<RecoveryInfoResult> => {
+      const patch = buildRecoveryInfoPatch(info);
+      if (!patch) {
+        return { email, applied: false };
+      }
+
+      const auth = await runtime.getClient(scopes("workspace"));
+      const admin = google.admin({ version: "directory_v1", auth });
+
+      try {
+        await admin.users.update({
+          userKey: email,
+          requestBody: patch,
+        });
+        return { email, ...patch, applied: true };
+      } catch {
+        return { email, applied: false };
       }
     },
 

@@ -30,6 +30,8 @@ export type WorkspaceUserCommandDeps = {
   addAliasBatch?: (mappings: Array<{ email: string; alias: string }>) => Promise<{ added: number; failed: number; results: Array<{ email: string; alias: string; success: boolean }> }>;
   listInactiveUsers?: (days: number, neverOnly?: boolean) => Promise<WorkspaceUser[]>;
   recoverUser?: (userId: string, orgUnitPath?: string) => Promise<RecoverUserResult>;
+  getUserRecovery?: (email: string) => Promise<UserRecoveryInfo>;
+  setRecoveryInfo?: (email: string, info: { recoveryEmail?: string; recoveryPhone?: string }) => Promise<RecoveryInfoResult>;
 };
 
 // Migration types
@@ -129,6 +131,18 @@ export type BackupCodesResult = {
 
 export type RecoverUserResult = {
   userId: string;
+  applied: boolean;
+};
+
+export type UserRecoveryInfo = {
+  recoveryEmail?: string;
+  recoveryPhone?: string;
+};
+
+export type RecoveryInfoResult = {
+  email: string;
+  recoveryEmail?: string;
+  recoveryPhone?: string;
   applied: boolean;
 };
 
@@ -322,6 +336,8 @@ const defaultUserDeps: Required<WorkspaceUserCommandDeps> = {
   addAliasBatch: async () => ({ added: 0, failed: 0, results: [] }),
   listInactiveUsers: async () => [],
   recoverUser: async () => ({ userId: "", applied: false }),
+  getUserRecovery: async () => ({}),
+  setRecoveryInfo: async () => ({ email: "", applied: false }),
 };
 
 const defaultGroupDeps: Required<WorkspaceGroupCommandDeps> = {
