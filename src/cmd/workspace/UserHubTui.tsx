@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import SelectInput from 'ink-select-input';
 import { TuiKeybar } from '../tui/TuiKeybar.js';
@@ -58,10 +58,13 @@ export function UserHubTui({
   const [view, setView] = useState<HubView>({ kind: 'hub' });
   const [aliases, setAliases] = useState<string[] | null>(null);
   const [recovery, setRecovery] = useState<UserRecoveryInfo | null>(null);
+  const [recoveryFailed, setRecoveryFailed] = useState(false);
+  const recoverySavedRef = useRef(false);
   const actions = useDetailActions();
 
   useEffect(() => {
     let active = true;
+    recoverySavedRef.current = false;
     if (userDeps.listAliases) {
       userDeps
         .listAliases(user.primaryEmail)
@@ -77,10 +80,16 @@ export function UserHubTui({
     userDeps
       .getUserRecovery(user.primaryEmail)
       .then((info) => {
-        if (active) setRecovery(info);
+        if (active && !recoverySavedRef.current) {
+          setRecovery(info);
+          setRecoveryFailed(false);
+        }
       })
       .catch(() => {
-        if (active) setRecovery({});
+        if (active && !recoverySavedRef.current) {
+          setRecovery({});
+          setRecoveryFailed(true);
+        }
       });
     return () => {
       active = false;
@@ -119,12 +128,12 @@ export function UserHubTui({
       `Admin: ${user.isAdmin ? 'yes' : 'no'}`,
       `Suspended: ${user.suspended ? 'yes' : 'no'}`,
       `Last login: ${user.lastLoginTime ?? 'unknown'}`,
-      `Recovery email: ${recovery === null ? 'loading…' : recovery.recoveryEmail ?? '(none)'}`,
-      `Recovery phone: ${recovery === null ? 'loading…' : recovery.recoveryPhone ?? '(none)'}`,
+      `Recovery email: ${recoveryFailed ? '(unknown)' : recovery === null ? 'loading…' : recovery.recoveryEmail ?? '(none)'}`,
+      `Recovery phone: ${recoveryFailed ? '(unknown)' : recovery === null ? 'loading…' : recovery.recoveryPhone ?? '(none)'}`,
       `User ID: ${user.id}`,
       `Aliases: ${aliasLine}`,
     ];
-  }, [aliases, recovery, user]);
+  }, [aliases, recovery, recoveryFailed, user]);
 
   useInput((input, key) => {
     if (view.kind !== 'hub' || actions.actionBusy) return;
@@ -173,7 +182,9 @@ export function UserHubTui({
         email={user.primaryEmail}
         current={recovery ?? {}}
         onSaved={(info) => {
+          recoverySavedRef.current = true;
           setRecovery((prev) => ({ ...prev, ...info }));
+          setRecoveryFailed(false);
         }}
         onCancel={backToHub}
       />
