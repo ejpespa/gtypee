@@ -1,3 +1,28 @@
+# [1.21.0](https://github.com/ejpespa/gtypee/compare/v1.20.0...v1.21.0) (2026-08-10)
+
+
+### Bug Fixes
+
+* **tui:** distinguish unknown recovery info and avoid stale fetch overwrite ([03453fa](https://github.com/ejpespa/gtypee/commit/03453fa7c9bd031e422645ac4b9192d894f0f21c))
+* **tui:** parent ESC no longer steals User Hub back stack ([5e6237a](https://github.com/ejpespa/gtypee/commit/5e6237af87ac9f018ed5d5234bc11d569132dea8))
+
+
+### Features
+
+* **tui:** add UserDevicesTui for user hub related devices ([27bbf23](https://github.com/ejpespa/gtypee/commit/27bbf23d45e9e4b87528fd3abceb32dd19bef51b))
+* **tui:** add UserGroupsTui for user hub related groups ([eef99fa](https://github.com/ejpespa/gtypee/commit/eef99fa5a39518a9b6edbfb8590f9921c1534f6b))
+* **tui:** add UserHubTui with related navigation ([8a15f4c](https://github.com/ejpespa/gtypee/commit/8a15f4c5c61412db2ad0f47224c745adb46fc346))
+* **tui:** filter login and admin audit by user email ([0b1ea77](https://github.com/ejpespa/gtypee/commit/0b1ea773b18602447f925b09cf8492ad9281ea9b))
+* **tui:** open User Hub from list and inactive users ([f3efb77](https://github.com/ejpespa/gtypee/commit/f3efb771acc17ccc418e1ef8614d6a9f88d5a12b))
+* **tui:** send Google Chat messages by email or space ([a4f5607](https://github.com/ejpespa/gtypee/commit/a4f5607e1709e208fe66066ed1d1dfe1ef154e66))
+* **tui:** show and edit recovery info in User Hub ([cb405d6](https://github.com/ejpespa/gtypee/commit/cb405d6b32691ce7774e6e3d29c271ebee0ae8eb))
+* **workspace:** add buildRecoveryInfoPatch helper ([87a083e](https://github.com/ejpespa/gtypee/commit/87a083e6eb197f6c940817093a30c6a9f4875b0c))
+* **workspace:** add getUserRecovery and setRecoveryInfo dep types ([9e04c21](https://github.com/ejpespa/gtypee/commit/9e04c217b1bcc93cabef0824a6fe7e00adbdc075))
+* **workspace:** add listGroupsForUser for user hub ([df1eecf](https://github.com/ejpespa/gtypee/commit/df1eecfb1c13c65ae641b1a64047fb053b83bce2))
+* **workspace:** add RecoveryInfoWizard component ([a6d337a](https://github.com/ejpespa/gtypee/commit/a6d337a0cbad4dc4282e0736f1bc8eddcc6255f2))
+* **workspace:** add user hub filter helpers ([570be47](https://github.com/ejpespa/gtypee/commit/570be47c01919e8a3e0c9f08db7ad36c146b4cf8))
+* **workspace:** implement getUserRecovery and setRecoveryInfo via Admin SDK ([8ab5ee9](https://github.com/ejpespa/gtypee/commit/8ab5ee945bf2e252ea38ae6b5ddcdac713ab33b2))
+
 # [1.21.0](https://github.com/ejpespa/gtypee/compare/v1.20.0...v1.21.0) (2026-07-18)
 
 
