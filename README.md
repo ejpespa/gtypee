@@ -148,7 +148,7 @@ Pick a service from the Master Dashboard sidebar: **Workspace Admin**, Gmail, Dr
 | Section | What's in the TUI |
 |---------|-------------------|
 | **Reports** | Deleted users · Login audit · Admin audit |
-| **User Management** | List users by org unit (domain-wide name/email search) · **User Hub** (Related: groups, devices, login/admin audit) · Inactive users · Create user wizard · User actions menu · Recover deleted user |
+| **User Management** | List users by org unit (domain-wide name/email search) · **User Hub** (Related: groups, devices, login/admin audit; edit recovery email/phone) · Inactive users · Create user wizard · User actions menu · Recover deleted user |
 | **Group Management** | Create group · List groups · List members · Add/remove members · Delete group |
 | **Device Management** | List devices · Wipe device · Disable device |
 | **Org Unit Management** | Create org unit · List org units · Update · Delete |
@@ -157,7 +157,7 @@ Pick a service from the Master Dashboard sidebar: **Workspace Admin**, Gmail, Dr
 
 \* *Turn off login challenge* opens the [Admin Console Security](https://admin.google.com/ac/security) page for the user — Google has no public API for a timed identity-question bypass.
 
-**User Hub:** From List Users or Inactive Users, **Enter** opens a **User Hub** for that account (profile + Related). Related drill-downs stay scoped to the selected user:
+**User Hub:** From List Users or Inactive Users, **Enter** opens a **User Hub** for that account (profile incl. recovery email/phone + Related). Press **e** to edit recovery info inline (blank fields keep current values). Related drill-downs stay scoped to the selected user:
 
 | Related | What you get |
 |---------|----------------|
