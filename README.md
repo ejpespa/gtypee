@@ -166,7 +166,7 @@ Pick a service from the Master Dashboard sidebar: **Workspace Admin**, Gmail, Dr
 | **Login audit (30d)** | Login events for that user only |
 | **Admin audit (30d)** | Admin console activity for that user only |
 
-**ESC** returns to the hub from a Related view, then to the user list. Hub keys: **a** user actions · **o** open in Admin Console · **c** copy email · **l** login challenge (Security page).
+**ESC** returns to the hub from a Related view, then to the user list. Hub keys: **a** user actions · **e** recovery info · **o** open in Admin Console · **c** copy email · **l** login challenge (Security page).
 
 ### Productivity services
 
@@ -195,7 +195,7 @@ Pick a service from the Master Dashboard sidebar: **Workspace Admin**, Gmail, Dr
 | **ESC** | Go back one level (Related → hub → list → menu; quit from service picker) |
 | **q** | Quit from the main service picker |
 | **?** | Toggle context-sensitive help overlay |
-| **a** / **o** / **c** / **l** | On User Hub: actions · Admin · copy email · login challenge |
+| **a** / **e** / **o** / **c** / **l** | On User Hub: actions · recovery info · Admin · copy email · login challenge |
 
 Workspace user search runs domain-wide via the Admin SDK (not just the current page). Press **Enter** in the search field to apply filters.
 
