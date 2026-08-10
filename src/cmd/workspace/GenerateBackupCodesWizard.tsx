@@ -18,7 +18,7 @@ export function GenerateBackupCodesWizard({ userDeps, prefillEmail, onCancel }: 
           key: 'email',
           label: 'Email',
           required: true,
-          ...(prefillEmail ? { initialValue: prefillEmail } : {}),
+          ...(prefillEmail ? { fixedValue: prefillEmail } : {}),
         },
       ]}
       summary={(values) => [

@@ -11,6 +11,8 @@ export type TuiWizardField = {
   required?: boolean;
   multiline?: boolean;
   initialValue?: string;
+  /** Pre-set value not shown or editable; included in submitted values. */
+  fixedValue?: string;
 };
 
 export type TuiWizardProps = {
@@ -28,7 +30,7 @@ type WizardPhase = 'fields' | 'confirm' | 'running' | 'result';
 
 function initialValues(fields: TuiWizardField[]): Record<string, string> {
   return Object.fromEntries(
-    fields.map((field) => [field.key, field.initialValue ?? '']),
+    fields.map((field) => [field.key, field.fixedValue ?? field.initialValue ?? '']),
   );
 }
 
@@ -43,6 +45,7 @@ export function TuiWizard({
   onSensitiveCopy,
 }: TuiWizardProps) {
   const [phase, setPhase] = useState<WizardPhase>('fields');
+  const editableFields = useMemo(() => fields.filter((field) => field.fixedValue === undefined), [fields]);
   const [fieldIndex, setFieldIndex] = useState(0);
   const [values, setValues] = useState<Record<string, string>>(() => initialValues(fields));
   const [draft, setDraft] = useState('');
@@ -50,7 +53,7 @@ export function TuiWizard({
   const [resultMessage, setResultMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const currentField = fields[fieldIndex];
+  const currentField = editableFields[fieldIndex];
   const isMultiline = currentField?.multiline === true;
 
   const confirmText = useMemo(() => {
@@ -76,15 +79,15 @@ export function TuiWizard({
     setDraft('');
     setMultilineLines([]);
 
-    if (fieldIndex < fields.length - 1) {
+    if (fieldIndex < editableFields.length - 1) {
       const nextIndex = fieldIndex + 1;
       setFieldIndex(nextIndex);
-      setDraft(nextValues[fields[nextIndex]!.key] ?? '');
+      setDraft(nextValues[editableFields[nextIndex]!.key] ?? '');
       return;
     }
 
     setPhase('confirm');
-  }, [currentField, fieldIndex, fields, values]);
+  }, [currentField, fieldIndex, editableFields, values]);
 
   const submit = useCallback(async () => {
     setPhase('running');
@@ -113,8 +116,12 @@ export function TuiWizard({
 
     if (phase === 'confirm') {
       if (key.escape || input === 'n') {
-        setFieldIndex(Math.max(0, fields.length - 1));
-        setDraft(values[fields[fields.length - 1]!.key] ?? '');
+        if (editableFields.length === 0) {
+          onCancel();
+          return;
+        }
+        setFieldIndex(Math.max(0, editableFields.length - 1));
+        setDraft(values[editableFields[editableFields.length - 1]!.key] ?? '');
         setPhase('fields');
         return;
       }
@@ -199,11 +206,23 @@ export function TuiWizard({
     );
   }
 
+  if (editableFields.length === 0) {
+    return (
+      <Box flexDirection="column" padding={1} borderStyle="round" borderColor="red">
+        <Text bold color="cyan">{title}</Text>
+        <Text color="red">This wizard has no fields to fill in.</Text>
+        <Box marginTop={1}>
+          <Text color="gray">ESC to go back</Text>
+        </Box>
+      </Box>
+    );
+  }
+
   return (
     <Box flexDirection="column" padding={1} borderStyle="round" borderColor="blue">
       <Text bold color="cyan">{title}</Text>
       <Text color="gray">
-        Step {fieldIndex + 1} of {fields.length}
+        Step {fieldIndex + 1} of {editableFields.length}
       </Text>
       {currentField && (
         <Box marginTop={1} flexDirection="column">

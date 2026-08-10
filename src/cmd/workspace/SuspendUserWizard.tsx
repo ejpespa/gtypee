@@ -18,7 +18,7 @@ export function SuspendUserWizard({ userDeps, prefillEmail, onCancel }: SuspendU
           key: 'email',
           label: 'Email',
           required: true,
-          ...(prefillEmail ? { initialValue: prefillEmail } : {}),
+          ...(prefillEmail ? { fixedValue: prefillEmail } : {}),
         },
       ]}
       summary={(values) => `Suspend user: ${values.email}`}

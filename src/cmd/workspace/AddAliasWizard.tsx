@@ -17,7 +17,7 @@ export function AddAliasWizard({ userDeps, prefillEmail, onCancel }: AddAliasWiz
           key: 'email',
           label: 'User Email',
           required: true,
-          ...(prefillEmail ? { initialValue: prefillEmail } : {}),
+          ...(prefillEmail ? { fixedValue: prefillEmail } : {}),
         },
         {
           key: 'alias',

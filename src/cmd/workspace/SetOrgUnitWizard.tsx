@@ -18,7 +18,7 @@ export function SetOrgUnitWizard({ userDeps, prefillEmail, onCancel }: SetOrgUni
           key: 'email',
           label: 'Email',
           required: true,
-          ...(prefillEmail ? { initialValue: prefillEmail } : {}),
+          ...(prefillEmail ? { fixedValue: prefillEmail } : {}),
         },
         {
           key: 'orgUnitPath',

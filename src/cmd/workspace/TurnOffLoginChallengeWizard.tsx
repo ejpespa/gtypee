@@ -27,7 +27,7 @@ export function TurnOffLoginChallengeWizard({
           key: 'email',
           label: 'Email',
           required: true,
-          ...(prefillEmail ? { initialValue: prefillEmail } : {}),
+          ...(prefillEmail ? { fixedValue: prefillEmail } : {}),
         },
       ]}
       summary={(values) => [

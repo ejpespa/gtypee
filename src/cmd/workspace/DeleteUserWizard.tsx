@@ -18,7 +18,7 @@ export function DeleteUserWizard({ userDeps, prefillEmail, onCancel }: DeleteUse
           key: 'email',
           label: 'Email',
           required: true,
-          ...(prefillEmail ? { initialValue: prefillEmail } : {}),
+          ...(prefillEmail ? { fixedValue: prefillEmail } : {}),
         },
         {
           key: 'confirmEmail',

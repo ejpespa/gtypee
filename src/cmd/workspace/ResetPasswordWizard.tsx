@@ -18,7 +18,7 @@ export function ResetPasswordWizard({ userDeps, prefillEmail, onCancel }: ResetP
           key: 'email',
           label: 'Email',
           required: true,
-          ...(prefillEmail ? { initialValue: prefillEmail } : {}),
+          ...(prefillEmail ? { fixedValue: prefillEmail } : {}),
         },
       ]}
       summary={(values) => `Reset password for ${values.email}\nA new 16-character password will be generated.`}

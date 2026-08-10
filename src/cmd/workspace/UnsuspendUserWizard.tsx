@@ -17,7 +17,7 @@ export function UnsuspendUserWizard({ userDeps, prefillEmail, onCancel }: Unsusp
           key: 'email',
           label: 'Email',
           required: true,
-          ...(prefillEmail ? { initialValue: prefillEmail } : {}),
+          ...(prefillEmail ? { fixedValue: prefillEmail } : {}),
         },
       ]}
       summary={(values) => `Unsuspend user: ${values.email}`}
