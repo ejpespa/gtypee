@@ -1,3 +1,10 @@
+## [1.23.1](https://github.com/ejpespa/gtypee/compare/v1.23.0...v1.23.1) (2026-08-10)
+
+
+### Bug Fixes
+
+* **tui:** send all-fixed-field wizards straight to confirm screen ([2a5cd9a](https://github.com/ejpespa/gtypee/commit/2a5cd9ab95e8ec55c5a989d8b6ed995ea0d27569))
+
 # [1.23.0](https://github.com/ejpespa/gtypee/compare/v1.22.1...v1.23.0) (2026-08-10)
 
 
