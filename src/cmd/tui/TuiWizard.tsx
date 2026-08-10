@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import TextInput from 'ink-text-input';
 import { copyToClipboard } from './systemActions.js';
@@ -47,6 +47,7 @@ export function TuiWizard({
   const [phase, setPhase] = useState<WizardPhase>('fields');
   const editableFields = useMemo(() => fields.filter((field) => field.fixedValue === undefined), [fields]);
   const [fieldIndex, setFieldIndex] = useState(0);
+  const skippedStraightToConfirm = useRef(false);
   const [values, setValues] = useState<Record<string, string>>(() => initialValues(fields));
   const [draft, setDraft] = useState('');
   const [multilineLines, setMultilineLines] = useState<string[]>([]);
@@ -102,6 +103,13 @@ export function TuiWizard({
     }
   }, [onSubmit, values]);
 
+  useEffect(() => {
+    if (phase === 'fields' && editableFields.length === 0) {
+      skippedStraightToConfirm.current = true;
+      setPhase('confirm');
+    }
+  }, [phase, editableFields.length]);
+
   useInput((input, key) => {
     if (phase === 'running') return;
 
@@ -117,6 +125,11 @@ export function TuiWizard({
     if (phase === 'confirm') {
       if (key.escape || input === 'n') {
         if (editableFields.length === 0) {
+          onCancel();
+          return;
+        }
+        if (skippedStraightToConfirm.current) {
+          skippedStraightToConfirm.current = false;
           onCancel();
           return;
         }
@@ -201,18 +214,6 @@ export function TuiWizard({
         )}
         <Box marginTop={1}>
           <Text color="gray">y confirm · n edit · ESC cancel</Text>
-        </Box>
-      </Box>
-    );
-  }
-
-  if (editableFields.length === 0) {
-    return (
-      <Box flexDirection="column" padding={1} borderStyle="round" borderColor="red">
-        <Text bold color="cyan">{title}</Text>
-        <Text color="red">This wizard has no fields to fill in.</Text>
-        <Box marginTop={1}>
-          <Text color="gray">ESC to go back</Text>
         </Box>
       </Box>
     );
