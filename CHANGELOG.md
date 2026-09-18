@@ -1,3 +1,10 @@
+## [1.24.4](https://github.com/ejpespa/gtypee/compare/v1.24.3...v1.24.4) (2026-09-18)
+
+
+### Bug Fixes
+
+* **release:** publish to npm registry with classic automation token ([5e06240](https://github.com/ejpespa/gtypee/commit/5e062404ae43f792aa8ceb99ab0c21792c1e81ac))
+
 ## [1.24.3](https://github.com/ejpespa/gtypee/compare/v1.24.2...v1.24.3) (2026-09-18)
 
 
