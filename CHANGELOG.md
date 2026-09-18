@@ -1,3 +1,10 @@
+## [1.24.1](https://github.com/ejpespa/gtypee/compare/v1.24.0...v1.24.1) (2026-09-18)
+
+
+### Bug Fixes
+
+* **release:** trigger npm registry publication ([654a736](https://github.com/ejpespa/gtypee/commit/654a7360c462355c60e6fbfead16fc84e541ad9d))
+
 # [1.24.0](https://github.com/ejpespa/gtypee/compare/v1.23.1...v1.24.0) (2026-09-18)
 
 
