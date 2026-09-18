@@ -1,3 +1,16 @@
+# [1.24.0](https://github.com/ejpespa/gtypee/compare/v1.23.1...v1.24.0) (2026-09-18)
+
+
+### Bug Fixes
+
+* **release:** stop requiring npm publish auth in release workflow ([c0fc753](https://github.com/ejpespa/gtypee/commit/c0fc753b82827704b8cdde69dd33726387c40144))
+* **workspace:** support global -y and --force flags in user, org, and group delete commands ([cf1b951](https://github.com/ejpespa/gtypee/commit/cf1b95186064c7e61f107bc17b62d8908b9b5e43))
+
+
+### Features
+
+* **workspace:** automated user offboarding pipeline with safety guards and TUI wizard ([aa1d030](https://github.com/ejpespa/gtypee/commit/aa1d0306d2ae6cedf6245000bfa2ff309268aad2))
+
 ## [1.23.1](https://github.com/ejpespa/gtypee/compare/v1.23.0...v1.23.1) (2026-08-10)
 
 
