@@ -550,8 +550,9 @@ export function registerWorkspaceCommands(
       const rootOptions = this.optsWithGlobals() as RootOptions;
       const ctx = buildExecutionContext(rootOptions);
       const opts = this.opts<{ email: string; force: boolean }>();
+      const force = Boolean(opts.force || ctx.force);
 
-      if (!opts.force) {
+      if (!force) {
         process.stdout.write(`Delete user ${opts.email}? Use --force to confirm\n`);
         return;
       }
@@ -1100,8 +1101,9 @@ export function registerWorkspaceCommands(
       }
 
       const orgUnitPath = opts.path ?? opts.id ?? "";
+      const force = Boolean(opts.force || ctx.force);
 
-      if (!opts.force) {
+      if (!force) {
         process.stdout.write(`Delete org unit ${orgUnitPath}? Use --force to confirm\n`);
         return;
       }
@@ -1150,8 +1152,9 @@ export function registerWorkspaceCommands(
       const rootOptions = this.optsWithGlobals() as RootOptions;
       const ctx = buildExecutionContext(rootOptions);
       const opts = this.opts<{ email: string; force: boolean }>();
+      const force = Boolean(opts.force || ctx.force);
 
-      if (!opts.force) {
+      if (!force) {
         process.stdout.write(`Delete group ${opts.email}? Use --force to confirm\n`);
         return;
       }
