@@ -1,3 +1,10 @@
+## [1.24.3](https://github.com/ejpespa/gtypee/compare/v1.24.2...v1.24.3) (2026-09-18)
+
+
+### Bug Fixes
+
+* **release:** publish gtypee to npm with automation token ([895765f](https://github.com/ejpespa/gtypee/commit/895765f97f7b1a1591148417fe44e88bdf7dfd44))
+
 ## [1.24.2](https://github.com/ejpespa/gtypee/compare/v1.24.1...v1.24.2) (2026-09-18)
 
 
