@@ -50,6 +50,14 @@ import {
 } from "./commands.js";
 import { generatePassword } from "./password.js";
 import { buildRecoveryInfoPatch } from "./recoveryInfo.js";
+import { executeOffboardPipeline } from "./offboard/orchestrator.js";
+import type {
+  OffboardUserOptions,
+  OffboardSummary,
+  OffboardPipelineDeps,
+  OffboardStepResult,
+  TargetUserInfo,
+} from "./offboard/types.js";
 
 export function buildWorkspaceUserCommandDeps(options: ServiceRuntimeOptions): Required<WorkspaceUserCommandDeps> {
   const runtime = new ServiceRuntime(options);
@@ -584,6 +592,11 @@ export function buildWorkspaceUserCommandDeps(options: ServiceRuntimeOptions): R
       } while (pageToken);
 
       return users;
+    },
+
+    offboardUser: async (options: OffboardUserOptions, onStepUpdate?: (step: any) => void) => {
+      const offboardDeps = buildWorkspaceOffboardDeps(runtime);
+      return offboardDeps.offboardUser(options, onStepUpdate);
     },
   };
 }
@@ -1357,6 +1370,181 @@ export function buildWorkspaceOrgUnitCommandDeps(options: ServiceRuntimeOptions)
           applied: false,
         };
       }
+    },
+  };
+}
+
+export interface WorkspaceOffboardDeps {
+  offboardUser: (options: OffboardUserOptions, onStepUpdate?: (step: OffboardStepResult) => void) => Promise<OffboardSummary>;
+  getPipelineDeps?: (onStepUpdate?: (step: OffboardStepResult) => void) => Promise<OffboardPipelineDeps>;
+}
+
+export function buildWorkspaceOffboardPipelineDeps(
+  admin: any,
+  datatransfer: any,
+  onStepUpdate?: (step: OffboardStepResult) => void
+): OffboardPipelineDeps {
+  return {
+    getCallerEmail: async (): Promise<string> => {
+      const res = await admin.users.get({ userKey: "me" });
+      return res.data?.primaryEmail ?? "";
+    },
+    getTargetUser: async (email: string): Promise<TargetUserInfo> => {
+      const res = await admin.users.get({ userKey: email });
+      return {
+        id: res.data?.id ?? "",
+        primaryEmail: res.data?.primaryEmail ?? email,
+        isAdmin: res.data?.isAdmin ?? false,
+      };
+    },
+    countActiveAdmins: async (): Promise<number> => {
+      const res = await admin.users.list({
+        customer: "my_customer",
+        query: "isAdmin=true isSuspended=false",
+      });
+      return res.data?.users?.length ?? 0;
+    },
+    demoteAdmin: async (email: string): Promise<{ success: boolean; error?: string }> => {
+      try {
+        await admin.users.makeAdmin({
+          userKey: email,
+          requestBody: { status: false },
+        });
+        return { success: true };
+      } catch (err: any) {
+        return { success: false, error: err?.message ?? String(err) };
+      }
+    },
+    containUser: async (email: string): Promise<{ success: boolean; error?: string }> => {
+      try {
+        const securePass = generatePassword(28);
+        await admin.users.patch({
+          userKey: email,
+          requestBody: {
+            suspended: true,
+            password: securePass,
+            changePasswordAtNextLogin: false,
+            recoveryEmail: "",
+            recoveryPhone: "",
+          },
+        });
+        return { success: true };
+      } catch (err: any) {
+        return { success: false, error: err?.message ?? String(err) };
+      }
+    },
+    evictSessionsAndTokens: async (email: string): Promise<{ success: boolean; tokensRevoked?: number; error?: string }> => {
+      try {
+        let tokensRevoked = 0;
+        // 1. Delete all OAuth application tokens
+        const tokensRes = await admin.tokens.list({ userKey: email });
+        for (const token of tokensRes.data?.items ?? []) {
+          if (token.clientId) {
+            await admin.tokens.delete({ userKey: email, clientId: token.clientId });
+            tokensRevoked++;
+          }
+        }
+        // 2. Invalidate 2FA backup codes
+        try {
+          await admin.twoStepVerification.verificationCodes.invalidate({ userKey: email });
+        } catch {
+          // non-fatal if 2FA not enrolled
+        }
+        // 3. Sign out web sessions
+        await admin.users.signOut({ userKey: email });
+        return { success: true, tokensRevoked };
+      } catch (err: any) {
+        return { success: false, error: err?.message ?? String(err) };
+      }
+    },
+    wipeUserDevices: async (email: string): Promise<{ wipedCount: number; error?: string }> => {
+      try {
+        const listRes = await admin.mobiledevices.list({
+          customerId: "my_customer",
+          query: `email:${email}`,
+        });
+        const devices = listRes.data?.mobiledevices ?? [];
+        for (const dev of devices) {
+          if (dev.resourceId) {
+            await admin.mobiledevices.action({
+              customerId: "my_customer",
+              resourceId: dev.resourceId,
+              requestBody: { action: "wipe_store" }, // SEC-05: Selective wipe only
+            });
+          }
+        }
+        return { wipedCount: devices.length };
+      } catch (err: any) {
+        // Gracefully handle unconfigured MDM (403/404)
+        return { wipedCount: 0, error: err?.message ?? "Mobile management not enabled" };
+      }
+    },
+    transferDriveFiles: async (sourceEmail: string, destEmail: string): Promise<{ success: boolean; transferId?: string; error?: string }> => {
+      try {
+        const [srcUser, destUser] = await Promise.all([
+          admin.users.get({ userKey: sourceEmail }),
+          admin.users.get({ userKey: destEmail }),
+        ]);
+        if (!srcUser.data?.id || !destUser.data?.id) {
+          return { success: false, error: "Could not resolve numeric user IDs for Drive transfer" };
+        }
+        const res = await datatransfer.transfers.insert({
+          requestBody: {
+            oldOwnerUserId: srcUser.data.id,
+            newOwnerUserId: destUser.data.id,
+            applicationDataTransfers: [
+              {
+                applicationId: "435070579839", // Google Drive & Docs Application ID
+                applicationTransferParams: [{ key: "PRIVACY_LEVEL", value: ["SHARED", "PRIVATE"] }],
+              },
+            ],
+          },
+        });
+        return { success: true, transferId: res.data?.id ?? undefined };
+      } catch (err: any) {
+        return { success: false, error: err?.message ?? String(err) };
+      }
+    },
+    removeFromAllGroups: async (email: string): Promise<{ removedCount: number; error?: string }> => {
+      try {
+        const groupsRes = await admin.groups.list({ userKey: email });
+        const groups = groupsRes.data?.groups ?? [];
+        let removedCount = 0;
+        for (const grp of groups) {
+          if (grp.id) {
+            await admin.members.delete({ groupKey: grp.id, memberKey: email });
+            removedCount++;
+          }
+        }
+        return { removedCount };
+      } catch (err: any) {
+        return { removedCount: 0, error: err?.message ?? String(err) };
+      }
+    },
+    onStepUpdate,
+  };
+}
+
+export function buildWorkspaceOffboardDeps(
+  runtimeOrOptions: ServiceRuntime | ServiceRuntimeOptions | { getClient: (scopes: string[]) => Promise<any> }
+): WorkspaceOffboardDeps {
+  const runtime = "getClient" in runtimeOrOptions
+    ? (runtimeOrOptions as ServiceRuntime)
+    : new ServiceRuntime(runtimeOrOptions);
+
+  return {
+    getPipelineDeps: async (onStepUpdate?: (step: OffboardStepResult) => void): Promise<OffboardPipelineDeps> => {
+      const auth = await runtime.getClient(scopes("workspace"));
+      const admin = google.admin({ version: "directory_v1", auth });
+      const datatransfer = google.admin({ version: "datatransfer_v1", auth });
+      return buildWorkspaceOffboardPipelineDeps(admin, datatransfer, onStepUpdate);
+    },
+    offboardUser: async (options: OffboardUserOptions, onStepUpdate?: (step: OffboardStepResult) => void): Promise<OffboardSummary> => {
+      const auth = await runtime.getClient(scopes("workspace"));
+      const admin = google.admin({ version: "directory_v1", auth });
+      const datatransfer = google.admin({ version: "datatransfer_v1", auth });
+      const pipelineDeps = buildWorkspaceOffboardPipelineDeps(admin, datatransfer, onStepUpdate);
+      return executeOffboardPipeline(options, pipelineDeps);
     },
   };
 }

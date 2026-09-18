@@ -143,6 +143,17 @@ describe("EncryptedFileBackend", () => {
     expect(token.refreshToken).toBe("my-refresh-token");
     expect(token.email).toBe("test@example.com");
   });
+
+  it("throws descriptive error when decryption fails", async () => {
+    const filePath = path.join(tmpDir, "credentials.enc");
+    // Write invalid/corrupted encrypted payload (>= 45 bytes)
+    await fs.writeFile(filePath, Buffer.alloc(60, 0xff));
+    const backend = new EncryptedFileBackend(filePath);
+
+    await expect(backend.get("someKey")).rejects.toThrow(
+      /Failed to decrypt credentials file/
+    );
+  });
 });
 
 describe("KeyringStore service account key storage", () => {

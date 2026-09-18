@@ -18,6 +18,7 @@ import { GrantAdminWizard } from './GrantAdminWizard.js';
 import { RevokeAdminWizard } from './RevokeAdminWizard.js';
 import { DeletePhotoWizard } from './DeletePhotoWizard.js';
 import { TurnOffLoginChallengeWizard } from './TurnOffLoginChallengeWizard.js';
+import { OffboardUserWizard } from './OffboardUserWizard.js';
 import { adminUserSecurityUrl } from '../tui/resourceLinks.js';
 import { openInBrowser } from '../tui/systemActions.js';
 import type { WorkspaceUserCommandDeps } from './commands.js';
@@ -124,6 +125,7 @@ export function UserActionsTui({ userDeps, prefillEmail, onCancel }: UserActions
     { label: 'Add Alias', value: 'add-alias' },
     { label: 'Delete Alias', value: 'delete-alias' },
     { label: 'Delete Photo', value: 'delete-photo' },
+    { label: 'Offboard User', value: 'offboard-user' },
   ];
 
   const handleSelect = (item: { value: string }) => {
@@ -309,6 +311,16 @@ export function UserActionsTui({ userDeps, prefillEmail, onCancel }: UserActions
       );
     }
     return <DeletePhotoWizard userDeps={userDeps} onCancel={backToMenu} />;
+  }
+
+  if (activeView === 'offboard-user') {
+    return (
+      <OffboardUserWizard
+        email={prefillEmail ?? ''}
+        onOffboard={(opts, onStep) => userDeps.offboardUser(opts, onStep)}
+        onCancel={backToMenu}
+      />
+    );
   }
 
   const subtitle = prefillEmail ? prefillEmail : undefined;

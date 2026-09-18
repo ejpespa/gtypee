@@ -3,6 +3,7 @@ import { Command } from "commander";
 import { buildExecutionContext, stderr, type RootOptions } from "../execution-context.js";
 import type { PaginatedResult, PaginationOptions } from "../../types/pagination.js";
 import { generatePassword } from "./password.js";
+import type { OffboardUserOptions, OffboardSummary } from "./offboard/types.js";
 
 export type ListUsersOptions = PaginationOptions & {
   /** Free-text search passed to the Admin Directory API (email, name, etc.). */
@@ -32,6 +33,7 @@ export type WorkspaceUserCommandDeps = {
   recoverUser?: (userId: string, orgUnitPath?: string) => Promise<RecoverUserResult>;
   getUserRecovery?: (email: string) => Promise<UserRecoveryInfo>;
   setRecoveryInfo?: (email: string, info: { recoveryEmail?: string; recoveryPhone?: string }) => Promise<RecoveryInfoResult>;
+  offboardUser?: (options: OffboardUserOptions, onStepUpdate?: (step: any) => void) => Promise<OffboardSummary>;
 };
 
 // Migration types
@@ -338,6 +340,9 @@ const defaultUserDeps: Required<WorkspaceUserCommandDeps> = {
   recoverUser: async () => ({ userId: "", applied: false }),
   getUserRecovery: async () => ({}),
   setRecoveryInfo: async () => ({ email: "", applied: false }),
+  offboardUser: async () => {
+    throw new Error("offboardUser dependency not configured");
+  },
 };
 
 const defaultGroupDeps: Required<WorkspaceGroupCommandDeps> = {
@@ -373,6 +378,20 @@ const defaultOrgUnitDeps: Required<WorkspaceOrgUnitCommandDeps> = {
   deleteOrgUnit: async () => ({ orgUnitPath: "", applied: false }),
 };
 
+export type WorkspaceOffboardCommandDeps = {
+  offboardUser?: (options: OffboardUserOptions) => Promise<OffboardSummary>;
+};
+
+const defaultOffboardDeps: Required<WorkspaceOffboardCommandDeps> = {
+  offboardUser: async (options: OffboardUserOptions) => ({
+    email: options.email,
+    dryRun: options.dryRun ?? false,
+    success: true,
+    completedAt: new Date().toISOString(),
+    steps: [],
+  }),
+};
+
 function fixOrgUnitPath(path: string | undefined): string | undefined {
   if (!path) return path;
   const normalized = path.replace(/\\/g, "/");
@@ -384,13 +403,16 @@ function fixOrgUnitPath(path: string | undefined): string | undefined {
 
 export function registerWorkspaceCommands(
   workspaceCommand: Command,
-  deps: WorkspaceUserCommandDeps & WorkspaceGroupCommandDeps & WorkspaceDeviceCommandDeps & WorkspaceReportCommandDeps & WorkspaceOrgUnitCommandDeps = {},
+  deps: WorkspaceUserCommandDeps & WorkspaceGroupCommandDeps & WorkspaceDeviceCommandDeps & WorkspaceReportCommandDeps & WorkspaceOrgUnitCommandDeps & WorkspaceOffboardCommandDeps = {},
 ): void {
   const userDeps: Required<WorkspaceUserCommandDeps> = { ...defaultUserDeps, ...deps };
   const groupDeps: Required<WorkspaceGroupCommandDeps> = { ...defaultGroupDeps, ...deps };
   const deviceDeps: Required<WorkspaceDeviceCommandDeps> = { ...defaultDeviceDeps, ...deps };
   const reportDeps: Required<WorkspaceReportCommandDeps> = { ...defaultReportDeps, ...deps };
   const orgUnitDeps: Required<WorkspaceOrgUnitCommandDeps> = { ...defaultOrgUnitDeps, ...deps };
+  const offboardDeps: Required<WorkspaceOffboardCommandDeps> = { ...defaultOffboardDeps, ...deps };
+
+  registerOffboardCommand(workspaceCommand, offboardDeps);
 
   const userCmd = workspaceCommand.command("user").description("User management");
   const orgCmd = workspaceCommand.command("org").description("Organization unit management");
@@ -1387,3 +1409,47 @@ export function registerWorkspaceCommands(
       }
     });
 }
+
+export function registerOffboardCommand(
+  parent: Command,
+  deps: { offboardUser: (options: OffboardUserOptions) => Promise<OffboardSummary> }
+): Command {
+  return parent
+    .command("offboard <email>")
+    .description("Offboard a user: suspend account, randomize password, evict OAuth tokens, and wipe devices")
+    .option("--dry-run", "Simulate offboarding steps without making remote modifications")
+    .option("--wipe-devices", "Issue selective wipe to user's registered mobile devices")
+    .option("--transfer-drive-to <email>", "Transfer user's Google Drive files to destination email")
+    .option("--remove-groups", "Remove user from all Google Groups")
+    .option("--force-admin-offboard", "Allow offboarding an Administrator account")
+    .option("-y, --yes", "Skip interactive confirmation prompt")
+    .option("--force", "Skip interactive confirmation prompt")
+    .option("--json", "Output machine-readable JSON summary to stdout")
+    .action(async (email: string, opts) => {
+      // SEC-06: Headless non-interactive guard
+      if (!process.stdin.isTTY && !opts.yes && !opts.force && !opts.dryRun) {
+        console.error("Error: Confirmation required. Pass --yes or --dry-run in non-interactive environments.");
+        process.exit(1);
+      }
+
+      const summary = await deps.offboardUser({
+        email,
+        dryRun: opts.dryRun,
+        wipeDevices: opts.wipeDevices,
+        transferDriveTo: opts.transferDriveTo,
+        removeFromGroups: opts.removeGroups,
+        forceAdminOffboard: opts.forceAdminOffboard,
+      });
+
+      if (opts.json) {
+        console.log(JSON.stringify(summary, null, 2));
+        return;
+      }
+
+      console.log(`Offboarding summary for ${summary.email}: ${summary.success ? 'SUCCESS' : 'FAILED'}`);
+      for (const s of summary.steps) {
+        console.log(`  [${s.status.toUpperCase()}] ${s.name}${s.detail ? ` (${s.detail})` : ''}${s.error ? ` - Error: ${s.error}` : ''}`);
+      }
+    });
+}
+

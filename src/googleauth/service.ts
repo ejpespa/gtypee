@@ -177,9 +177,10 @@ const serviceInfoByService: Record<Service, ServiceInfoInternal> = {
       "https://www.googleapis.com/auth/admin.directory.device.chromeos",
       "https://www.googleapis.com/auth/admin.directory.device.mobile",
       "https://www.googleapis.com/auth/admin.reports.audit.readonly",
+      "https://www.googleapis.com/auth/admin.datatransfer",
     ],
     user: false,
-    apis: ["Admin SDK Directory API", "Admin SDK Reports API"],
+    apis: ["Admin SDK Directory API", "Admin SDK Reports API", "Admin Data Transfer API"],
     note: "Workspace admin: users, org units, groups, devices, reports",
   },
   keep: {

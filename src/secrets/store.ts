@@ -93,8 +93,22 @@ export class EncryptedFileBackend implements SecretBackend {
     const decipher = createDecipheriv("aes-256-gcm", key, iv);
     decipher.setAuthTag(authTag);
 
-    const decrypted = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
-    return JSON.parse(decrypted.toString("utf-8")) as Record<string, string>;
+    let decrypted: Buffer;
+    try {
+      decrypted = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+    } catch {
+      throw new Error(
+        `Failed to decrypt credentials file (${this.filePath}): unable to authenticate data. The credentials file may have been created under a different machine name, user profile, or has been corrupted. Delete or rename the file and re-authenticate using 'gtypee login' or 'gtypee auth sa add'.`
+      );
+    }
+
+    try {
+      return JSON.parse(decrypted.toString("utf-8")) as Record<string, string>;
+    } catch {
+      throw new Error(
+        `Corrupted credentials format in (${this.filePath}). Delete or rename the file and re-authenticate using 'gtypee login' or 'gtypee auth sa add'.`
+      );
+    }
   }
 
   private async writeStore(data: Record<string, string>): Promise<void> {
